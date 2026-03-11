@@ -1,0 +1,35 @@
+{
+  "universal": [
+    "photorealistic",
+    "photo",
+    "3d render",
+    "blurry",
+    "out of focus",
+    "low quality",
+    "jpeg artifacts",
+    "watermark",
+    "text watermark",
+    "signature",
+    "ugly",
+    "deformed",
+    "noisy",
+    "grainy",
+    "oversaturated",
+    "dark",
+    "gloomy"
+  ],
+  "characters": [
+    "extra fingers",
+    "extra limbs",
+    "mutated hands",
+    "deformed face",
+    "asymmetrical eyes",
+    "uncanny valley"
+  ],
+  "composition": [
+    "busy background",
+    "cluttered",
+    "too many elements",
+    "no focal point"
+  ]
+}

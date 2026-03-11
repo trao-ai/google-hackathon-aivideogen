@@ -1,0 +1,30 @@
+{
+  "name": "project-atlas",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI-native animated edutainment video production platform",
+  "packageManager": "npm@11.11.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "db:migrate": "cd packages/db && npx prisma migrate dev",
+    "db:generate": "cd packages/db && npx prisma generate",
+    "db:seed": "cd packages/db && npx ts-node seed.ts",
+    "db:studio": "cd packages/db && npx prisma studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.4.5",
+    "prettier": "^3.3.2",
+    "@types/node": "^20.14.9"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

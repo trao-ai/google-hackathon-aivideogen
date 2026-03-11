@@ -1,0 +1,27 @@
+{
+  "easing": "ease_in_out_cubic",
+  "defaultDuration": 0.4,
+  "textRevealSpeed": 0.03,
+  "sceneTransition": "cross_fade",
+  "sceneTransitionDuration": 0.5,
+  "cameraMovements": {
+    "slow_zoom_in": { "scale": [1.0, 1.05], "duration": 5 },
+    "slow_pan_right": { "translateX": [0, 30], "duration": 8 },
+    "slow_pan_left": { "translateX": [0, -30], "duration": 8 },
+    "static": {}
+  },
+  "enterAnimations": {
+    "fade_in": { "opacity": [0, 1] },
+    "slide_in_left": { "translateX": [-60, 0], "opacity": [0, 1] },
+    "slide_in_right": { "translateX": [60, 0], "opacity": [0, 1] },
+    "fade_in_up": { "translateY": [30, 0], "opacity": [0, 1] },
+    "fade_in_scale": { "scale": [0.85, 1], "opacity": [0, 1] },
+    "pop_in": { "scale": [0.5, 1.05, 1], "opacity": [0, 1] }
+  },
+  "chartAnimations": {
+    "bar_chart": "bars_grow_up",
+    "line_chart": "line_draw",
+    "pie_chart": "wedge_reveal",
+    "timeline": "step_by_step"
+  }
+}

@@ -1,0 +1,287 @@
+// This is the Project Atlas Prisma schema
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Project ─────────────────────────────────────────────────────────────────
+
+model Project {
+  id               String        @id @default(uuid())
+  title            String
+  niche            String
+  status           String        @default("draft")
+  targetRuntimeSec Int           @default(750)
+  totalCostUsd     Float         @default(0)
+  styleBibleId     String?
+  selectedTopicId  String?
+  selectedScriptId String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  topics           Topic[]
+  researchBriefs   ResearchBrief[]
+  scripts          Script[]
+  voiceovers       Voiceover[]
+  scenes           Scene[]
+  renders          Render[]
+  costEvents       CostEvent[]
+  channelProfiles  ChannelProfile[]
+
+  styleBible       StyleBible?   @relation(fields: [styleBibleId], references: [id])
+
+  @@map("projects")
+}
+
+// ─── Channel intelligence ────────────────────────────────────────────────────
+
+model ChannelProfile {
+  id                    String   @id @default(uuid())
+  projectId             String
+  channelName           String
+  channelUrl            String
+  topTopics             String[] // JSON array stored as text[]
+  titlePatterns         String[]
+  runtimeRangeMinutes   Float[]
+  visualTraits          String[]
+  publishCadence        String?
+  rawData               Json?
+  createdAt             DateTime @default(now())
+
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("channel_profiles")
+}
+
+// ─── Topic ───────────────────────────────────────────────────────────────────
+
+model Topic {
+  id                       String   @id @default(uuid())
+  projectId                String
+  title                    String
+  summary                  String
+  opportunityScore         Float    @default(0)
+  visualStorytellingScore  Float    @default(0)
+  evergreenScore           Float    @default(0)
+  trendScore               Float    @default(0)
+  curiosityGapScore        Float    @default(0)
+  factDensityScore         Float    @default(0)
+  thumbnailAngle           String?
+  likelyAudienceAppeal     String?
+  status                   String   @default("candidate")
+  createdAt                DateTime @default(now())
+
+  project                  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  researchBriefs           ResearchBrief[]
+
+  @@map("topics")
+}
+
+// ─── Research ────────────────────────────────────────────────────────────────
+
+model ResearchBrief {
+  id                  String   @id @default(uuid())
+  projectId           String
+  topicId             String
+  summary             String
+  background          String?
+  currentDevelopments String?
+  surprisingFacts     String[]
+  controversies       String?
+  stakes              String?
+  timeline            String[]
+  keyFacts            String[]
+  storyAngles         String[]
+  claims              Json     @default("[]")
+  sources             Json     @default("[]")
+  confidenceScore     Float    @default(0)
+  createdAt           DateTime @default(now())
+
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  topic               Topic    @relation(fields: [topicId], references: [id])
+
+  @@map("research_briefs")
+}
+
+// ─── Script ──────────────────────────────────────────────────────────────────
+
+model Script {
+  id                   String          @id @default(uuid())
+  projectId            String
+  titleCandidates      String[]
+  thumbnailAngles      String[]
+  outline              String
+  fullText             String
+  estimatedDurationSec Int             @default(0)
+  qualityScore         Json            @default("{}")
+  status               String          @default("draft")
+  createdAt            DateTime        @default(now())
+
+  project              Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sections             ScriptSection[]
+  voiceovers           Voiceover[]
+
+  @@map("scripts")
+}
+
+model ScriptSection {
+  id                   String   @id @default(uuid())
+  scriptId             String
+  orderIndex           Int
+  sectionType          String
+  text                 String
+  estimatedDurationSec Int      @default(0)
+  sourceRefs           String[]
+
+  script               Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  scenes               Scene[]
+
+  @@map("script_sections")
+}
+
+// ─── Voiceover ───────────────────────────────────────────────────────────────
+
+model Voiceover {
+  id          String   @id @default(uuid())
+  projectId   String
+  scriptId    String
+  vendor      String
+  voiceId     String
+  audioUrl    String
+  durationSec Float    @default(0)
+  segments    Json     @default("[]")
+  subtitleUrl String?
+  costUsd     Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  script      Script   @relation(fields: [scriptId], references: [id])
+
+  @@map("voiceovers")
+}
+
+// ─── Scene ───────────────────────────────────────────────────────────────────
+
+model Scene {
+  id                String       @id @default(uuid())
+  projectId         String
+  scriptSectionId   String?
+  orderIndex        Int
+  narrationStartSec Float
+  narrationEndSec   Float
+  purpose           String
+  sceneType         String
+  startPrompt       String
+  endPrompt         String
+  motionNotes       String
+  bubbleText        String?
+  continuityNotes   String?
+  consistencyScore  Float?
+  estimatedCostUsd  Float?
+  createdAt         DateTime     @default(now())
+
+  project           Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scriptSection     ScriptSection? @relation(fields: [scriptSectionId], references: [id])
+  frames            SceneFrame[]
+  clip              SceneClip?
+
+  @@map("scenes")
+}
+
+model SceneFrame {
+  id             String   @id @default(uuid())
+  sceneId        String
+  frameType      String   // 'start' | 'end'
+  imageUrl       String
+  prompt         String
+  seed           String?
+  qualityScore   Float?
+  styleMatchScore Float?
+  costUsd        Float    @default(0)
+  createdAt      DateTime @default(now())
+
+  scene          Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@map("scene_frames")
+}
+
+model SceneClip {
+  id          String   @id @default(uuid())
+  sceneId     String   @unique
+  videoUrl    String
+  durationSec Float
+  costUsd     Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  scene       Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@map("scene_clips")
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+
+model Render {
+  id          String   @id @default(uuid())
+  projectId   String
+  videoUrl    String?
+  subtitleUrl String?
+  durationSec Float?
+  costUsd     Float    @default(0)
+  status      String   @default("pending")
+  errorMsg    String?
+  createdAt   DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("renders")
+}
+
+// ─── Cost tracking ───────────────────────────────────────────────────────────
+
+model CostEvent {
+  id           String   @id @default(uuid())
+  projectId    String
+  stage        String
+  vendor       String
+  units        Float    @default(1)
+  unitCost     Float    @default(0)
+  totalCostUsd Float
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("cost_events")
+}
+
+// ─── Style system ─────────────────────────────────────────────────────────────
+
+model StyleBible {
+  id               String    @id @default(uuid())
+  name             String
+  version          String    @default("1.0")
+  visualMission    String
+  emotionalTone    String
+  narrativeStance  String
+  palette          Json
+  characterRules   Json
+  lineWeights      String
+  textureRules     String
+  shadowRules      String
+  backgroundDensity String
+  motionRules      String
+  bubbleRules      String
+  negativePrompts  String[]
+  promptPrimitives Json      @default("{}")
+  createdAt        DateTime  @default(now())
+
+  projects         Project[]
+
+  @@map("style_bibles")
+}

@@ -1,0 +1,20 @@
+{
+  "style": "flat-vector",
+  "proportions": "slightly_exaggerated",
+  "outlineWeight": 2,
+  "outlineColor": "#1A1A2E",
+  "eyeStyle": "expressive_dot",
+  "mouthStyle": "simple_arc",
+  "skinTones": ["#FDDBB4", "#D4956A", "#8D5524", "#C68642"],
+  "clothingPalette": "primary_and_secondary",
+  "animations": {
+    "idle": "gentle_bob",
+    "talking": "mouth_sync_simple",
+    "excited": "bounce",
+    "thinking": "head_tilt"
+  },
+  "narrator": {
+    "description": "Friendly neutral guide character, no gender, large expressive eyes",
+    "defaultColor": "#3B6EF8"
+  }
+}

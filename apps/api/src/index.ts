@@ -1,0 +1,69 @@
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import path from "path";
+
+import { projectRouter } from "./routes/projects";
+import { topicRouter } from "./routes/topics";
+import { discoverRouter } from "./routes/discover";
+import { researchRouter } from "./routes/research";
+import { scriptRouter } from "./routes/scripts";
+import { voiceRouter } from "./routes/voice";
+import { sceneRouter } from "./routes/scenes";
+import { frameRouter } from "./routes/frames";
+import { costRouter } from "./routes/costs";
+import { errorHandler } from "./middleware/error-handler";
+
+const app = express();
+const PORT = process.env.PORT ?? 3001;
+
+// Security middleware
+app.use(helmet());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+    credentials: true,
+  }),
+);
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
+app.use(express.json({ limit: "10mb" }));
+
+// Static files — allow cross-origin audio playback from the web app
+app.use("/api/audio", (_req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+}, express.static(path.join(__dirname, "../public/audio")));
+
+// Health check
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Routes
+app.use("/api/discover", discoverRouter);
+app.use("/api/projects", projectRouter);
+app.use("/api/projects", topicRouter);
+app.use("/api/projects", researchRouter);
+app.use("/api/projects", scriptRouter);
+app.use("/api/projects", voiceRouter);
+app.use("/api/projects", sceneRouter);
+app.use("/api/projects", frameRouter);
+app.use("/api/projects", costRouter);
+
+// Error handler (must be last)
+app.use(errorHandler);
+
+app.listen(PORT, () => {
+  console.log(`🚀 Atlas API running on http://localhost:${PORT}`);
+});
+
+export default app;

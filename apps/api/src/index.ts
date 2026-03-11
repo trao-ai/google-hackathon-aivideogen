@@ -15,6 +15,7 @@ import { sceneRouter } from "./routes/scenes";
 import { frameRouter } from "./routes/frames";
 import { costRouter } from "./routes/costs";
 import { errorHandler } from "./middleware/error-handler";
+import { resolveStorageDir } from "@atlas/integrations";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -44,9 +45,7 @@ app.use("/api/audio", (_req, res, next) => {
 }, express.static(path.join(__dirname, "../public/audio")));
 
 // Serve local storage files (images, videos) for dev mode
-const localStorageDir = process.env.LOCAL_STORAGE_DIR
-  ? path.resolve(process.env.LOCAL_STORAGE_DIR)
-  : path.join(process.cwd(), ".local-storage");
+const localStorageDir = resolveStorageDir();
 app.use("/api/storage", (_req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   next();

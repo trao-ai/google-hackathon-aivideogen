@@ -11,6 +11,7 @@
     "studio": "prisma studio"
   },
   "dependencies": {
+    "@atlas/shared": "*",
     "@prisma/client": "^5.16.0"
   },
   "devDependencies": {

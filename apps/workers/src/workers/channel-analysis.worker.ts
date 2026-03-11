@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
 import type { Prisma } from "@atlas/db";
-import { prisma } from "@atlas/db";
+import { prisma, trackLLMCost } from "@atlas/db";
 import { createYouTubeProvider, createLLMProvider } from "@atlas/integrations";
 
 export class ChannelAnalysisWorker {
@@ -70,15 +70,14 @@ export class ChannelAnalysisWorker {
     ]);
 
     // Track cost
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "channel_analysis",
-        vendor: "openai",
-        units: 1,
-        unitCost: llmResponse.costUsd,
-        totalCostUsd: llmResponse.costUsd,
-      },
+    await trackLLMCost({
+      projectId,
+      stage: "channel_analysis",
+      vendor: "openai",
+      model: llmResponse.model,
+      inputTokens: llmResponse.inputTokens,
+      outputTokens: llmResponse.outputTokens,
+      totalCostUsd: llmResponse.costUsd,
     });
 
     let patterns = {

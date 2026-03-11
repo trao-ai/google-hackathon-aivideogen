@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { prisma } from "@atlas/db";
+import { prisma, trackLLMCost } from "@atlas/db";
 import { createLLMProvider } from "@atlas/integrations";
 import { ApiError } from "../middleware/error-handler";
 
@@ -134,6 +134,17 @@ Return this JSON:
 }`,
       },
     ]);
+
+    // Track LLM cost
+    await trackLLMCost({
+      projectId: project.id,
+      stage: "research",
+      vendor: "openai",
+      model: response.model,
+      inputTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+      totalCostUsd: response.costUsd,
+    });
 
     let brief: any = { summary: "" };
     try {

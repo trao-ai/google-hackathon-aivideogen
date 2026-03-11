@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
+import { prisma, trackLLMCost } from "@atlas/db";
 import { createLLMProvider } from "@atlas/integrations";
 import {
   SCRIPT_ARCHITECT_SYSTEM_PROMPT,
@@ -90,15 +90,14 @@ export class ScriptWorker {
       },
     ]);
 
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "scripting",
-        vendor: "openai",
-        units: 1,
-        unitCost: llmResponse.costUsd,
-        totalCostUsd: llmResponse.costUsd,
-      },
+    await trackLLMCost({
+      projectId,
+      stage: "script",
+      vendor: "openai",
+      model: llmResponse.model,
+      inputTokens: llmResponse.inputTokens,
+      outputTokens: llmResponse.outputTokens,
+      totalCostUsd: llmResponse.costUsd,
     });
 
     let parsed: {
@@ -190,15 +189,15 @@ export class ScriptWorker {
       },
     ]);
 
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "scripting",
-        vendor: "openai",
-        units: 1,
-        unitCost: llmResponse.costUsd,
-        totalCostUsd: llmResponse.costUsd,
-      },
+    await trackLLMCost({
+      projectId,
+      stage: "script",
+      vendor: "openai",
+      model: llmResponse.model,
+      inputTokens: llmResponse.inputTokens,
+      outputTokens: llmResponse.outputTokens,
+      totalCostUsd: llmResponse.costUsd,
+      metadata: { rewriteSectionId: sectionId },
     });
 
     await prisma.scriptSection.update({

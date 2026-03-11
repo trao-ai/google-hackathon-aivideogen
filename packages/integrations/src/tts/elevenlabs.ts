@@ -3,6 +3,8 @@
  * Set USE_MOCK_TTS=true in env for local dev.
  */
 
+import { calculateTTSCost } from "@atlas/shared";
+
 export interface TTSSegment {
   text: string;
   start: number;
@@ -14,6 +16,8 @@ export interface TTSResult {
   durationSec: number;
   segments: TTSSegment[];
   costUsd: number;
+  model: string;
+  characterCount: number;
 }
 
 export interface TTSProvider {
@@ -71,10 +75,10 @@ class ElevenLabsProvider implements TTSProvider {
       return segment;
     });
 
-    // ElevenLabs pricing: ~$0.30 per 1000 characters (Starter)
-    const costUsd = (text.length / 1000) * 0.3;
+    const ttsModel = "eleven_multilingual_v2";
+    const costUsd = calculateTTSCost(ttsModel, text.length);
 
-    return { audioBuffer, durationSec, segments, costUsd };
+    return { audioBuffer, durationSec, segments, costUsd, model: ttsModel, characterCount: text.length };
   }
 }
 
@@ -89,6 +93,8 @@ class MockTTSProvider implements TTSProvider {
       durationSec,
       segments: [{ text: text.substring(0, 50), start: 0, end: durationSec }],
       costUsd: 0,
+      model: "mock",
+      characterCount: text.length,
     };
   }
 }

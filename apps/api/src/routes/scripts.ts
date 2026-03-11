@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { prisma } from "@atlas/db";
+import { prisma, trackLLMCost } from "@atlas/db";
 import { createLLMProvider } from "@atlas/integrations";
 import { ApiError } from "../middleware/error-handler";
 import * as fs from "fs";
@@ -203,6 +203,17 @@ Return ONLY valid JSON. No markdown. No preamble. Just the JSON object:
 }`,
       },
     ]);
+
+    // Track LLM cost
+    await trackLLMCost({
+      projectId: project.id,
+      stage: "script",
+      vendor: "openai",
+      model: response.model,
+      inputTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+      totalCostUsd: response.costUsd,
+    });
 
     let parsed: any = { sections: [] };
     try {

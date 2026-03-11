@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
+import { prisma, trackLLMCost } from "@atlas/db";
 import { createLLMProvider } from "@atlas/integrations";
 import {
   TOPIC_SCOUT_SYSTEM_PROMPT,
@@ -38,16 +38,14 @@ export class TopicDiscoveryWorker {
       ]);
 
       // Track LLM cost
-      await prisma.costEvent.create({
-        data: {
-          projectId,
-          stage: "research",
-          vendor: "openai",
-          units: response.inputTokens + response.outputTokens,
-          unitCost: 0,
-          totalCostUsd: response.costUsd,
-          metadata: { jobType: "topic_discovery" },
-        },
+      await trackLLMCost({
+        projectId,
+        stage: "topic_discovery",
+        vendor: "openai",
+        model: response.model,
+        inputTokens: response.inputTokens,
+        outputTokens: response.outputTokens,
+        totalCostUsd: response.costUsd,
       });
 
       // Parse LLM response — try to extract JSON array

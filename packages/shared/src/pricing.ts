@@ -16,11 +16,16 @@ export interface ImagePricing {
   perImage: number;
 }
 
+export interface VideoPricing {
+  perSecond: number;
+}
+
 export const LLM_PRICING: Record<string, LLMPricing> = {
   "gpt-4o": { inputPer1kTokens: 0.005, outputPer1kTokens: 0.015 },
   "gpt-4o-mini": { inputPer1kTokens: 0.00015, outputPer1kTokens: 0.0006 },
   "gpt-4-turbo": { inputPer1kTokens: 0.01, outputPer1kTokens: 0.03 },
   "gpt-3.5-turbo": { inputPer1kTokens: 0.0005, outputPer1kTokens: 0.0015 },
+  "gemini-2.0-flash": { inputPer1kTokens: 0.0001, outputPer1kTokens: 0.0004 },
 };
 
 export const TTS_PRICING: Record<string, TTSPricing> = {
@@ -30,11 +35,17 @@ export const TTS_PRICING: Record<string, TTSPricing> = {
 
 export const IMAGE_PRICING: Record<string, ImagePricing> = {
   "imagen-4.0-fast-generate-001": { perImage: 0.04 },
+  "gemini-3-pro-image-preview": { perImage: 0.04 },
+};
+
+export const VIDEO_PRICING: Record<string, VideoPricing> = {
+  "veo-3.1-generate-preview": { perSecond: 0.35 },
 };
 
 const DEFAULT_LLM_MODEL = "gpt-4o";
 const DEFAULT_TTS_MODEL = "eleven_multilingual_v2";
 const DEFAULT_IMAGE_MODEL = "imagen-4.0-fast-generate-001";
+const DEFAULT_VIDEO_MODEL = "veo-3.1-generate-preview";
 
 export function calculateLLMCost(
   model: string,
@@ -62,4 +73,13 @@ export function calculateImageCost(model: string, imageCount: number): number {
   const pricing = IMAGE_PRICING[model] ?? IMAGE_PRICING[DEFAULT_IMAGE_MODEL];
   console.log("Image pricing:", pricing);
   return imageCount * pricing.perImage;
+}
+
+export function calculateVideoCost(
+  model: string,
+  durationSeconds: number,
+): number {
+  const pricing = VIDEO_PRICING[model] ?? VIDEO_PRICING[DEFAULT_VIDEO_MODEL];
+  console.log("Video pricing:", pricing);
+  return durationSeconds * pricing.perSecond;
 }

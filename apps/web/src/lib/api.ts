@@ -145,6 +145,25 @@ export const api = {
         `/api/projects/${projectId}/scenes/${sceneId}/regenerate`,
         { method: "POST" },
       ),
+    generateVideo: (projectId: string, sceneId: string) =>
+      request<{ message: string; jobId: string }>(
+        `/api/projects/${projectId}/scenes/${sceneId}/generate-video`,
+        { method: "POST" },
+      ),
+    generateAllVideos: (projectId: string) =>
+      request<{ message: string; jobCount: number }>(
+        `/api/projects/${projectId}/generate-videos`,
+        { method: "POST" },
+      ),
+    updateMotion: (
+      projectId: string,
+      sceneId: string,
+      data: { motionNotes: string },
+    ) =>
+      request<Scene>(
+        `/api/projects/${projectId}/scenes/${sceneId}/motion`,
+        { method: "PATCH", body: JSON.stringify(data) },
+      ),
   },
 
   frames: {
@@ -156,6 +175,19 @@ export const api = {
     list: (projectId: string, sceneId: string) =>
       request<SceneFrame[]>(
         `/api/projects/${projectId}/scenes/${sceneId}/frames`,
+      ),
+    regenerateOne: (
+      projectId: string,
+      sceneId: string,
+      frameId: string,
+      prompt?: string,
+    ) =>
+      request<{ message: string; jobId: string }>(
+        `/api/projects/${projectId}/scenes/${sceneId}/frames/${frameId}/regenerate`,
+        {
+          method: "POST",
+          body: JSON.stringify(prompt ? { prompt } : {}),
+        },
       ),
   },
 
@@ -258,8 +290,27 @@ export interface SceneFrame {
   height?: number;
 }
 
+export interface SceneClip {
+  id: string;
+  videoUrl: string;
+  durationSec: number;
+  costUsd: number;
+}
+
 export interface Scene {
   id: string;
+  // Prisma field names
+  orderIndex: number;
+  sceneType: string;
+  narrationStartSec: number;
+  narrationEndSec: number;
+  purpose: string;
+  motionNotes: string;
+  startPrompt: string;
+  endPrompt: string;
+  bubbleText?: string | null;
+  continuityNotes?: string | null;
+  // Aliases used by old UI (kept for compat)
   order: number;
   type: string;
   title: string;
@@ -269,6 +320,7 @@ export interface Scene {
   visualDescription: string;
   animationNotes?: string;
   frames?: SceneFrame[];
+  clip?: SceneClip | null;
 }
 
 export interface CostSummary {

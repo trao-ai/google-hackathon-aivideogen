@@ -7,6 +7,7 @@ import { ScriptWorker } from "./workers/script.worker";
 import { TTSWorker } from "./workers/tts.worker";
 import { ScenePlannerWorker } from "./workers/scene-planner.worker";
 import { FrameGenerationWorker } from "./workers/frame-generation.worker";
+import { VideoGenerationWorker } from "./workers/video-generation.worker";
 
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
 const connection = {
@@ -24,6 +25,7 @@ const workers = [
   new TTSWorker(connection),
   new ScenePlannerWorker(connection),
   new FrameGenerationWorker(connection),
+  new VideoGenerationWorker(connection),
 ];
 
 console.log(`🔧 Atlas workers started (${workers.length} queues listening)`);

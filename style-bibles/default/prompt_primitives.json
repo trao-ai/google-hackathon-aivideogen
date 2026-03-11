@@ -1,31 +1,33 @@
 {
-  "stylePrefix": "flat-design vector illustration, clean minimal infographic style, bright colors, no gradients, bold outlines",
+  "stylePrefix": "Kurzgesagt-style flat vector illustration, bold vibrant colors on dark background, no outlines, soft rounded shapes, layered composition with depth, educational infographic aesthetic, Duolingo-style friendly characters",
   "qualityTags": [
     "high quality",
-    "sharp lines",
-    "professional educational illustration"
+    "clean vector shapes",
+    "professional educational illustration",
+    "vibrant bold colors"
   ],
   "compositionRules": [
     "rule of thirds",
     "clear visual hierarchy",
-    "generous white space",
-    "single focal point per frame"
+    "layered depth with foreground and background elements",
+    "single focal point per frame",
+    "rich but organized background"
   ],
-  "colorInstruction": "use the palette: primary blue #3B6EF8, orange accent #F97316, green highlight #10B981, dark text #1A1A2E on light background #F8F9FC",
+  "colorInstruction": "use dark rich backgrounds like #1A1A2E or #16213E with vibrant accent colors: red #E94560, yellow #FFB703, green #53D769, blue #00BBF9, pink #F15BB5",
   "textInImage": {
-    "allowed": true,
-    "font": "clean sans-serif, Nunito or similar",
-    "maxWords": 12,
-    "placement": "avoid center unless intentional title card"
+    "allowed": false,
+    "note": "No text, words, letters, or writing of any kind in generated images"
   },
   "avoidList": [
     "photorealistic",
     "3D render",
-    "blurry",
-    "watermark",
-    "signature",
-    "dark background unless explicitly requested",
+    "anime",
+    "watercolor",
+    "sketch",
+    "thin outlines",
+    "sharp angular edges",
+    "realistic shading",
     "cluttered composition",
-    "more than 3 focal elements"
+    "text or writing"
   ]
 }

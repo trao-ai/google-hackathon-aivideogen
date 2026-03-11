@@ -1,7 +1,9 @@
 export type CostStage =
+  | "topic_discovery"
   | "research"
   | "script"
   | "tts"
+  | "scene_planning"
   | "image_generation"
   | "video_generation"
   | "render"

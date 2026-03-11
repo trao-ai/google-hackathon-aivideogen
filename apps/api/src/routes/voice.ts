@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { prisma } from "@atlas/db";
+import { prisma, trackTTSCost } from "@atlas/db";
+import { calculateTTSCost } from "@atlas/shared";
 import { ApiError } from "../middleware/error-handler";
 import * as fs from "fs";
 import * as path from "path";
@@ -76,7 +77,7 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
 
     const wordCount = fullText.split(/\s+/).length;
     const durationSec = Math.round((wordCount / 148) * 60);
-    const costUsd = (fullText.length / 1000) * 0.3;
+    const costUsd = calculateTTSCost("eleven_multilingual_v2", fullText.length);
 
     // Build section timestamps
     let cursor = 0;
@@ -89,8 +90,12 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
       return { sectionId: section.id, text: section.text.slice(0, 80), startSec, endSec: parseFloat(cursor.toFixed(2)) };
     });
 
-    await prisma.costEvent.create({
-      data: { projectId: project.id, stage: "tts", vendor: "elevenlabs", units: fullText.length, unitCost: costUsd / Math.max(fullText.length, 1), totalCostUsd: costUsd },
+    await trackTTSCost({
+      projectId: project.id,
+      vendor: "elevenlabs",
+      model: "eleven_multilingual_v2",
+      characterCount: fullText.length,
+      totalCostUsd: costUsd,
     });
 
     const audioUrl = `/api/audio/${filename}`;

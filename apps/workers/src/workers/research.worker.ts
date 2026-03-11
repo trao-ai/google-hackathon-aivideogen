@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
+import { prisma, trackLLMCost } from "@atlas/db";
 import { createSearchProvider, createLLMProvider } from "@atlas/integrations";
 import {
   RESEARCH_SYNTHESIZER_SYSTEM_PROMPT,
@@ -88,15 +88,14 @@ export class ResearchWorker {
     ]);
 
     // Track LLM cost
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "research",
-        vendor: "openai",
-        units: 1,
-        unitCost: llmResponse.costUsd,
-        totalCostUsd: llmResponse.costUsd,
-      },
+    await trackLLMCost({
+      projectId,
+      stage: "research",
+      vendor: "openai",
+      model: llmResponse.model,
+      inputTokens: llmResponse.inputTokens,
+      outputTokens: llmResponse.outputTokens,
+      totalCostUsd: llmResponse.costUsd,
     });
 
     let brief: {

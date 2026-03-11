@@ -8,6 +8,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@atlas/shared": "*",
     "openai": "^4.52.7",
     "axios": "^1.7.2"
   },

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createLLMProvider } from "@atlas/integrations";
-import { prisma } from "@atlas/db";
+import { prisma, trackLLMCost } from "@atlas/db";
 
 export const discoverRouter = Router();
 
@@ -239,7 +239,13 @@ Make these genuinely excellent. These will become real videos watched by million
     }
 
     console.log(`[discover] Returning ${topics.length} topic ideas`);
-    res.json({ topics, signalCount: allSignals.length });
+    res.json({
+      topics,
+      signalCount: allSignals.length,
+      costUsd: response.costUsd,
+      inputTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+    });
   } catch (err) {
     next(err);
   }
@@ -249,7 +255,7 @@ Make these genuinely excellent. These will become real videos watched by million
 
 discoverRouter.post("/select", async (req, res, next) => {
   try {
-    const { title, hook, category, viralityScore, educationalScore, visualScore, thumbnailAngle } =
+    const { title, hook, category, viralityScore, educationalScore, visualScore, thumbnailAngle, discoverCostUsd, discoverInputTokens, discoverOutputTokens } =
       req.body as {
         title: string;
         hook: string;
@@ -258,6 +264,9 @@ discoverRouter.post("/select", async (req, res, next) => {
         educationalScore: number;
         visualScore: number;
         thumbnailAngle: string;
+        discoverCostUsd?: number;
+        discoverInputTokens?: number;
+        discoverOutputTokens?: number;
       };
 
     if (!title || !category) {
@@ -293,6 +302,20 @@ discoverRouter.post("/select", async (req, res, next) => {
         data: { selectedTopicId: topic.id },
       });
     });
+
+    // Track discovery LLM cost against the newly created project
+    if (discoverCostUsd && discoverCostUsd > 0) {
+      await trackLLMCost({
+        projectId: project.id,
+        stage: "topic_discovery",
+        vendor: "openai",
+        model: "gpt-4o",
+        inputTokens: discoverInputTokens ?? 0,
+        outputTokens: discoverOutputTokens ?? 0,
+        totalCostUsd: discoverCostUsd,
+        metadata: { source: "discover_endpoint" },
+      });
+    }
 
     res.status(201).json({ projectId: project.id });
   } catch (err) {

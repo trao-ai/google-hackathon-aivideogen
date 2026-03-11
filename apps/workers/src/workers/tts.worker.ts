@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
+import { prisma, trackTTSCost } from "@atlas/db";
 import { createTTSProvider, createStorageProvider } from "@atlas/integrations";
 
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
@@ -57,15 +57,12 @@ export class TTSWorker {
     );
 
     // Track TTS cost
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "tts",
-        vendor: "elevenlabs",
-        units: fullText.length,
-        unitCost: ttsResult.costUsd / Math.max(fullText.length, 1),
-        totalCostUsd: ttsResult.costUsd,
-      },
+    await trackTTSCost({
+      projectId,
+      vendor: "elevenlabs",
+      model: ttsResult.model,
+      characterCount: ttsResult.characterCount,
+      totalCostUsd: ttsResult.costUsd,
     });
 
     // Build segments: distribute timestamps proportionally across sections

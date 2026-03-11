@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
+import { prisma, trackImageCost } from "@atlas/db";
 import {
   createImageProvider,
   createStorageProvider,
@@ -80,15 +80,12 @@ export class FrameGenerationWorker {
 
     // Track image generation costs
     const totalCost = startResult.costUsd + endResult.costUsd;
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "frame_generation",
-        vendor: "gemini",
-        units: 2,
-        unitCost: totalCost / 2,
-        totalCostUsd: totalCost,
-      },
+    await trackImageCost({
+      projectId,
+      vendor: "gemini",
+      model: startResult.model,
+      imageCount: 2,
+      totalCostUsd: totalCost,
     });
 
     // Save frame records

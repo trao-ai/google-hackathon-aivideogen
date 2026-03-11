@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
+import { prisma, trackLLMCost } from "@atlas/db";
 import { createLLMProvider } from "@atlas/integrations";
 import {
   SCENE_PLANNER_SYSTEM_PROMPT,
@@ -87,15 +87,14 @@ export class ScenePlannerWorker {
       },
     ]);
 
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "scene_planning",
-        vendor: "openai",
-        units: 1,
-        unitCost: llmResponse.costUsd,
-        totalCostUsd: llmResponse.costUsd,
-      },
+    await trackLLMCost({
+      projectId,
+      stage: "scene_planning",
+      vendor: "openai",
+      model: llmResponse.model,
+      inputTokens: llmResponse.inputTokens,
+      outputTokens: llmResponse.outputTokens,
+      totalCostUsd: llmResponse.costUsd,
     });
 
     let scenes: Array<{

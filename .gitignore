@@ -2,10 +2,24 @@
 .env
 .env.local
 .env*.local
+
+# Dependencies
 **/node_modules
+
+# Build output
 **/.next
 **/dist
+*.tsbuildinfo
+
+# Turbo
+.turbo
+
+# Generated audio/media
 public/audio
+**/public/audio
+
+# OS files
 **/.DS_Store
 
-.turbo
+# IDE / local settings
+.claude/settings.local.json

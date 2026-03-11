@@ -3,11 +3,14 @@
  * Set USE_MOCK_IMAGE=true in env for local dev.
  */
 
+import { calculateImageCost } from "@atlas/shared";
+
 export interface ImageGenerationResult {
   imageBuffer: Buffer;
   mimeType: string;
   seed?: string;
   costUsd: number;
+  model: string;
 }
 
 export interface ImageProvider {
@@ -49,10 +52,10 @@ class GeminiImageProvider implements ImageProvider {
     const prediction = data.predictions[0];
     const imageBuffer = Buffer.from(prediction.bytesBase64Encoded, "base64");
 
-    // Approximate cost: $0.04 per image
-    const costUsd = 0.04;
+    const imageModel = "imagen-4.0-fast-generate-001";
+    const costUsd = calculateImageCost(imageModel, 1);
 
-    return { imageBuffer, mimeType: prediction.mimeType, costUsd };
+    return { imageBuffer, mimeType: prediction.mimeType, costUsd, model: imageModel };
   }
 }
 
@@ -68,7 +71,7 @@ class MockImageProvider implements ImageProvider {
     console.log(
       `[MockImage] Generating frame for prompt: "${prompt.substring(0, 80)}..."`,
     );
-    return { imageBuffer: png1x1, mimeType: "image/png", costUsd: 0 };
+    return { imageBuffer: png1x1, mimeType: "image/png", costUsd: 0, model: "mock" };
   }
 }
 

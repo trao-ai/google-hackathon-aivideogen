@@ -4,6 +4,8 @@
  * Set USE_MOCK_LLM=true in env to use the mock provider for local dev.
  */
 
+import { calculateLLMCost } from "@atlas/shared";
+
 export interface LLMMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -11,6 +13,7 @@ export interface LLMMessage {
 
 export interface LLMResponse {
   content: string;
+  model: string;
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
@@ -54,11 +57,11 @@ class OpenAIProvider implements LLMProvider {
 
     const inputTokens = data.usage.prompt_tokens;
     const outputTokens = data.usage.completion_tokens;
-    // gpt-4o pricing approximation
-    const costUsd = inputTokens * 0.000005 + outputTokens * 0.000015;
+    const costUsd = calculateLLMCost(model, inputTokens, outputTokens);
 
     return {
       content: data.choices[0].message.content,
+      model,
       inputTokens,
       outputTokens,
       costUsd,
@@ -74,6 +77,7 @@ class MockLLMProvider implements LLMProvider {
     const mockResponse = `[MOCK LLM RESPONSE]\nPrompt received: "${lastMessage.substring(0, 100)}..."\n\nThis is a mock response for local development. Set USE_MOCK_LLM=false and provide OPENAI_API_KEY to use the real LLM.`;
     return {
       content: mockResponse,
+      model: "mock",
       inputTokens: 100,
       outputTokens: 50,
       costUsd: 0,

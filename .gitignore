@@ -18,6 +18,9 @@
 public/audio
 **/public/audio
 
+# Local storage (dev file uploads)
+**/.local-storage
+
 # OS files
 **/.DS_Store
 

@@ -1,5 +1,5 @@
 /**
- * Image generation adapter (Gemini / configurable).
+ * Image generation adapter — Nano Banana Pro (gemini-3-pro-image-preview).
  * Set USE_MOCK_IMAGE=true in env for local dev.
  */
 
@@ -17,10 +17,23 @@ export interface ImageProvider {
   generate(prompt: string, seed?: string): Promise<ImageGenerationResult>;
 }
 
-// ─── Gemini image provider ───────────────────────────────────────────────────
+// ─── Nano Banana Pro (Gemini 3 Pro Image) provider ──────────────────────────
 
-class GeminiImageProvider implements ImageProvider {
+interface GenerateContentResponse {
+  candidates: {
+    content: {
+      parts: Array<
+        | { text: string }
+        | { inlineData: { mimeType: string; data: string } }
+      >;
+    };
+  }[];
+}
+
+class NanoBananaProProvider implements ImageProvider {
   private apiKey: string;
+  private maxRetries = 5;
+  private model = "gemini-3-pro-image-preview";
 
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY ?? "";
@@ -28,34 +41,86 @@ class GeminiImageProvider implements ImageProvider {
   }
 
   async generate(prompt: string): Promise<ImageGenerationResult> {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: { sampleCount: 1 },
-        }),
-      },
-    );
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `Generate an image based on this description. Do NOT include any text, words, letters, or writing in the image.\n\n${prompt}`,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseModalities: ["IMAGE"],
+              imageConfig: {
+                aspectRatio: "16:9",
+                imageSize: "1K",
+              },
+            },
+          }),
+        },
+      );
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Gemini image API error ${res.status}: ${err}`);
+      if (res.status === 429 && attempt < this.maxRetries) {
+        const body = await res.text();
+        let waitMs = Math.min(30_000, 2 ** attempt * 5_000);
+        const retryMatch = body.match(/retry in ([\d.]+)s/i);
+        if (retryMatch) {
+          waitMs = Math.ceil(parseFloat(retryMatch[1]) * 1000) + 1000;
+        }
+        console.log(
+          `[nano-banana-pro] Rate limited, retrying in ${(waitMs / 1000).toFixed(1)}s (attempt ${attempt + 1}/${this.maxRetries})`,
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Nano Banana Pro API error ${res.status}: ${err}`);
+      }
+
+      const data = (await res.json()) as GenerateContentResponse;
+      const candidate = data.candidates?.[0];
+      if (!candidate) {
+        throw new Error("Nano Banana Pro: no candidates in response");
+      }
+
+      // Find the image part in the response
+      const imagePart = candidate.content.parts.find(
+        (p): p is { inlineData: { mimeType: string; data: string } } =>
+          "inlineData" in p,
+      );
+
+      if (!imagePart) {
+        throw new Error(
+          "Nano Banana Pro: no image data in response. Parts: " +
+            JSON.stringify(candidate.content.parts.map((p) => Object.keys(p))),
+        );
+      }
+
+      const imageBuffer = Buffer.from(imagePart.inlineData.data, "base64");
+
+      const costUsd = calculateImageCost(this.model, 1);
+
+      return {
+        imageBuffer,
+        mimeType: imagePart.inlineData.mimeType,
+        costUsd,
+        model: this.model,
+      };
     }
 
-    const data = (await res.json()) as {
-      predictions: { bytesBase64Encoded: string; mimeType: string }[];
-    };
-
-    const prediction = data.predictions[0];
-    const imageBuffer = Buffer.from(prediction.bytesBase64Encoded, "base64");
-
-    const imageModel = "imagen-4.0-fast-generate-001";
-    const costUsd = calculateImageCost(imageModel, 1);
-
-    return { imageBuffer, mimeType: prediction.mimeType, costUsd, model: imageModel };
+    throw new Error(
+      "Nano Banana Pro: max retries exceeded for rate limiting",
+    );
   }
 }
 
@@ -77,5 +142,5 @@ class MockImageProvider implements ImageProvider {
 
 export function createImageProvider(): ImageProvider {
   if (process.env.USE_MOCK_IMAGE === "true") return new MockImageProvider();
-  return new GeminiImageProvider();
+  return new NanoBananaProProvider();
 }

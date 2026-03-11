@@ -43,6 +43,15 @@ app.use("/api/audio", (_req, res, next) => {
   next();
 }, express.static(path.join(__dirname, "../public/audio")));
 
+// Serve local storage files (images, videos) for dev mode
+const localStorageDir = process.env.LOCAL_STORAGE_DIR
+  ? path.resolve(process.env.LOCAL_STORAGE_DIR)
+  : path.join(process.cwd(), ".local-storage");
+app.use("/api/storage", (_req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+}, express.static(localStorageDir));
+
 // Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

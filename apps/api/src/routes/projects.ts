@@ -63,7 +63,7 @@ projectRouter.get("/:id", async (req, res, next) => {
         researchBriefs: { orderBy: { createdAt: "desc" }, take: 1 },
         scripts: { include: { sections: { orderBy: { orderIndex: "asc" } } }, orderBy: { createdAt: "desc" } },
         voiceovers: { orderBy: { createdAt: "desc" } },
-        scenes: { include: { frames: true } },
+        scenes: { include: { frames: true, clip: true }, orderBy: { orderIndex: "asc" } },
         renders: true,
         costEvents: true,
       },

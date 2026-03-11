@@ -77,12 +77,16 @@ class LocalStorageProvider implements StorageProvider {
   async upload(key: string, data: Buffer): Promise<string> {
     const filePath = path.join(this.baseDir, key.replace(/\//g, "_"));
     fs.writeFileSync(filePath, data);
-    return `local:///${filePath}`;
+    // Return an API-served URL so the browser can fetch local files
+    const fileName = key.replace(/\//g, "_");
+    const apiBase = process.env.API_URL ?? "http://localhost:3001";
+    return `${apiBase}/api/storage/${fileName}`;
   }
 
   async getSignedUrl(key: string): Promise<string> {
-    const filePath = path.join(this.baseDir, key.replace(/\//g, "_"));
-    return `local:///${filePath}`;
+    const fileName = key.replace(/\//g, "_");
+    const apiBase = process.env.API_URL ?? "http://localhost:3001";
+    return `${apiBase}/api/storage/${fileName}`;
   }
 
   async delete(key: string): Promise<void> {

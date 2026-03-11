@@ -62,15 +62,34 @@ class S3StorageProvider implements StorageProvider {
   }
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Walk up from a starting directory to find the monorepo root (contains turbo.json). */
+function findProjectRoot(startDir: string): string {
+  let dir = startDir;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, "turbo.json"))) return dir;
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+
+/** Resolve LOCAL_STORAGE_DIR to an absolute path anchored to the monorepo root. */
+export function resolveStorageDir(): string {
+  const configured = process.env.LOCAL_STORAGE_DIR;
+  if (configured && path.isAbsolute(configured)) return configured;
+
+  const root = findProjectRoot(__dirname);
+  return path.join(root, configured ?? ".local-storage");
+}
+
 // ─── Local filesystem mock storage ──────────────────────────────────────────
 
 class LocalStorageProvider implements StorageProvider {
   private baseDir: string;
 
   constructor() {
-    this.baseDir =
-      process.env.LOCAL_STORAGE_DIR ??
-      path.join(process.cwd(), ".local-storage");
+    this.baseDir = resolveStorageDir();
     fs.mkdirSync(this.baseDir, { recursive: true });
   }
 

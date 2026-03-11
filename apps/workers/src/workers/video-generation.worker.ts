@@ -5,6 +5,7 @@ import { calculateVideoCost, calculateLLMCost } from "@atlas/shared";
 import {
   createVideoProvider,
   createStorageProvider,
+  resolveStorageDir,
 } from "@atlas/integrations";
 import { buildVideoPrompt } from "@atlas/prompts";
 
@@ -234,32 +235,22 @@ export class VideoGenerationWorker {
   private async fetchFrameAsBase64(imageUrl: string): Promise<string> {
     const fs = await import("fs");
     const path = await import("path");
+    const storageDir = resolveStorageDir();
 
-    // Handle local:/// URLs — resolve to the shared LOCAL_STORAGE_DIR
+    // Handle local:/// URLs — resolve to the shared storage dir
     if (imageUrl.startsWith("local:///")) {
-      const rawPath = imageUrl.replace("local:///", "/");
-      // Try the raw absolute path first
-      if (fs.existsSync(rawPath)) {
-        return fs.readFileSync(rawPath).toString("base64");
-      }
-      // Fall back: extract filename and look in LOCAL_STORAGE_DIR
+      const rawPath = imageUrl.replace("local:///", "");
       const fileName = rawPath.split("/").pop() ?? rawPath;
-      const storageDir =
-        process.env.LOCAL_STORAGE_DIR ??
-        path.join(process.cwd(), ".local-storage");
-      const resolvedPath = path.join(storageDir, fileName);
-      if (fs.existsSync(resolvedPath)) {
-        return fs.readFileSync(resolvedPath).toString("base64");
+      const filePath = path.join(storageDir, fileName);
+      if (fs.existsSync(filePath)) {
+        return fs.readFileSync(filePath).toString("base64");
       }
-      throw new Error(`Frame file not found: ${imageUrl} (tried ${rawPath} and ${resolvedPath})`);
+      throw new Error(`Frame file not found: ${imageUrl} (tried ${filePath})`);
     }
 
     // Handle API-served URLs by reading directly from disk
     if (imageUrl.includes("/api/storage/")) {
       const fileName = imageUrl.split("/api/storage/").pop() ?? "";
-      const storageDir =
-        process.env.LOCAL_STORAGE_DIR ??
-        path.join(process.cwd(), ".local-storage");
       const filePath = path.join(storageDir, fileName);
       if (fs.existsSync(filePath)) {
         return fs.readFileSync(filePath).toString("base64");

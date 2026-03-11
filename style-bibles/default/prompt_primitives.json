@@ -1,0 +1,31 @@
+{
+  "stylePrefix": "flat-design vector illustration, clean minimal infographic style, bright colors, no gradients, bold outlines",
+  "qualityTags": [
+    "high quality",
+    "sharp lines",
+    "professional educational illustration"
+  ],
+  "compositionRules": [
+    "rule of thirds",
+    "clear visual hierarchy",
+    "generous white space",
+    "single focal point per frame"
+  ],
+  "colorInstruction": "use the palette: primary blue #3B6EF8, orange accent #F97316, green highlight #10B981, dark text #1A1A2E on light background #F8F9FC",
+  "textInImage": {
+    "allowed": true,
+    "font": "clean sans-serif, Nunito or similar",
+    "maxWords": 12,
+    "placement": "avoid center unless intentional title card"
+  },
+  "avoidList": [
+    "photorealistic",
+    "3D render",
+    "blurry",
+    "watermark",
+    "signature",
+    "dark background unless explicitly requested",
+    "cluttered composition",
+    "more than 3 focal elements"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@atlas/workers",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@atlas/db": "*",
+    "@atlas/shared": "*",
+    "@atlas/prompts": "*",
+    "@atlas/style-system": "*",
+    "@atlas/integrations": "*",
+    "bullmq": "^5.8.3",
+    "ioredis": "^5.4.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "ts-node-dev": "^2.0.0",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.14.9"
+  }
+}

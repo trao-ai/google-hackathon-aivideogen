@@ -1,0 +1,23 @@
+{
+  "style": "rounded_rectangle",
+  "tailStyle": "curved",
+  "outlineColor": "#1A1A2E",
+  "outlineWeight": 2,
+  "backgroundColors": {
+    "narrator": "#FFFFFF",
+    "character": "#EFF6FF",
+    "thought": "#F3F4F6",
+    "shout": "#FEF9C3"
+  },
+  "textColor": "#1A1A2E",
+  "fontSize": 14,
+  "fontFamily": "Nunito, sans-serif",
+  "fontWeight": 600,
+  "padding": [8, 12],
+  "maxWidth": 240,
+  "shadow": "0 2px 8px rgba(0,0,0,0.12)",
+  "emphasis": {
+    "bold": true,
+    "highlightColor": "#FDE68A"
+  }
+}

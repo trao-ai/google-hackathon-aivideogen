@@ -1,0 +1,58 @@
+{
+  "templates": {
+    "hook": {
+      "layout": "centered_title_with_background_illustration",
+      "textSize": "xl",
+      "animation": "fade_in_scale",
+      "duration": [5, 10]
+    },
+    "title_card": {
+      "layout": "left_aligned_title_subtitle",
+      "textSize": "2xl",
+      "animation": "slide_in_left",
+      "duration": [3, 6]
+    },
+    "narration": {
+      "layout": "split_text_illustration",
+      "textSize": "md",
+      "animation": "text_reveal",
+      "duration": [8, 20]
+    },
+    "data_visualization": {
+      "layout": "full_canvas_chart",
+      "textSize": "sm",
+      "animation": "chart_draw_on",
+      "duration": [6, 15]
+    },
+    "comparison": {
+      "layout": "side_by_side",
+      "textSize": "md",
+      "animation": "slide_in_both",
+      "duration": [8, 18]
+    },
+    "timeline": {
+      "layout": "horizontal_timeline",
+      "textSize": "sm",
+      "animation": "step_reveal",
+      "duration": [10, 25]
+    },
+    "callout": {
+      "layout": "centered_callout_box",
+      "textSize": "lg",
+      "animation": "pop_in",
+      "duration": [3, 8]
+    },
+    "bridge": {
+      "layout": "minimal_text_center",
+      "textSize": "md",
+      "animation": "cross_fade",
+      "duration": [3, 7]
+    },
+    "cta": {
+      "layout": "centered_cta_with_icons",
+      "textSize": "lg",
+      "animation": "fade_in_up",
+      "duration": [5, 10]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma, trackImageCost } from "@atlas/db";
+import { prisma, trackImageCost, trackCost } from "@atlas/db";
 import {
   createImageProvider,
   createStorageProvider,
@@ -185,15 +185,14 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
       data: { imageUrl, prompt, costUsd: result.costUsd },
     });
 
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "frame_regeneration",
-        vendor: "gemini",
-        units: 1,
-        unitCost: result.costUsd,
-        totalCostUsd: result.costUsd,
-      },
+    await trackCost({
+      projectId,
+      stage: "frame_regeneration",
+      vendor: "gemini",
+      units: 1,
+      unitCost: result.costUsd,
+      totalCostUsd: result.costUsd,
+      metadata: { model: result.model, frameId },
     });
 
     console.log(`[frame-gen] Single frame ${frameId} regenerated`);

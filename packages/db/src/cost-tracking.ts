@@ -41,6 +41,15 @@ export interface TrackImageCostParams {
   metadata?: Record<string, unknown>;
 }
 
+export interface TrackVideoCostParams {
+  projectId: string;
+  vendor: string;
+  model: string;
+  durationSec: number;
+  totalCostUsd: number;
+  metadata?: Record<string, unknown>;
+}
+
 /**
  * Creates a CostEvent and atomically increments Project.totalCostUsd.
  */
@@ -122,6 +131,26 @@ export async function trackImageCost(params: TrackImageCostParams) {
     metadata: {
       model: params.model,
       imageCount: params.imageCount,
+      ...params.metadata,
+    },
+  });
+}
+
+/**
+ * Track video generation. units = duration in seconds, metadata includes model.
+ */
+export async function trackVideoCost(params: TrackVideoCostParams) {
+  return trackCost({
+    projectId: params.projectId,
+    stage: "video_generation",
+    vendor: params.vendor,
+    units: params.durationSec,
+    unitCost:
+      params.durationSec > 0 ? params.totalCostUsd / params.durationSec : 0,
+    totalCostUsd: params.totalCostUsd,
+    metadata: {
+      model: params.model,
+      durationSec: params.durationSec,
       ...params.metadata,
     },
   });

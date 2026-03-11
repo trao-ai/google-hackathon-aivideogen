@@ -5,7 +5,9 @@ export type CostStage =
   | "tts"
   | "scene_planning"
   | "image_generation"
+  | "frame_regeneration"
   | "video_generation"
+  | "motion_enrichment"
   | "render"
   | "storage"
   | "channel_analysis";

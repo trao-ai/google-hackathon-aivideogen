@@ -1,11 +1,18 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
+import { prisma, trackVideoCost, trackLLMCost } from "@atlas/db";
+import { calculateVideoCost, calculateLLMCost } from "@atlas/shared";
 import {
   createVideoProvider,
   createStorageProvider,
 } from "@atlas/integrations";
 import { buildVideoPrompt } from "@atlas/prompts";
+
+interface MotionEnrichmentResult {
+  enrichedMotion: string;
+  inputTokens: number;
+  outputTokens: number;
+}
 
 /**
  * Use Gemini text model to enrich a brief motionNotes into a detailed
@@ -17,9 +24,9 @@ async function enrichMotionDescription(params: {
   motionNotes: string;
   startFramePrompt: string;
   endFramePrompt: string;
-}): Promise<string> {
+}): Promise<MotionEnrichmentResult> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return params.motionNotes; // fallback to raw notes
+  if (!apiKey) return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
 
   const prompt = `You are a motion director for an animated educational video.
 
@@ -59,22 +66,25 @@ Write ONLY the animation direction. No preamble, no markdown.`;
 
     if (!res.ok) {
       console.warn(`[video-gen] Motion enrichment failed (${res.status}), using raw notes`);
-      return params.motionNotes;
+      return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
     }
 
     const data = (await res.json()) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
     };
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const inputTokens = data.usageMetadata?.promptTokenCount ?? 0;
+    const outputTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
     if (text) {
       console.log(`[video-gen] Enriched motion description: ${text.slice(0, 200)}...`);
-      return text.trim();
+      return { enrichedMotion: text.trim(), inputTokens, outputTokens };
     }
   } catch (err) {
     console.warn(`[video-gen] Motion enrichment error:`, err);
   }
 
-  return params.motionNotes;
+  return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
 }
 
 export class VideoGenerationWorker {
@@ -121,7 +131,7 @@ export class VideoGenerationWorker {
     const storage = createStorageProvider();
 
     // Use Gemini to enrich the brief motionNotes into detailed animation direction
-    const enrichedMotion = await enrichMotionDescription({
+    const motionResult = await enrichMotionDescription({
       purpose: scene.purpose,
       sceneType: scene.sceneType,
       motionNotes: scene.motionNotes,
@@ -129,11 +139,30 @@ export class VideoGenerationWorker {
       endFramePrompt: endFrame.prompt,
     });
 
+    // Track motion enrichment LLM cost
+    if (motionResult.inputTokens > 0 || motionResult.outputTokens > 0) {
+      const motionCost = calculateLLMCost(
+        "gemini-2.0-flash",
+        motionResult.inputTokens,
+        motionResult.outputTokens,
+      );
+      await trackLLMCost({
+        projectId,
+        stage: "motion_enrichment",
+        vendor: "gemini",
+        model: "gemini-2.0-flash",
+        inputTokens: motionResult.inputTokens,
+        outputTokens: motionResult.outputTokens,
+        totalCostUsd: motionCost,
+      });
+      console.log(`[video-gen] Motion enrichment cost: $${motionCost.toFixed(6)} (${motionResult.inputTokens}in/${motionResult.outputTokens}out tokens)`);
+    }
+
     // Build a rich video prompt with scene context + enriched motion description
     const videoPrompt = buildVideoPrompt({
       purpose: scene.purpose,
       sceneType: scene.sceneType,
-      motionNotes: enrichedMotion,
+      motionNotes: motionResult.enrichedMotion,
       startFramePrompt: startFrame.prompt,
       endFramePrompt: endFrame.prompt,
     });
@@ -170,17 +199,16 @@ export class VideoGenerationWorker {
       },
     });
 
-    // Track cost
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "video_generation",
-        vendor: "google-veo",
-        units: 1,
-        unitCost: result.costUsd,
-        totalCostUsd: result.costUsd,
-      },
+    // Track video generation cost
+    const videoCost = calculateVideoCost("veo-3.1-generate-preview", result.durationSec);
+    await trackVideoCost({
+      projectId,
+      vendor: "google-veo",
+      model: "veo-3.1-generate-preview",
+      durationSec: result.durationSec,
+      totalCostUsd: videoCost,
     });
+    console.log(`[video-gen] Video cost: $${videoCost.toFixed(4)} (${result.durationSec}s)`);
 
     // Check if all scenes now have clips
     const [totalScenes, scenesWithClips] = await Promise.all([

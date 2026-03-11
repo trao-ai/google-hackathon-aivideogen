@@ -9,6 +9,8 @@
  * and `durationSeconds` must be a number (NOT a string).
  */
 
+import { calculateVideoCost } from "@atlas/shared";
+
 export interface VideoGenerationResult {
   videoBuffer: Buffer;
   mimeType: string;
@@ -195,12 +197,12 @@ class VeoVideoProvider implements VideoProvider {
         const arrayBuffer = await videoRes.arrayBuffer();
         const videoBuffer = Buffer.from(arrayBuffer);
 
-        // Approximate cost: ~$0.35 per 8-second clip
+        const durationSec = 8;
         return {
           videoBuffer,
           mimeType: samples[0].video.mimeType ?? "video/mp4",
-          durationSec: 8,
-          costUsd: 0.35,
+          durationSec,
+          costUsd: calculateVideoCost(this.model, durationSec),
         };
       }
 

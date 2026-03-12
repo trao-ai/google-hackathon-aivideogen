@@ -191,6 +191,18 @@ export const api = {
       ),
   },
 
+  renders: {
+    start: (projectId: string) =>
+      request<{ renderId: string; jobId: string; message: string }>(
+        `/api/projects/${projectId}/render`,
+        { method: "POST" },
+      ),
+    list: (projectId: string) =>
+      request<Render[]>(`/api/projects/${projectId}/renders`),
+    get: (projectId: string, renderId: string) =>
+      request<Render>(`/api/projects/${projectId}/renders/${renderId}`),
+  },
+
   costs: {
     get: (projectId: string) =>
       request<CostSummary>(`/api/projects/${projectId}/costs`),
@@ -221,6 +233,7 @@ export interface ProjectDetail extends Project {
   scripts?: Script[];
   voiceovers?: Voiceover[];
   scenes?: Scene[];
+  renders?: Render[];
 }
 
 export interface Topic {
@@ -321,6 +334,18 @@ export interface Scene {
   animationNotes?: string;
   frames?: SceneFrame[];
   clip?: SceneClip | null;
+}
+
+export interface Render {
+  id: string;
+  projectId: string;
+  videoUrl: string | null;
+  subtitleUrl: string | null;
+  durationSec: number | null;
+  costUsd: number;
+  status: "pending" | "processing" | "complete" | "failed";
+  errorMsg: string | null;
+  createdAt: string;
 }
 
 export interface CostSummary {

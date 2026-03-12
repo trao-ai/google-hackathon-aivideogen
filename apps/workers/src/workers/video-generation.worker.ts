@@ -53,8 +53,9 @@ Brief motion notes: ${params.motionNotes}
 Write ONLY the animation direction. No preamble, no markdown.`;
 
   try {
+    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-1.5-flash";
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,9 +142,10 @@ export class VideoGenerationWorker {
     });
 
     // Track motion enrichment LLM cost
+    const textModel = process.env.GEMINI_TEXT_MODEL ?? "gemini-1.5-flash";
     if (motionResult.inputTokens > 0 || motionResult.outputTokens > 0) {
       const motionCost = calculateLLMCost(
-        "gemini-2.0-flash",
+        textModel,
         motionResult.inputTokens,
         motionResult.outputTokens,
       );
@@ -151,7 +153,7 @@ export class VideoGenerationWorker {
         projectId,
         stage: "motion_enrichment",
         vendor: "gemini",
-        model: "gemini-2.0-flash",
+        model: textModel,
         inputTokens: motionResult.inputTokens,
         outputTokens: motionResult.outputTokens,
         totalCostUsd: motionCost,

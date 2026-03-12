@@ -9,12 +9,12 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // Default style bible — Kurzgesagt + Duolingo inspired
+  // Default style bible — Kurzgesagt inspired
   const styleBibleData = {
     name: "Atlas Default",
-    version: "2.0",
+    version: "3.0",
     visualMission:
-      "Kurzgesagt-inspired flat vector illustration with Duolingo-style friendly rounded characters. Bold, vibrant, and educational.",
+      "Kurzgesagt-style flat vector illustration with rounded friendly characters. Bold, vibrant, and educational.",
     emotionalTone: "Curious, warm, playful yet informative",
     narrativeStance: "Friendly and approachable narrator",
     palette: {
@@ -26,17 +26,22 @@ async function main() {
       },
     },
     characterRules: {
-      silhouette: "rounded_soft_blob_shapes_like_duolingo",
+      silhouette: "rounded_soft_blob_shapes_kurzgesagt_style",
       proportions: "large_head_small_body_2_head_ratio",
       eyes: "large_round_expressive_dot_eyes",
       hands: "simple_rounded_mitten_hands",
-      expressionStyle: "friendly_expressive_like_duolingo_characters",
+      mouth: "NO_MOUTH_EVER",
+      expressionStyle: "expressive_through_eyes_and_body_language_only_no_mouth",
       forbidden: [
         "photorealism",
         "anime_style",
         "realistic_skin_texture",
         "sharp_edges",
         "thin_lines",
+        "mouth",
+        "lips",
+        "teeth",
+        "speaking_animation",
       ],
     },
     lineWeights: "no_outlines_or_minimal_color_distinction_between_shapes",
@@ -64,14 +69,20 @@ async function main() {
       "sharp angular edges",
       "realistic shading",
       "gradient meshes",
+      "mouth",
+      "lips",
+      "teeth",
+      "speaking",
+      "talking",
+      "open mouth",
     ],
     promptPrimitives: {
       style_prefix:
-        "Kurzgesagt-style flat vector illustration, bold vibrant colors on dark background, no outlines, soft rounded shapes, layered composition with depth, educational infographic aesthetic, Duolingo-style friendly characters,",
+        "Kurzgesagt-style flat vector illustration, bold vibrant colors on dark navy/deep blue background, no outlines, soft rounded shapes, layered composition with parallax depth, educational infographic aesthetic,",
       character_prefix:
-        "rounded blob-like character with large expressive dot eyes, simple mitten hands, large head small body, warm friendly expression, flat solid colors,",
+        "rounded blob-like Kurzgesagt character with large expressive dot eyes, NO mouth, NO lips, simple mitten hands, large head small body, flat solid colors, expression conveyed through eyes and body language only,",
       scene_suffix:
-        "rich layered background with subtle depth, vibrant color palette, clean professional educational look, no text or writing in the image",
+        "rich layered background with subtle depth, vibrant saturated color palette, clean professional educational look, no text or writing in the image",
     },
   };
 

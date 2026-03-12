@@ -40,11 +40,19 @@ projectRouter.get("/", async (_req, res, next) => {
 projectRouter.post("/", async (req, res, next) => {
   try {
     const body = createSchema.parse(req.body);
+
+    // Auto-assign the default Kurzgesagt style bible if it exists
+    const defaultBible = await prisma.styleBible.findFirst({
+      where: { name: "Atlas Default" },
+      select: { id: true },
+    });
+
     const project = await prisma.project.create({
       data: {
         title: body.title,
         niche: body.niche,
         targetRuntimeSec: body.targetRuntimeSec ?? 60,
+        ...(defaultBible ? { styleBibleId: defaultBible.id } : {}),
       },
     });
     res.status(201).json(project);

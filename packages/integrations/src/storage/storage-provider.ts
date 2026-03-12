@@ -165,6 +165,39 @@ class LocalStorageProvider implements StorageProvider {
   }
 }
 
+/**
+ * Convert an API-served or local:/// URL back to a filesystem path.
+ * Returns null if the file doesn't exist or the URL is remote.
+ */
+export function resolveUrlToLocalPath(url: string): string | null {
+  const storageDir = resolveStorageDir();
+
+  // Handle API storage URLs: http://localhost:3001/api/storage/filename
+  if (url.includes("/api/storage/")) {
+    const fileName = url.split("/api/storage/").pop() ?? "";
+    const filePath = path.join(storageDir, fileName);
+    return fs.existsSync(filePath) ? filePath : null;
+  }
+
+  // Handle local:/// URLs
+  if (url.startsWith("local:///")) {
+    const rawPath = url.replace("local:///", "");
+    const fileName = rawPath.split("/").pop() ?? rawPath;
+    const filePath = path.join(storageDir, fileName);
+    return fs.existsSync(filePath) ? filePath : null;
+  }
+
+  // Handle API audio URLs: /api/audio/filename or http://.../api/audio/filename
+  const audioMatch = url.match(/\/api\/audio\/(.+)$/);
+  if (audioMatch) {
+    const root = findProjectRoot(storageDir);
+    const filePath = path.join(root, "apps", "api", "public", "audio", audioMatch[1]);
+    return fs.existsSync(filePath) ? filePath : null;
+  }
+
+  return null;
+}
+
 export function createStorageProvider(): StorageProvider {
   if (process.env.USE_MOCK_STORAGE === "true")
     return new LocalStorageProvider();

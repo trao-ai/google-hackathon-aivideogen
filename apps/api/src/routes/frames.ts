@@ -17,6 +17,7 @@ frameRouter.post("/:id/generate-frames", async (req, res, next) => {
 
     const scenes = await prisma.scene.findMany({
       where: { projectId: project.id },
+      orderBy: { orderIndex: "asc" },
     });
     if (scenes.length === 0)
       throw new ApiError(400, "No scenes found. Run scene planning first.");

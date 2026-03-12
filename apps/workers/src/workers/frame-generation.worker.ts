@@ -1,9 +1,12 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
+import * as fs from "fs";
+import * as path from "path";
 import { prisma, trackImageCost, trackCost } from "@atlas/db";
 import {
   createImageProvider,
   createStorageProvider,
+  resolveStorageDir,
 } from "@atlas/integrations";
 import { getStylePrefix } from "@atlas/style-system";
 import type { StyleBible } from "@atlas/shared";
@@ -14,7 +17,7 @@ export class FrameGenerationWorker {
   constructor(connection: RedisOptions) {
     this.worker = new Worker("frame-generation", this.process.bind(this), {
       connection,
-      concurrency: 2,
+      concurrency: 1, // Must be 1 — frames are chained (scene N references scene N-1)
     });
     this.worker.on("failed", (job, err) => {
       console.error(`[frame-gen] job ${job?.id} failed:`, err.message);
@@ -49,17 +52,85 @@ export class FrameGenerationWorker {
     if (!scene) throw new Error(`Scene ${sceneId} not found`);
     if (!project) throw new Error(`Project ${projectId} not found`);
 
+    // Auto-assign default style bible if project doesn't have one
+    if (!project.styleBible) {
+      const defaultBible = await prisma.styleBible.findFirst({
+        where: { name: "Atlas Default" },
+      });
+      if (defaultBible) {
+        await prisma.project.update({
+          where: { id: projectId },
+          data: { styleBibleId: defaultBible.id },
+        });
+        (project as Record<string, unknown>).styleBible = defaultBible;
+        console.log(`[frame-gen] Auto-assigned default style bible to project ${projectId}`);
+      }
+    }
+
+    // Fetch adjacent scenes for visual continuity between scene boundaries
+    const [prevScene, nextScene] = await Promise.all([
+      prisma.scene.findFirst({
+        where: { projectId, orderIndex: scene.orderIndex - 1 },
+      }),
+      prisma.scene.findFirst({
+        where: { projectId, orderIndex: scene.orderIndex + 1 },
+      }),
+    ]);
+
+    // Fetch narration text for this scene's time range (grounds visuals to script)
+    let narrationText = "";
+    try {
+      const voiceover = await prisma.voiceover.findFirst({
+        where: { projectId },
+        orderBy: { createdAt: "desc" },
+      });
+      if (voiceover && voiceover.segments) {
+        const segments = voiceover.segments as Array<{
+          text: string;
+          start: number;
+          end: number;
+        }>;
+        narrationText = segments
+          .filter(
+            (s) =>
+              s.start < scene.narrationEndSec &&
+              s.end > scene.narrationStartSec,
+          )
+          .map((s) => s.text)
+          .join(" ")
+          .trim();
+      }
+    } catch {
+      // narration text is optional enrichment
+    }
+
     const imageProvider = createImageProvider();
     const storage = createStorageProvider();
 
+    // Strong Kurzgesagt fallback when no style bible is assigned
+    const KURZGESAGT_STYLE_PREFIX =
+      "Kurzgesagt-style flat vector illustration, bold vibrant colors on dark navy/deep blue background, " +
+      "no outlines, soft rounded shapes, layered composition with parallax depth, educational infographic aesthetic, " +
+      "rounded blob-like characters with large expressive dot eyes, NO mouth, NO lips, simple mitten hands, " +
+      "large head small body, flat solid colors, no gradients, " +
+      "rich layered background with subtle depth, vibrant saturated color palette, clean professional look, " +
+      "no text or writing in the image";
+
+    const KURZGESAGT_NEGATIVES = [
+      "photorealistic", "photograph", "3D render", "anime", "painterly",
+      "watercolor", "sketch", "pencil", "cluttered", "inconsistent anatomy",
+      "thin lines", "sharp angular edges", "realistic shading", "gradient meshes",
+      "mouth", "lips", "teeth", "speaking", "talking", "open mouth",
+    ];
+
     const stylePrefix = project.styleBible
       ? getStylePrefix(project.styleBible as unknown as StyleBible)
-      : "flat-design, clean";
+      : KURZGESAGT_STYLE_PREFIX;
 
     // Extract style-bible negative prompts (e.g. photorealistic, 3D, anime, etc.)
     const styleBibleNegatives = project.styleBible
       ? ((project.styleBible as unknown as StyleBible).negativePrompts ?? [])
-      : [];
+      : KURZGESAGT_NEGATIVES;
 
     const allNegatives = [
       "text", "words", "letters", "numbers", "watermark",
@@ -68,33 +139,63 @@ export class FrameGenerationWorker {
     ];
     const negativesStr = allNegatives.join(", ");
 
-    // Use the LLM-generated scene-specific prompts (startPrompt/endPrompt)
-    // which are tailored to the script content, enriched with style bible context.
+    // Build continuity context from adjacent scenes so frames visually connect
+    const prevContinuity = prevScene
+      ? `\nVISUAL CONTINUITY — this scene immediately follows a scene that ended with:\n"${prevScene.endPrompt.slice(0, 300)}"\n${prevScene.continuityNotes ? `Transition: ${prevScene.continuityNotes}` : ""}\nYou MUST maintain the same art style, color palette, character designs, and visual language as the previous scene.\n`
+      : "";
+
+    const narrationContext = narrationText
+      ? `\nNarration during this scene: "${narrationText.slice(0, 250)}"\nThe visual MUST depict what the narrator is describing.\n`
+      : "";
+
     const startPrompt = `${stylePrefix}
 
 ${scene.startPrompt}
 
-Scene type: ${scene.sceneType}
+Scene purpose: ${scene.purpose}${narrationContext}
+Scene type: ${scene.sceneType}${prevContinuity}
 ${scene.bubbleText ? `Speech bubble visual indicator (no actual text): show an empty speech bubble shape` : ""}
 IMPORTANT: Do NOT include any text, words, letters, numbers, labels, captions, or writing anywhere in the image.
 Negative prompts: ${negativesStr}
 
 Generate START FRAME only.`.trim();
 
+    const nextContinuity = nextScene
+      ? `\nVISUAL CONTINUITY — this scene's end must naturally flow into the next scene:\n"${nextScene.startPrompt.slice(0, 300)}"\nMaintain consistent art style, colors, and visual language for a smooth transition.\n`
+      : "";
+
     const endPrompt = `${stylePrefix}
 
 ${scene.endPrompt}
 
+Scene purpose: ${scene.purpose}
 Scene type: ${scene.sceneType}
 Motion from start: ${scene.motionNotes}
+${scene.continuityNotes ? `Continuity: ${scene.continuityNotes}` : ""}${nextContinuity}
 IMPORTANT: Do NOT include any text, words, letters, numbers, labels, captions, or writing anywhere in the image.
 Negative prompts: ${negativesStr}
 
 Generate END FRAME showing the scene's visual conclusion.`.trim();
 
-    // Generate frames sequentially to avoid rate limits
-    const startResult = await imageProvider.generate(startPrompt);
-    const endResult = await imageProvider.generate(endPrompt);
+    // Load previous scene's end frame as style reference for THIS scene's start frame
+    // This creates a visual chain: Scene 1 End → Scene 2 Start → Scene 2 End → Scene 3 Start → ...
+    let prevEndFrameBuffer: Buffer | undefined;
+    if (prevScene) {
+      const prevEndFrame = await prisma.sceneFrame.findFirst({
+        where: { sceneId: prevScene.id, frameType: "end" },
+        orderBy: { id: "desc" },
+      });
+      if (prevEndFrame) {
+        prevEndFrameBuffer = await this.loadFrameBuffer(prevEndFrame.imageUrl);
+      }
+    }
+
+    // Generate start frame (with previous scene's end frame as style reference)
+    const startResult = await imageProvider.generate(startPrompt, prevEndFrameBuffer);
+
+    // Generate end frame (with THIS scene's start frame as style reference)
+    // This guarantees within-scene consistency — the end frame SEES the start frame
+    const endResult = await imageProvider.generate(endPrompt, startResult.imageBuffer);
 
     // Upload both frames
     const startKey = `projects/${projectId}/scenes/${sceneId}/frame-start.png`;
@@ -196,6 +297,33 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
     });
 
     console.log(`[frame-gen] Single frame ${frameId} regenerated`);
+  }
+
+  /** Load a frame image from storage URL into a Buffer for use as reference image. */
+  private async loadFrameBuffer(imageUrl: string): Promise<Buffer | undefined> {
+    try {
+      const storageDir = resolveStorageDir();
+
+      if (imageUrl.startsWith("local:///")) {
+        const rawPath = imageUrl.replace("local:///", "");
+        const fileName = rawPath.split("/").pop() ?? rawPath;
+        const filePath = path.join(storageDir, fileName);
+        if (fs.existsSync(filePath)) return fs.readFileSync(filePath);
+      }
+
+      if (imageUrl.includes("/api/storage/")) {
+        const fileName = imageUrl.split("/api/storage/").pop() ?? "";
+        const filePath = path.join(storageDir, fileName);
+        if (fs.existsSync(filePath)) return fs.readFileSync(filePath);
+      }
+
+      // Remote URL fallback
+      const res = await fetch(imageUrl);
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      console.warn(`[frame-gen] Could not load reference frame: ${(err as Error).message}`);
+    }
+    return undefined;
   }
 
   async close(): Promise<void> {

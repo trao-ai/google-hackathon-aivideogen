@@ -95,7 +95,8 @@ ${endVisual}
 MOTION AND TRANSITION:
 ${motionNotes}
 
-Style: flat-design 2D editorial illustration, smooth animation, clean lines.
+Style: Kurzgesagt-style flat vector illustration, bold vibrant colors on dark background, smooth animation, no outlines.
+Characters: NO mouth, NO lips, NO speaking animation. Expression through eyes and body language only.
 Camera: steady, professional. No shaky cam.
 Duration: 8 seconds. The animation must clearly progress from the starting state to the ending state across the full duration.
 Do NOT include any text, words, or writing in the video.`.trim();

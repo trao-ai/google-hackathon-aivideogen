@@ -14,7 +14,7 @@ export interface ImageGenerationResult {
 }
 
 export interface ImageProvider {
-  generate(prompt: string, seed?: string): Promise<ImageGenerationResult>;
+  generate(prompt: string, referenceImage?: Buffer): Promise<ImageGenerationResult>;
 }
 
 // ─── Nano Banana Pro (Gemini 3 Pro Image) provider ──────────────────────────
@@ -40,23 +40,36 @@ class NanoBananaProProvider implements ImageProvider {
     if (!this.apiKey) throw new Error("GEMINI_API_KEY is not set");
   }
 
-  async generate(prompt: string): Promise<ImageGenerationResult> {
+  async generate(prompt: string, referenceImage?: Buffer): Promise<ImageGenerationResult> {
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      // Build parts: include reference image if provided for style consistency
+      const parts: Array<
+        { text: string } | { inlineData: { mimeType: string; data: string } }
+      > = [];
+
+      if (referenceImage) {
+        parts.push({
+          inlineData: {
+            mimeType: "image/png",
+            data: referenceImage.toString("base64"),
+          },
+        });
+        parts.push({
+          text: `Use the reference image above as a STRICT style guide. You MUST match its exact art style, color palette, line weight, character proportions, shading technique, and background treatment. Generate a NEW image (not an edit) based on this description. Do NOT include any text, words, letters, or writing in the image.\n\n${prompt}`,
+        });
+      } else {
+        parts.push({
+          text: `Generate an image based on this description. Do NOT include any text, words, letters, or writing in the image.\n\n${prompt}`,
+        });
+      }
+
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Generate an image based on this description. Do NOT include any text, words, letters, or writing in the image.\n\n${prompt}`,
-                  },
-                ],
-              },
-            ],
+            contents: [{ parts }],
             generationConfig: {
               responseModalities: ["IMAGE"],
               imageConfig: {
@@ -127,7 +140,7 @@ class NanoBananaProProvider implements ImageProvider {
 // ─── Mock provider ───────────────────────────────────────────────────────────
 
 class MockImageProvider implements ImageProvider {
-  async generate(prompt: string): Promise<ImageGenerationResult> {
+  async generate(prompt: string, _referenceImage?: Buffer): Promise<ImageGenerationResult> {
     // Return a tiny valid PNG (1x1 transparent pixel)
     const png1x1 = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",

@@ -14,6 +14,7 @@ import { voiceRouter } from "./routes/voice";
 import { sceneRouter } from "./routes/scenes";
 import { frameRouter } from "./routes/frames";
 import { costRouter } from "./routes/costs";
+import { renderRouter } from "./routes/renders";
 import { errorHandler } from "./middleware/error-handler";
 import { resolveStorageDir } from "@atlas/integrations";
 
@@ -66,6 +67,7 @@ app.use("/api/projects", voiceRouter);
 app.use("/api/projects", sceneRouter);
 app.use("/api/projects", frameRouter);
 app.use("/api/projects", costRouter);
+app.use("/api/projects", renderRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

@@ -11,6 +11,7 @@ import { ResearchTab } from "./_tabs/ResearchTab";
 import { ScriptsTab } from "./_tabs/ScriptsTab";
 import { VoiceTab } from "./_tabs/VoiceTab";
 import { ScenesTab } from "./_tabs/ScenesTab";
+import { RenderTab } from "./_tabs/RenderTab";
 import { CostsTab } from "./_tabs/CostsTab";
 
 const TABS = [
@@ -19,6 +20,7 @@ const TABS = [
   "Scripts",
   "Voice",
   "Scenes",
+  "Render",
   "Costs",
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -55,6 +57,8 @@ export default function ProjectPage() {
       setActiveTab("Voice");
     } else if (["scene_planning", "scene_planned", "rendering"].includes(status)) {
       setActiveTab("Scenes");
+    } else if (["composition", "complete", "composition_failed"].includes(status)) {
+      setActiveTab("Render");
     }
     setAutoNavigated(true);
   }, [project, autoNavigated]);
@@ -147,6 +151,9 @@ export default function ProjectPage() {
         )}
         {activeTab === "Scenes" && (
           <ScenesTab project={project} onRefresh={loadProject} />
+        )}
+        {activeTab === "Render" && (
+          <RenderTab project={project} onRefresh={loadProject} />
         )}
         {activeTab === "Costs" && <CostsTab projectId={id} />}
       </main>

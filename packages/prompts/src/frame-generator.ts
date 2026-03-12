@@ -64,7 +64,7 @@ Generate END FRAME showing the scene's visual conclusion.`;
 }
 
 /**
- * Build a rich video generation prompt for Veo.
+ * Build a rich video generation prompt for the configured video provider.
  * Combines scene context, start/end frame descriptions, and motion notes
  * so the model understands what to animate and where the animation should end.
  */
@@ -74,8 +74,9 @@ export function buildVideoPrompt(params: {
   motionNotes: string;
   startFramePrompt: string;
   endFramePrompt: string;
+  durationSec?: number;
 }): string {
-  const { purpose, sceneType, motionNotes, startFramePrompt, endFramePrompt } =
+  const { purpose, sceneType, motionNotes, startFramePrompt, endFramePrompt, durationSec = 5 } =
     params;
 
   // Extract the visual description parts from frame prompts (strip meta-instructions)
@@ -95,10 +96,9 @@ ${endVisual}
 MOTION AND TRANSITION:
 ${motionNotes}
 
-Style: Kurzgesagt-style flat vector illustration, bold vibrant colors on dark background, smooth animation, no outlines.
-Characters: NO mouth, NO lips, NO speaking animation. Expression through eyes and body language only.
+Style: flat-design 2D editorial illustration, smooth animation, clean lines.
 Camera: steady, professional. No shaky cam.
-Duration: 8 seconds. The animation must clearly progress from the starting state to the ending state across the full duration.
+Duration: ${durationSec} seconds. The animation must clearly progress from the starting state to the ending state across the full duration.
 Do NOT include any text, words, or writing in the video.`.trim();
 }
 

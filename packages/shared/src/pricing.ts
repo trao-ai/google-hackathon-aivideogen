@@ -40,12 +40,14 @@ export const IMAGE_PRICING: Record<string, ImagePricing> = {
 
 export const VIDEO_PRICING: Record<string, VideoPricing> = {
   "veo-3.1-generate-preview": { perSecond: 0.35 },
+  // Kling via fal.ai — $0.07/sec without audio, $0.14/sec with audio
+  "fal-ai/kling-video/v2.6/pro/image-to-video": { perSecond: 0.07 },
 };
 
 const DEFAULT_LLM_MODEL = "gpt-4o";
 const DEFAULT_TTS_MODEL = "eleven_multilingual_v2";
 const DEFAULT_IMAGE_MODEL = "imagen-4.0-fast-generate-001";
-const DEFAULT_VIDEO_MODEL = "veo-3.1-generate-preview";
+const DEFAULT_VIDEO_MODEL = "fal-ai/kling-video/v2.6/pro/image-to-video";
 
 export function calculateLLMCost(
   model: string,

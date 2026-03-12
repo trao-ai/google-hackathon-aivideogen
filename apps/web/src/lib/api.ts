@@ -323,6 +323,8 @@ export interface Scene {
   endPrompt: string;
   bubbleText?: string | null;
   continuityNotes?: string | null;
+  frameStatus?: string;
+  clipStatus?: string;
   // Aliases used by old UI (kept for compat)
   order: number;
   type: string;
@@ -344,6 +346,7 @@ export interface Render {
   durationSec: number | null;
   costUsd: number;
   status: "pending" | "processing" | "complete" | "failed";
+  step?: string | null;
   errorMsg: string | null;
   createdAt: string;
 }

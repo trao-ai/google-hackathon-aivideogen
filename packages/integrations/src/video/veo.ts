@@ -24,6 +24,7 @@ export interface VideoProvider {
     startFrameBase64: string;
     endFrameBase64: string;
     aspectRatio?: string;
+    durationSec?: number;
   }): Promise<VideoGenerationResult>;
 }
 
@@ -245,5 +246,17 @@ class MockVideoProvider implements VideoProvider {
 
 export function createVideoProvider(): VideoProvider {
   if (process.env.USE_MOCK_VIDEO === "true") return new MockVideoProvider();
-  return new VeoVideoProvider();
+
+  const provider = (process.env.VIDEO_PROVIDER ?? "kling").toLowerCase();
+  switch (provider) {
+    case "veo":
+      return new VeoVideoProvider();
+    case "kling":
+    default: {
+      // Lazy import to avoid requiring FAL_KEY when using Veo
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { KlingVideoProvider } = require("./kling") as typeof import("./kling");
+      return new KlingVideoProvider();
+    }
+  }
 }

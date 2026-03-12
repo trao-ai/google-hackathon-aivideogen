@@ -9,11 +9,13 @@
   },
   "dependencies": {
     "@atlas/shared": "*",
-    "openai": "^4.52.7",
-    "axios": "^1.7.2"
+    "@aws-sdk/client-s3": "^3.1007.0",
+    "@aws-sdk/s3-request-presigner": "^3.1007.0",
+    "axios": "^1.7.2",
+    "openai": "^4.52.7"
   },
   "devDependencies": {
-    "typescript": "^5.4.5",
-    "@types/node": "^20.14.9"
+    "@types/node": "^20.14.9",
+    "typescript": "^5.4.5"
   }
 }

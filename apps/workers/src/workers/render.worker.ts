@@ -50,7 +50,7 @@ export class RenderWorker {
     try {
       await prisma.render.update({
         where: { id: renderId },
-        data: { status: "processing" },
+        data: { status: "processing", step: "downloading_clips" },
       });
 
       await prisma.project.update({
@@ -79,15 +79,37 @@ export class RenderWorker {
         throw new Error("No voiceover found. Generate voice first.");
       }
 
-      // Resolve clip file paths and probe for audio streams
+      // Resolve clip file paths — download remote URLs to temp files
       const clips: ClipInfo[] = [];
-      for (const scene of scenesWithClips) {
-        const localPath = resolveUrlToLocalPath(scene.clip!.videoUrl);
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "atlas-render-"));
+      const downloadedPaths: string[] = []; // track for cleanup
+
+      for (let i = 0; i < scenesWithClips.length; i++) {
+        const scene = scenesWithClips[i];
+        const clipUrl = scene.clip!.videoUrl;
+        let localPath = resolveUrlToLocalPath(clipUrl);
+
+        // If not resolvable locally, download from remote URL
         if (!localPath) {
-          throw new Error(
-            `Cannot resolve local path for clip: ${scene.clip!.videoUrl}`,
-          );
+          if (clipUrl.startsWith("http://") || clipUrl.startsWith("https://")) {
+            const tmpClipPath = path.join(tmpDir, `clip-${i}.mp4`);
+            console.log(
+              `[render] Downloading clip ${i} from S3: ${clipUrl.slice(0, 80)}...`,
+            );
+            const res = await fetch(clipUrl);
+            if (!res.ok)
+              throw new Error(
+                `Failed to download clip: ${res.status} ${clipUrl}`,
+              );
+            const buffer = Buffer.from(await res.arrayBuffer());
+            fs.writeFileSync(tmpClipPath, buffer);
+            localPath = tmpClipPath;
+            downloadedPaths.push(tmpClipPath);
+          } else {
+            throw new Error(`Cannot resolve path for clip: ${clipUrl}`);
+          }
         }
+
         const targetDuration = scene.narrationEndSec - scene.narrationStartSec;
         const hasAudio = await this.probeHasAudio(localPath);
         clips.push({
@@ -98,22 +120,41 @@ export class RenderWorker {
         });
       }
       const clipsWithAudio = clips.filter((c) => c.hasAudio).length;
-      console.log(`[render] ${clipsWithAudio}/${clips.length} clips have audio tracks`);
+      console.log(
+        `[render] ${clipsWithAudio}/${clips.length} clips have audio tracks`,
+      );
 
-      // Resolve voiceover path
-      const voiceoverPath = resolveUrlToLocalPath(voiceover.audioUrl);
+      // Resolve voiceover path — download from remote URL if needed
+      let voiceoverPath = resolveUrlToLocalPath(voiceover.audioUrl);
       if (!voiceoverPath) {
-        throw new Error(
-          `Cannot resolve local path for voiceover: ${voiceover.audioUrl}`,
-        );
+        if (
+          voiceover.audioUrl.startsWith("http://") ||
+          voiceover.audioUrl.startsWith("https://")
+        ) {
+          const tmpVoPath = path.join(tmpDir, "voiceover.mp3");
+          console.log(`[render] Downloading voiceover from S3...`);
+          const res = await fetch(voiceover.audioUrl);
+          if (!res.ok)
+            throw new Error(`Failed to download voiceover: ${res.status}`);
+          const buffer = Buffer.from(await res.arrayBuffer());
+          fs.writeFileSync(tmpVoPath, buffer);
+          voiceoverPath = tmpVoPath;
+        } else {
+          throw new Error(
+            `Cannot resolve path for voiceover: ${voiceover.audioUrl}`,
+          );
+        }
       }
 
-      // Temp directory for SFX + output
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "atlas-render-"));
+      // Output path for final render (tmpDir already created above for downloads)
       const outputPath = path.join(tmpDir, "final.mp4");
 
       try {
         // --- AI-generated sound effects for transitions ---
+        await prisma.render.update({
+          where: { id: renderId },
+          data: { step: "generating_sfx" },
+        });
         const sfxPaths: string[] = [];
 
         if (scenesWithClips.length > 1) {
@@ -156,6 +197,11 @@ export class RenderWorker {
           `[render] Composing ${clips.length} clips + voiceover (${voiceover.durationSec.toFixed(1)}s) + ${sfxPaths.filter(Boolean).length} SFX`,
         );
 
+        await prisma.render.update({
+          where: { id: renderId },
+          data: { step: "composing" },
+        });
+
         await this.runFFmpeg({
           clips,
           voiceoverPath,
@@ -164,6 +210,10 @@ export class RenderWorker {
         });
 
         // Read output and upload
+        await prisma.render.update({
+          where: { id: renderId },
+          data: { step: "uploading" },
+        });
         const outputBuffer = fs.readFileSync(outputPath);
         const storage = createStorageProvider();
         const storageKey = `projects/${projectId}/render-${Date.now()}.mp4`;
@@ -179,6 +229,7 @@ export class RenderWorker {
           where: { id: renderId },
           data: {
             status: "complete",
+            step: null,
             videoUrl,
             durationSec,
             costUsd: 0,
@@ -212,7 +263,7 @@ export class RenderWorker {
       await prisma.render
         .update({
           where: { id: renderId },
-          data: { status: "failed", errorMsg },
+          data: { status: "failed", step: null, errorMsg },
         })
         .catch(() => {});
 
@@ -233,12 +284,12 @@ export class RenderWorker {
    * Ask Gemini to describe the ideal short sound effect for each scene transition.
    * Returns an array of concise SFX text prompts for ElevenLabs Sound Generation.
    */
-  private async describeSFX(
-    transitions: SceneTransition[],
-  ): Promise<string[]> {
+  private async describeSFX(transitions: SceneTransition[]): Promise<string[]> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.warn("[render] No GEMINI_API_KEY, using default SFX descriptions");
+      console.warn(
+        "[render] No GEMINI_API_KEY, using default SFX descriptions",
+      );
       return transitions.map(() => "smooth cinematic whoosh transition");
     }
 
@@ -283,7 +334,9 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       );
 
       if (!res.ok) {
-        console.warn(`[render] Gemini SFX description failed (${res.status}), using defaults`);
+        console.warn(
+          `[render] Gemini SFX description failed (${res.status}), using defaults`,
+        );
         return transitions.map(() => "smooth cinematic whoosh transition");
       }
 
@@ -299,7 +352,10 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       }
 
       // Parse JSON array from response (strip markdown fences if present)
-      const cleaned = text.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+      const cleaned = text
+        .replace(/```json\n?/g, "")
+        .replace(/```/g, "")
+        .trim();
       const descriptions = JSON.parse(cleaned) as string[];
 
       // Ensure we have the right number of descriptions
@@ -328,21 +384,18 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       throw new Error("ELEVENLABS_API_KEY is not set");
     }
 
-    const res = await fetch(
-      "https://api.elevenlabs.io/v1/sound-generation",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          text: description,
-          duration_seconds: 1.5,
-          prompt_influence: 0.5,
-        }),
+    const res = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": apiKey,
       },
-    );
+      body: JSON.stringify({
+        text: description,
+        duration_seconds: 1.5,
+        prompt_influence: 0.5,
+      }),
+    });
 
     if (!res.ok) {
       const err = await res.text();
@@ -378,7 +431,7 @@ Example: ["gentle swoosh", "dramatic hit"]`;
    * Build and run the FFmpeg filter graph:
    * - Speed-adjust each clip's video AND audio to match narration duration
    * - Concatenate all clips (video only — audio mixed separately for control)
-   * - Preserve original clip audio (Veo SFX/ambient) at low volume
+   * - Preserve original clip audio (SFX/ambient) at low volume
    * - Mix: clip audio (quiet) + voiceover (full) + transition SFX (medium)
    * - Output H.264 MP4
    */
@@ -413,10 +466,13 @@ Example: ["gentle swoosh", "dramatic hit"]`;
     // --- Filter graph ---
     const filterParts: string[] = [];
 
-    // Speed-adjust video for each clip
+    // Smooth speed-adjust video for each clip to match narration duration
+    // With per-scene Kling durations, ratios are small (e.g. 1.3x) so animation stays smooth
     for (let i = 0; i < clips.length; i++) {
-      const speedFactor =
-        clips[i].targetDurationSec / clips[i].clipDurationSec;
+      const speedFactor = clips[i].targetDurationSec / clips[i].clipDurationSec;
+      console.log(
+        `[render] Clip ${i}: ${clips[i].clipDurationSec.toFixed(1)}s → ${clips[i].targetDurationSec.toFixed(1)}s (${speedFactor.toFixed(2)}x)`,
+      );
       filterParts.push(
         `[${i}:v]setpts=PTS*${speedFactor.toFixed(6)},` +
           `scale=1280:720:force_original_aspect_ratio=decrease,` +
@@ -427,14 +483,11 @@ Example: ["gentle swoosh", "dramatic hit"]`;
 
     // Speed-adjust clip audio (or generate silence for clips without audio)
     for (let i = 0; i < clips.length; i++) {
-      const atempoRate =
-        clips[i].clipDurationSec / clips[i].targetDurationSec;
+      const atempoRate = clips[i].clipDurationSec / clips[i].targetDurationSec;
       if (clips[i].hasAudio) {
         // Speed-adjust and lower volume of original clip audio
         const atempoChain = this.buildAtempoChain(atempoRate);
-        filterParts.push(
-          `[${i}:a]${atempoChain},volume=0.25[ca${i}]`,
-        );
+        filterParts.push(`[${i}:a]${atempoChain},volume=0.25[ca${i}]`);
       } else {
         // No audio stream — generate silence matching target duration
         filterParts.push(
@@ -522,19 +575,21 @@ Example: ["gentle swoosh", "dramatic hit"]`;
     });
 
     const lines = stderr.split("\n").filter(Boolean);
-    console.log(
-      `[render] FFmpeg done — ${lines.slice(-2).join(" | ")}`,
-    );
+    console.log(`[render] FFmpeg done — ${lines.slice(-2).join(" | ")}`);
   }
 
   /** Check if a media file has an audio stream. */
   private async probeHasAudio(filePath: string): Promise<boolean> {
     try {
       const { stdout } = await execFileAsync("ffprobe", [
-        "-v", "quiet",
-        "-select_streams", "a",
-        "-show_entries", "stream=codec_type",
-        "-of", "csv=p=0",
+        "-v",
+        "quiet",
+        "-select_streams",
+        "a",
+        "-show_entries",
+        "stream=codec_type",
+        "-of",
+        "csv=p=0",
         filePath,
       ]);
       return stdout.trim().length > 0;

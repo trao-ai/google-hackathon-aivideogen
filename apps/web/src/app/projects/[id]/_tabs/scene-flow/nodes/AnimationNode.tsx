@@ -11,7 +11,8 @@ function AnimationNodeComponent({ data }: { data: AnimationNodeData }) {
   const { scene, clip, motionNotes } = data;
   const { onGenerateVideo, onEditAnimation, regeneratingIds } = useSceneFlow();
 
-  const isGenerating = regeneratingIds.has(`video-${scene.id}`);
+  const isGenerating = regeneratingIds.has(`video-${scene.id}`) || scene.clipStatus === "generating";
+  const isFailed = scene.clipStatus === "failed";
 
   return (
     <div className="rounded-lg border border-indigo-200 bg-indigo-50 w-[160px] overflow-hidden">
@@ -50,10 +51,26 @@ function AnimationNodeComponent({ data }: { data: AnimationNodeData }) {
               onGenerateVideo(scene.id);
             }}
             disabled={isGenerating}
-            className="w-full aspect-video rounded border-2 border-dashed border-indigo-300 flex flex-col items-center justify-center gap-1 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+            className={`w-full aspect-video rounded border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 ${
+              isFailed
+                ? "border-red-300 bg-red-50 hover:bg-red-100"
+                : "border-indigo-300 hover:bg-indigo-100"
+            }`}
           >
             {isGenerating ? (
-              <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+              <>
+                <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                <span className="text-[10px] text-indigo-500 font-medium">
+                  Generating...
+                </span>
+              </>
+            ) : isFailed ? (
+              <>
+                <Play className="w-5 h-5 text-red-400" />
+                <span className="text-[10px] text-red-600 font-medium">
+                  Failed — Retry
+                </span>
+              </>
             ) : (
               <>
                 <Play className="w-5 h-5 text-indigo-400" />

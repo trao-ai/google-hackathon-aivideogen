@@ -48,10 +48,21 @@ function ImageFrameNodeComponent({ data }: { data: ImageFrameNodeData }) {
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full border-2 border-dashed border-gray-300 rounded m-1">
-            <ImageIcon className="w-6 h-6 text-gray-300" />
-            <span className="text-[10px] text-gray-400 mt-1">
-              No frame yet
-            </span>
+            {scene.frameStatus === "generating" ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                <span className="text-[10px] text-blue-500 mt-1">
+                  Generating...
+                </span>
+              </>
+            ) : (
+              <>
+                <ImageIcon className="w-6 h-6 text-gray-300" />
+                <span className="text-[10px] text-gray-400 mt-1">
+                  No frame yet
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>

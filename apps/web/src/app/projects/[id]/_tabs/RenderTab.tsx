@@ -100,8 +100,7 @@ export function RenderTab({ project, onRefresh }: Props) {
             Composing video...
           </div>
           <p className="text-sm text-gray-500">
-            Generating AI sound effects and combining scene clips with
-            voiceover. This may take a minute or two.
+            Starting render pipeline...
           </p>
         </div>
       )}
@@ -133,7 +132,15 @@ export function RenderTab({ project, onRefresh }: Props) {
           <div className="p-4">
             {render.status === "processing" && (
               <p className="text-sm text-blue-600">
-                Rendering in progress...
+                {render.step === "downloading_clips"
+                  ? "Downloading scene clips from storage..."
+                  : render.step === "generating_sfx"
+                    ? "Generating AI sound effects for transitions..."
+                    : render.step === "composing"
+                      ? "Composing clips with FFmpeg..."
+                      : render.step === "uploading"
+                        ? "Uploading final video..."
+                        : "Rendering in progress..."}
               </p>
             )}
 

@@ -26,6 +26,12 @@ frameRouter.post("/:id/generate-frames", async (req, res, next) => {
       connection: getRedisConnection(),
     });
 
+    // Reset frame status for all scenes before queuing
+    await prisma.scene.updateMany({
+      where: { projectId: project.id },
+      data: { frameStatus: "pending" },
+    });
+
     // Queue one job per scene so the worker receives individual sceneId
     for (const scene of scenes) {
       await queue.add("generate", {

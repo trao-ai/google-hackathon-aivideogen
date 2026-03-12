@@ -105,6 +105,12 @@ sceneRouter.post(
           "Scene needs both start and end frames before generating video.",
         );
 
+      // Reset clip status for this scene
+      await prisma.scene.update({
+        where: { id: req.params.sceneId },
+        data: { clipStatus: "pending" },
+      });
+
       const queue = new Queue("video-generation", {
         connection: getRedisConnection(),
       });
@@ -147,6 +153,12 @@ sceneRouter.post("/:id/generate-videos", async (req, res, next) => {
 
     const queue = new Queue("video-generation", {
       connection: getRedisConnection(),
+    });
+
+    // Reset clip status for all scenes being queued
+    await prisma.scene.updateMany({
+      where: { id: { in: readyScenes.map((s) => s.id) } },
+      data: { clipStatus: "pending" },
     });
 
     for (const scene of readyScenes) {

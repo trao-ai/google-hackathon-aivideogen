@@ -33,7 +33,7 @@ async function enrichMotionDescription(params: {
 
 Given a scene's start frame description, end frame description, and brief motion notes,
 write a DETAILED animation direction (3-5 sentences) describing exactly how the scene
-should animate from start to end over 8 seconds.
+should animate from start to end over the clip duration.
 
 Be specific about:
 - What elements move, scale, fade, or transform
@@ -99,6 +99,12 @@ export class VideoGenerationWorker {
     });
     this.worker.on("failed", (job, err) => {
       console.error(`[video-gen] job ${job?.id} failed:`, err.message);
+      if (job?.data?.sceneId) {
+        prisma.scene.update({
+          where: { id: job.data.sceneId },
+          data: { clipStatus: "failed" },
+        }).catch(() => {});
+      }
     });
   }
 
@@ -113,6 +119,12 @@ export class VideoGenerationWorker {
       include: { frames: true },
     });
     if (!scene) throw new Error(`Scene ${sceneId} not found`);
+
+    // Mark this scene as generating video
+    await prisma.scene.update({
+      where: { id: sceneId },
+      data: { clipStatus: "generating" },
+    });
 
     const startFrame = scene.frames.find((f) => f.frameType === "start");
     const endFrame = scene.frames.find((f) => f.frameType === "end");
@@ -131,6 +143,15 @@ export class VideoGenerationWorker {
 
     const videoProvider = createVideoProvider();
     const storage = createStorageProvider();
+    const videoProviderName = (process.env.VIDEO_PROVIDER ?? "kling").toLowerCase();
+
+    // Calculate the narration duration for this specific scene
+    const narrationDurationSec = scene.narrationEndSec - scene.narrationStartSec;
+    // Pick the best Kling duration (5 or 10) based on narration length
+    const clipDurationSec = narrationDurationSec >= 8 ? 10 : 5;
+    console.log(
+      `[video-gen] Scene narration: ${narrationDurationSec.toFixed(1)}s → requesting ${clipDurationSec}s clip`,
+    );
 
     // Use Gemini to enrich the brief motionNotes into detailed animation direction
     const motionResult = await enrichMotionDescription({
@@ -168,6 +189,7 @@ export class VideoGenerationWorker {
       motionNotes: motionResult.enrichedMotion,
       startFramePrompt: startFrame.prompt,
       endFramePrompt: endFrame.prompt,
+      durationSec: clipDurationSec,
     });
 
     console.log(`[video-gen] Video prompt for scene ${sceneId}:\n${videoPrompt}`);
@@ -176,6 +198,7 @@ export class VideoGenerationWorker {
       prompt: videoPrompt,
       startFrameBase64: startBase64,
       endFrameBase64: endBase64,
+      durationSec: clipDurationSec,
     });
 
     // Upload video to storage
@@ -202,16 +225,28 @@ export class VideoGenerationWorker {
       },
     });
 
-    // Track video generation cost
-    const videoCost = calculateVideoCost("veo-3.1-generate-preview", result.durationSec);
+    // Mark this scene's clip as done
+    await prisma.scene.update({
+      where: { id: sceneId },
+      data: { clipStatus: "done" },
+    });
+
+    // Track video generation cost — use actual provider info
+    const videoVendor =
+      videoProviderName === "kling" ? "kling-fal" : "google-veo";
+    const videoModel =
+      videoProviderName === "kling"
+        ? (process.env.KLING_MODEL_ID ?? "fal-ai/kling-video/v2.6/pro/image-to-video")
+        : "veo-3.1-generate-preview";
+    const videoCost = calculateVideoCost(videoModel, result.durationSec);
     await trackVideoCost({
       projectId,
-      vendor: "google-veo",
-      model: "veo-3.1-generate-preview",
+      vendor: videoVendor,
+      model: videoModel,
       durationSec: result.durationSec,
       totalCostUsd: videoCost,
     });
-    console.log(`[video-gen] Video cost: $${videoCost.toFixed(4)} (${result.durationSec}s)`);
+    console.log(`[video-gen] Video cost: $${videoCost.toFixed(4)} (${result.durationSec}s, ${videoVendor})`);
 
     // Check if all scenes now have clips
     const [totalScenes, scenesWithClips] = await Promise.all([
@@ -259,13 +294,41 @@ export class VideoGenerationWorker {
       }
     }
 
-    // Remote URLs
-    const res = await fetch(imageUrl);
-    if (!res.ok) {
-      throw new Error(`Failed to download frame: ${res.status}`);
+    // S3 URLs — use storage provider download (more reliable than raw fetch)
+    const s3Bucket = process.env.S3_BUCKET;
+    const storagePrefix = process.env.STORAGE_PREFIX;
+    if (s3Bucket && imageUrl.includes(s3Bucket)) {
+      try {
+        const storage = createStorageProvider();
+        // Extract key from URL: https://bucket.endpoint/prefix/key → key
+        const urlPath = new URL(imageUrl).pathname.slice(1); // remove leading /
+        const key = storagePrefix && urlPath.startsWith(storagePrefix + "/")
+          ? urlPath.slice(storagePrefix.length + 1)
+          : urlPath;
+        console.log(`[video-gen] Downloading frame via S3 SDK: ${key}`);
+        const buffer = await storage.download(key);
+        return buffer.toString("base64");
+      } catch (err) {
+        console.warn(`[video-gen] S3 SDK download failed, falling back to fetch: ${(err as Error).message}`);
+      }
     }
-    const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer).toString("base64");
+
+    // Remote URLs with retry
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(imageUrl);
+        if (!res.ok) {
+          throw new Error(`Failed to download frame: ${res.status}`);
+        }
+        const arrayBuffer = await res.arrayBuffer();
+        return Buffer.from(arrayBuffer).toString("base64");
+      } catch (err) {
+        console.warn(`[video-gen] Frame fetch attempt ${attempt + 1}/3 failed: ${(err as Error).message}`);
+        if (attempt === 2) throw err;
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+      }
+    }
+    throw new Error(`Failed to download frame after 3 attempts: ${imageUrl}`);
   }
 
   async close(): Promise<void> {

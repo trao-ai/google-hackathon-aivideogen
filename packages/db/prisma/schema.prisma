@@ -184,6 +184,8 @@ model Scene {
   continuityNotes   String?
   consistencyScore  Float?
   estimatedCostUsd  Float?
+  frameStatus       String       @default("pending")
+  clipStatus        String       @default("pending")
   createdAt         DateTime     @default(now())
 
   project           Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -234,6 +236,7 @@ model Render {
   durationSec Float?
   costUsd     Float    @default(0)
   status      String   @default("pending")
+  step        String?
   errorMsg    String?
   createdAt   DateTime @default(now())
 

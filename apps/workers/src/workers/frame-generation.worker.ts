@@ -21,6 +21,12 @@ export class FrameGenerationWorker {
     });
     this.worker.on("failed", (job, err) => {
       console.error(`[frame-gen] job ${job?.id} failed:`, err.message);
+      if (job?.data?.sceneId) {
+        prisma.scene.update({
+          where: { id: job.data.sceneId },
+          data: { frameStatus: "failed" },
+        }).catch(() => {});
+      }
     });
   }
 
@@ -51,6 +57,12 @@ export class FrameGenerationWorker {
 
     if (!scene) throw new Error(`Scene ${sceneId} not found`);
     if (!project) throw new Error(`Project ${projectId} not found`);
+
+    // Mark this scene as generating frames
+    await prisma.scene.update({
+      where: { id: sceneId },
+      data: { frameStatus: "generating" },
+    });
 
     // Auto-assign default style bible if project doesn't have one
     if (!project.styleBible) {
@@ -234,6 +246,12 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
           costUsd: endResult.costUsd,
         },
       ],
+    });
+
+    // Mark this scene's frames as done
+    await prisma.scene.update({
+      where: { id: sceneId },
+      data: { frameStatus: "done" },
     });
 
     // Check if all scenes in the project now have frames

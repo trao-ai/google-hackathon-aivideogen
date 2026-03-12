@@ -1,14 +1,10 @@
 import { Router } from "express";
 import { prisma, trackTTSCost } from "@atlas/db";
 import { calculateTTSCost } from "@atlas/shared";
+import { createStorageProvider } from "@atlas/integrations";
 import { ApiError } from "../middleware/error-handler";
-import * as fs from "fs";
-import * as path from "path";
 
 export const voiceRouter = Router();
-
-const AUDIO_DIR = path.join(process.cwd(), "public", "audio");
-fs.mkdirSync(AUDIO_DIR, { recursive: true });
 
 // Adam — deep, authoritative, highly expressive narrator. Override via ELEVENLABS_VOICE_ID env var.
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID ?? "pNInz6obpgDQGcFmaJgB";
@@ -26,11 +22,13 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
     });
     if (!script) throw new ApiError(404, `Script ${project.selectedScriptId} not found`);
 
+    const storage = createStorageProvider();
+
     // Delete any existing voiceovers + audio files so we always start fresh
     const existing = await prisma.voiceover.findMany({ where: { projectId: project.id } });
     for (const vo of existing) {
-      const audioFile = path.join(AUDIO_DIR, path.basename(vo.audioUrl));
-      if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
+      const audioKey = `projects/${project.id}/voiceover.mp3`;
+      try { await storage.delete(audioKey); } catch { /* file may not exist */ }
     }
     await prisma.voiceover.deleteMany({ where: { projectId: project.id } });
 
@@ -71,9 +69,10 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
     }
 
     const audioBuffer = Buffer.from(await ttsRes.arrayBuffer());
-    const filename = `${project.id}.mp3`;
-    const filePath = path.join(AUDIO_DIR, filename);
-    fs.writeFileSync(filePath, audioBuffer);
+
+    // Upload to cloud storage
+    const audioKey = `projects/${project.id}/voiceover.mp3`;
+    const audioUrl = await storage.upload(audioKey, audioBuffer, "audio/mpeg");
 
     const wordCount = fullText.split(/\s+/).length;
     const durationSec = Math.round((wordCount / 148) * 60);
@@ -97,8 +96,6 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
       characterCount: fullText.length,
       totalCostUsd: costUsd,
     });
-
-    const audioUrl = `/api/audio/${filename}`;
 
     const voiceover = await prisma.voiceover.create({
       data: {
@@ -139,9 +136,9 @@ voiceRouter.delete("/:projectId/voiceovers/:voiceoverId", async (req, res, next)
     const voiceover = await prisma.voiceover.findUnique({ where: { id: voiceoverId } });
     if (!voiceover) throw new ApiError(404, "Voiceover not found");
 
-    // Delete audio file from disk
-    const audioFile = path.join(AUDIO_DIR, path.basename(voiceover.audioUrl));
-    if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
+    // Delete audio file from storage
+    const audioKey = `projects/${projectId}/voiceover.mp3`;
+    try { await createStorageProvider().delete(audioKey); } catch { /* may not exist */ }
 
     await prisma.voiceover.delete({ where: { id: voiceoverId } });
 

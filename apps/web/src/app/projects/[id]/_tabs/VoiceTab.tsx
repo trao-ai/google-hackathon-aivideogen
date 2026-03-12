@@ -94,7 +94,7 @@ export function VoiceTab({ project, onRefresh }: Props) {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <audio controls className="w-full" src={`${API}${latestVoiceover.audioUrl}`}>
+            <audio controls className="w-full" src={latestVoiceover.audioUrl.startsWith("http") ? latestVoiceover.audioUrl : `${API}${latestVoiceover.audioUrl}`}>
               Your browser does not support audio.
             </audio>
             <p className="text-xs text-gray-500">

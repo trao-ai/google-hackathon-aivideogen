@@ -21,11 +21,16 @@ interface ClipInfo {
   hasAudio: boolean;
 }
 
-interface SceneTransition {
-  fromPurpose: string;
-  fromSceneType: string;
-  toPurpose: string;
-  toSceneType: string;
+interface SceneAudioInfo {
+  purpose: string;
+  sceneType: string;
+  motionNotes: string;
+  durationSec: number;
+}
+
+interface AudioDesign {
+  ambient: string;
+  transition: string | null;
 }
 
 export class RenderWorker {
@@ -172,51 +177,76 @@ export class RenderWorker {
       const outputPath = path.join(tmpDir, "final.mp4");
 
       try {
-        // --- AI-generated sound effects for transitions ---
+        // --- AI-generated audio design (ambient + transition SFX) ---
         await prisma.render.update({
           where: { id: renderId },
           data: { step: "generating_sfx" },
         });
-        const sfxPaths: string[] = [];
 
-        if (scenesWithClips.length > 1) {
-          const transitions: SceneTransition[] = [];
-          for (let i = 0; i < scenesWithClips.length - 1; i++) {
-            transitions.push({
-              fromPurpose: scenesWithClips[i].purpose,
-              fromSceneType: scenesWithClips[i].sceneType,
-              toPurpose: scenesWithClips[i + 1].purpose,
-              toSceneType: scenesWithClips[i + 1].sceneType,
-            });
+        const sceneAudioInfos: SceneAudioInfo[] = scenesWithClips.map((s) => ({
+          purpose: s.purpose,
+          sceneType: s.sceneType,
+          motionNotes: s.motionNotes,
+          durationSec: s.narrationEndSec - s.narrationStartSec,
+        }));
+
+        const audioDesigns = await this.describeAudioDesign(sceneAudioInfos);
+        console.log(
+          `[render] Audio design: ${audioDesigns.length} scenes, ${audioDesigns.filter((d) => d.transition).length} transitions`,
+        );
+
+        // Generate ambient sounds (one per scene) and transition SFX
+        const ambientPaths: string[] = [];
+        const transitionSfxPaths: string[] = [];
+
+        for (let i = 0; i < audioDesigns.length; i++) {
+          const design = audioDesigns[i];
+          const sceneDur = sceneAudioInfos[i].durationSec;
+
+          // Ambient sound for this scene
+          const ambientPath = path.join(tmpDir, `ambient-${i}.mp3`);
+          try {
+            await this.generateSFX(
+              design.ambient,
+              ambientPath,
+              Math.min(sceneDur, 10),
+              0.3, // subtle prompt influence
+            );
+            ambientPaths.push(ambientPath);
+            console.log(
+              `[render] Ambient ${i}: "${design.ambient.slice(0, 50)}" (${Math.min(sceneDur, 10).toFixed(1)}s)`,
+            );
+          } catch (err) {
+            console.warn(
+              `[render] Ambient ${i} failed, skipping: ${(err as Error).message}`,
+            );
+            ambientPaths.push("");
           }
 
-          // Use Gemini to describe ideal SFX for each transition
-          const sfxDescriptions = await this.describeSFX(transitions);
-          console.log(
-            `[render] AI suggested ${sfxDescriptions.length} SFX descriptions`,
-          );
-
-          // Generate each SFX via ElevenLabs Sound Generation
-          for (let i = 0; i < sfxDescriptions.length; i++) {
-            const sfxPath = path.join(tmpDir, `sfx-${i}.mp3`);
+          // Transition SFX (only if Gemini recommended one and not last scene)
+          if (design.transition && i < audioDesigns.length - 1) {
+            const transPath = path.join(tmpDir, `transition-${i}.mp3`);
             try {
-              await this.generateSFX(sfxDescriptions[i], sfxPath);
-              sfxPaths.push(sfxPath);
+              await this.generateSFX(design.transition, transPath, 1.5, 0.5);
+              transitionSfxPaths.push(transPath);
               console.log(
-                `[render] SFX ${i + 1}/${sfxDescriptions.length}: "${sfxDescriptions[i].slice(0, 60)}"`,
+                `[render] Transition ${i}: "${design.transition.slice(0, 50)}"`,
               );
             } catch (err) {
               console.warn(
-                `[render] SFX generation failed for transition ${i}, skipping:`,
-                (err as Error).message,
+                `[render] Transition ${i} failed, skipping: ${(err as Error).message}`,
               );
-              sfxPaths.push(""); // empty = skip this transition
+              transitionSfxPaths.push("");
             }
+          } else {
+            transitionSfxPaths.push(""); // clean cut — no transition SFX
           }
         }
 
+        const ambientCount = ambientPaths.filter(Boolean).length;
+        const transCount = transitionSfxPaths.filter(Boolean).length;
         console.log(
-          `[render] Composing ${clips.length} clips + voiceover (${voiceover.durationSec.toFixed(1)}s) + ${sfxPaths.filter(Boolean).length} SFX`,
+          `[render] Composing ${clips.length} clips + voiceover (${voiceover.durationSec.toFixed(1)}s) + ${ambientCount} ambient + ${transCount} transitions`,
         );
 
         await prisma.render.update({
@@ -229,18 +259,52 @@ export class RenderWorker {
           s.transitionPlan as { durationSec?: number; ffmpegTransition?: string } | null,
         );
 
-        // Trim voiceover to only cover the narration span of available clips
+        // Determine the voiceover time range from the scenes being rendered
         const voTrimStartSec = scenesWithClips[0].narrationStartSec;
         const voTrimEndSec = scenesWithClips[scenesWithClips.length - 1].narrationEndSec;
+
+        // Find ALL voiceover segments that overlap with the scene time range
+        const allSegments = (voiceover.segments as Array<{
+          sectionId?: string;
+          text: string;
+          startSec: number;
+          endSec: number;
+          words?: Array<{ word: string; start: number; end: number }>;
+        }>) ?? [];
+
+        const relevantSegments = allSegments.filter(
+          (seg) => seg.endSec > voTrimStartSec && seg.startSec < voTrimEndSec,
+        );
+
+        const hasWordTimestamps = relevantSegments.some((s) => s.words && s.words.length > 0);
+        console.log(
+          `[render] Voiceover trim: ${voTrimStartSec.toFixed(1)}-${voTrimEndSec.toFixed(1)}s ` +
+          `(${relevantSegments.length}/${allSegments.length} segments, word timestamps: ${hasWordTimestamps})`,
+        );
+
+        // Generate subtitles from voiceover segments
+        let subtitlePath: string | undefined;
+        if (relevantSegments.length > 0) {
+          subtitlePath = this.generateSubtitleFile({
+            segments: relevantSegments,
+            voTrimStartSec,
+            voTrimEndSec,
+            outputPath: path.join(tmpDir, "subtitles.ass"),
+          });
+        } else {
+          console.warn("[render] No matching voiceover segments found, skipping subtitles");
+        }
 
         await this.runFFmpeg({
           clips,
           voiceoverPath,
-          sfxPaths,
+          ambientPaths,
+          transitionSfxPaths,
           outputPath,
           transitionPlans,
           voTrimStartSec,
           voTrimEndSec,
+          subtitlePath,
         });
 
         // Read output and upload
@@ -259,6 +323,15 @@ export class RenderWorker {
 
         const durationSec = await this.probeDuration(outputPath);
 
+        // Upload subtitle file if generated
+        let subtitleUrl: string | undefined;
+        if (subtitlePath && fs.existsSync(subtitlePath)) {
+          const subBuffer = fs.readFileSync(subtitlePath);
+          const subKey = `projects/${projectId}/subtitles-${Date.now()}.ass`;
+          subtitleUrl = await storage.upload(subKey, subBuffer, "text/plain");
+          console.log(`[render] Subtitles uploaded → ${subKey}`);
+        }
+
         await prisma.render.update({
           where: { id: renderId },
           data: {
@@ -267,6 +340,7 @@ export class RenderWorker {
             videoUrl,
             durationSec,
             costUsd: 0,
+            ...(subtitleUrl ? { subtitleUrl } : {}),
           },
         });
 
@@ -312,95 +386,104 @@ export class RenderWorker {
     }
   }
 
-  // ─── AI SFX description via Gemini ──────────────────────────────────────────
+  // ─── AI Audio Design via OpenAI ─────────────────────────────────────────────
 
   /**
-   * Ask Gemini to describe the ideal short sound effect for each scene transition.
-   * Returns an array of concise SFX text prompts for ElevenLabs Sound Generation.
+   * Ask OpenAI to design ambient sounds per scene + transition SFX where natural.
+   * Returns one AudioDesign per scene with ambient description and optional transition.
    */
-  private async describeSFX(transitions: SceneTransition[]): Promise<string[]> {
-    const apiKey = process.env.GEMINI_API_KEY;
+  private async describeAudioDesign(scenes: SceneAudioInfo[]): Promise<AudioDesign[]> {
+    const defaultDesigns: AudioDesign[] = scenes.map((s) => ({
+      ambient: this.defaultAmbientForType(s.sceneType),
+      transition: null,
+    }));
+
+    const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.warn(
-        "[render] No GEMINI_API_KEY, using default SFX descriptions",
-      );
-      return transitions.map(() => "smooth cinematic whoosh transition");
+      console.warn("[render] No OPENAI_API_KEY, using default audio designs");
+      return defaultDesigns;
     }
 
-    const transitionList = transitions
+    const sceneList = scenes
       .map(
-        (t, i) =>
-          `${i + 1}. FROM "${t.fromPurpose}" (${t.fromSceneType}) → TO "${t.toPurpose}" (${t.toSceneType})`,
+        (s, i) =>
+          `${i + 1}. Purpose: "${s.purpose}" | Type: ${s.sceneType} | Duration: ${s.durationSec.toFixed(1)}s | Motion: "${s.motionNotes.slice(0, 100)}"`,
       )
       .join("\n");
 
-    const prompt = `You are a sound designer for an educational explainer video.
+    const prompt = `You are a sound designer for a Kurzgesagt-style educational explainer video.
 
-For each scene transition below, write a SHORT (5-10 word) description of the ideal transition sound effect.
-The description will be fed to an AI sound generator, so be specific about the sound.
+For each scene, suggest:
+1. "ambient" — a subtle background sound/texture matching the scene content (5-10 words). These play softly under narration.
+   Examples: "soft humming laboratory equipment", "gentle wind through open field", "quiet digital data processing beeps", "warm cozy fireplace crackling"
+2. "transition" — a short transition SFX to the NEXT scene, OR null if a clean cut sounds better.
+   Only add transition SFX where it enhances the flow. Not every cut needs a whoosh. Use null for most cuts.
+   Examples: "gentle swoosh with soft chime", "quick digital glitch transition", null
 
-Examples of good descriptions:
-- "gentle swoosh with soft chime"
-- "dramatic bass drop with reverb"
-- "quick digital glitch transition"
-- "soft wind whoosh fading out"
-- "energetic pop with sparkle effect"
+Scene list:
+${sceneList}
 
-Scene transitions:
-${transitionList}
+Respond with ONLY a JSON array. No markdown, no explanation.
+Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"nature wind","transition":null}]`;
 
-Respond with ONLY a JSON array of strings, one per transition. No markdown, no explanation.
-Example: ["gentle swoosh", "dramatic hit"]`;
-
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.0-flash";
+    const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 500 },
-          }),
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
         },
-      );
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 1000,
+          temperature: 0.7,
+        }),
+      });
 
       if (!res.ok) {
-        console.warn(
-          `[render] Gemini SFX description failed (${res.status}), using defaults`,
-        );
-        return transitions.map(() => "smooth cinematic whoosh transition");
+        console.warn(`[render] OpenAI audio design failed (${res.status}), using defaults`);
+        return defaultDesigns;
       }
 
       const data = (await res.json()) as {
-        candidates?: Array<{
-          content?: { parts?: Array<{ text?: string }> };
-        }>;
+        choices?: Array<{ message?: { content?: string } }>;
       };
 
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (!text) {
-        return transitions.map(() => "smooth cinematic whoosh transition");
-      }
+      const text = data.choices?.[0]?.message?.content?.trim();
+      if (!text) return defaultDesigns;
 
-      // Parse JSON array from response (strip markdown fences if present)
-      const cleaned = text
-        .replace(/```json\n?/g, "")
-        .replace(/```/g, "")
-        .trim();
-      const descriptions = JSON.parse(cleaned) as string[];
+      const cleaned = text.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+      const designs = JSON.parse(cleaned) as AudioDesign[];
 
-      // Ensure we have the right number of descriptions
-      while (descriptions.length < transitions.length) {
-        descriptions.push("smooth cinematic whoosh transition");
+      // Pad with defaults if model returned fewer
+      while (designs.length < scenes.length) {
+        designs.push(defaultDesigns[designs.length]);
       }
-      return descriptions.slice(0, transitions.length);
+      console.log(`[render] OpenAI audio design: ${designs.length} scenes designed`);
+      return designs.slice(0, scenes.length);
     } catch (err) {
-      console.warn("[render] Gemini SFX error:", (err as Error).message);
-      return transitions.map(() => "smooth cinematic whoosh transition");
+      console.warn("[render] OpenAI audio design error:", (err as Error).message);
+      return defaultDesigns;
     }
+  }
+
+  /** Sensible default ambient sound per scene type when Gemini is unavailable. */
+  private defaultAmbientForType(sceneType: string): string {
+    const defaults: Record<string, string> = {
+      character_explanation: "soft warm room tone ambience",
+      map_scene: "gentle wind atmospheric background",
+      infographic: "subtle digital interface soft beeps",
+      comparison: "quiet neutral room tone hum",
+      metaphor: "ethereal ambient pad texture",
+      timeline: "soft ticking clock mechanism",
+      reaction: "warm emotional ambient tone",
+      dramatic_reveal: "building tension low frequency hum",
+      cta: "uplifting bright ambient sparkle",
+    };
+    return defaults[sceneType] ?? "soft neutral ambient background tone";
   }
 
   // ─── ElevenLabs Sound Generation ────────────────────────────────────────────
@@ -412,6 +495,8 @@ Example: ["gentle swoosh", "dramatic hit"]`;
   private async generateSFX(
     description: string,
     outputPath: string,
+    durationSeconds = 1.5,
+    promptInfluence = 0.5,
   ): Promise<void> {
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey) {
@@ -426,8 +511,8 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       },
       body: JSON.stringify({
         text: description,
-        duration_seconds: 1.5,
-        prompt_influence: 0.5,
+        duration_seconds: durationSeconds,
+        prompt_influence: promptInfluence,
       }),
     });
 
@@ -467,23 +552,23 @@ Example: ["gentle swoosh", "dramatic hit"]`;
   /**
    * Build and run the FFmpeg filter graph:
    * - Speed-adjust each clip's video AND audio to match narration duration
-   *   (capped at MAX_SLOWDOWN to avoid jittery slow-motion)
-   * - If more time is needed, freeze the last frame (tpad stop_mode=clone)
-   * - Concatenate all clips (video only — audio mixed separately for control)
-   * - Preserve original clip audio (SFX/ambient) at low volume
-   * - Mix: clip audio (quiet) + voiceover (full) + transition SFX (medium)
+   * - Concatenate clips with xfade transitions
+   * - Burn in ASS subtitles if provided
+   * - Sidechain-compress clip audio + SFX against voiceover (auto-ducking)
    * - Output H.264 MP4
    */
   private async runFFmpeg(params: {
     clips: ClipInfo[];
     voiceoverPath: string;
-    sfxPaths: string[]; // one per transition (clips.length - 1), empty string = skip
+    ambientPaths: string[];
+    transitionSfxPaths: string[];
     outputPath: string;
     transitionPlans?: Array<{ durationSec?: number; ffmpegTransition?: string } | null>;
     voTrimStartSec: number;
     voTrimEndSec: number;
+    subtitlePath?: string;
   }): Promise<void> {
-    const { clips, voiceoverPath, sfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec } = params;
+    const { clips, voiceoverPath, ambientPaths, transitionSfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec, subtitlePath } = params;
     const args: string[] = [];
 
     // --- Inputs ---
@@ -495,13 +580,24 @@ Example: ["gentle swoosh", "dramatic hit"]`;
     const voiceoverIdx = clips.length;
     args.push("-i", voiceoverPath);
 
-    // SFX inputs: indices N+1, N+2, ... (only non-empty paths)
-    const sfxInputMap: Array<{ inputIdx: number; transitionIdx: number }> = [];
-    for (let i = 0; i < sfxPaths.length; i++) {
-      if (sfxPaths[i]) {
-        const inputIdx = clips.length + 1 + sfxInputMap.length;
-        args.push("-i", sfxPaths[i]);
-        sfxInputMap.push({ inputIdx, transitionIdx: i });
+    // Ambient inputs: indices N+1, N+2, ... (only non-empty paths)
+    let nextInputIdx = clips.length + 1;
+    const ambientInputMap: Array<{ inputIdx: number; sceneIdx: number }> = [];
+    for (let i = 0; i < ambientPaths.length; i++) {
+      if (ambientPaths[i]) {
+        args.push("-i", ambientPaths[i]);
+        ambientInputMap.push({ inputIdx: nextInputIdx, sceneIdx: i });
+        nextInputIdx++;
+      }
+    }
+
+    // Transition SFX inputs: after ambient inputs (only non-empty paths)
+    const transitionInputMap: Array<{ inputIdx: number; transitionIdx: number }> = [];
+    for (let i = 0; i < transitionSfxPaths.length; i++) {
+      if (transitionSfxPaths[i]) {
+        args.push("-i", transitionSfxPaths[i]);
+        transitionInputMap.push({ inputIdx: nextInputIdx, transitionIdx: i });
+        nextInputIdx++;
       }
     }
 
@@ -599,48 +695,81 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       }
     }
 
-    // Concatenate clip audio streams separately
+    // ─── Subtitle burn-in ───────────────────────────────────────────────────
+    // If subtitle file is provided, burn it into the video via ASS filter
+    if (subtitlePath) {
+      const escapedPath = subtitlePath.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "'\\''");
+      filterParts.push(`[vout]ass='${escapedPath}'[vfinal]`);
+    } else {
+      filterParts.push(`[vout]copy[vfinal]`);
+    }
+
+    // ─── Audio: concatenate clip audio ────────────────────────────────────
     const concatAudioInputs = clips.map((_, i) => `[ca${i}]`).join("");
     filterParts.push(
       `${concatAudioInputs}concat=n=${clips.length}:v=0:a=1[clipaudio]`,
     );
 
-    // Trim voiceover to only cover the narration span of available clips
+    // Set clip audio base volume (higher than before — ducking handles conflicts)
+    filterParts.push(`[clipaudio]volume=0.35[clipaudio_vol]`);
+
+    // ─── Audio: trim voiceover + split for ducking ────────────────────────
+    // Split voiceover into two copies: one for sidechain ducking, one for final mix
     filterParts.push(
-      `[${voiceoverIdx}:a]atrim=start=${voTrimStartSec.toFixed(3)}:end=${voTrimEndSec.toFixed(3)},asetpts=PTS-STARTPTS[vo_trimmed]`,
+      `[${voiceoverIdx}:a]atrim=start=${voTrimStartSec.toFixed(3)}:end=${voTrimEndSec.toFixed(3)},asetpts=PTS-STARTPTS,asplit=2[vo_for_duck][vo_for_mix]`,
     );
 
-    // Build final audio mix: clip audio + trimmed voiceover + transition SFX
-    const audioInputLabels: string[] = ["[vo_trimmed]", "[clipaudio]"];
-    let mixCount = 2;
-
-    if (sfxInputMap.length > 0) {
-      // Calculate cumulative timestamps for each transition
-      const transitionTimestamps: number[] = [];
-      let cursor = 0;
-      for (let i = 0; i < clips.length - 1; i++) {
-        cursor += clips[i].targetDurationSec;
-        transitionTimestamps.push(cursor);
-      }
-
-      // Create delayed SFX for each transition
-      for (let i = 0; i < sfxInputMap.length; i++) {
-        const { inputIdx, transitionIdx } = sfxInputMap[i];
-        const timestamp = transitionTimestamps[transitionIdx];
-        const delayMs = Math.max(0, Math.round((timestamp - 0.5) * 1000));
-        filterParts.push(
-          `[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=0.5[sfx${i}]`,
-        );
-        audioInputLabels.push(`[sfx${i}]`);
-        mixCount++;
-      }
+    // ─── Audio: ambient sounds with delay (one per scene) ─────────────────
+    // Calculate scene start timestamps for positioning ambient + transition audio
+    const sceneStartTimestamps: number[] = [];
+    let sceneCursor = 0;
+    for (let i = 0; i < clips.length; i++) {
+      sceneStartTimestamps.push(sceneCursor);
+      sceneCursor += clips[i].targetDurationSec;
     }
 
-    // amix: duration=first → voiceover (first input) controls total length
-    // normalize=0 keeps each input at its set volume
-    const allAudioLabels = audioInputLabels.join("");
+    const bedLabels: string[] = ["[clipaudio_vol]"];
+
+    for (let i = 0; i < ambientInputMap.length; i++) {
+      const { inputIdx, sceneIdx } = ambientInputMap[i];
+      const delayMs = Math.max(0, Math.round(sceneStartTimestamps[sceneIdx] * 1000));
+      filterParts.push(
+        `[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=0.25[amb${i}]`,
+      );
+      bedLabels.push(`[amb${i}]`);
+    }
+
+    // ─── Audio: transition SFX with delay ──────────────────────────────────
+    // Transition SFX fire at the boundary between scenes (scene end - 0.5s)
+    for (let i = 0; i < transitionInputMap.length; i++) {
+      const { inputIdx, transitionIdx } = transitionInputMap[i];
+      const transitionTime = sceneStartTimestamps[transitionIdx] + clips[transitionIdx].targetDurationSec;
+      const delayMs = Math.max(0, Math.round((transitionTime - 0.5) * 1000));
+      filterParts.push(
+        `[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=0.6[tsfx${i}]`,
+      );
+      bedLabels.push(`[tsfx${i}]`);
+    }
+
+    // ─── Audio: merge all bed streams (clip audio + ambient + transition SFX) ──
+    if (bedLabels.length > 1) {
+      filterParts.push(
+        `${bedLabels.join("")}amix=inputs=${bedLabels.length}:duration=longest:dropout_transition=0:normalize=0[bed_raw]`,
+      );
+    } else {
+      filterParts.push(`[clipaudio_vol]acopy[bed_raw]`);
+    }
+
+    // ─── Audio: sidechain compress bed against voiceover (auto-ducking) ───
+    // When narrator speaks, bed audio (SFX + clip audio) ducks ~12dB
+    // Attack 200ms (smooth duck-in), Release 1000ms (rises back over 1s)
     filterParts.push(
-      `${allAudioLabels}amix=inputs=${mixCount}:duration=first:dropout_transition=0:normalize=0[aout]`,
+      `[bed_raw][vo_for_duck]sidechaincompress=level_in=1:threshold=0.02:ratio=4:attack=200:release=1000:makeup=1:knee=2.83[bed_ducked]`,
+    );
+
+    // ─── Audio: final mix (voiceover + ducked bed) ────────────────────────
+    filterParts.push(
+      `[vo_for_mix][bed_ducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`,
     );
 
     const filterComplex = filterParts.join(";\n");
@@ -649,7 +778,7 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       "-filter_complex",
       filterComplex,
       "-map",
-      "[vout]",
+      "[vfinal]",
       "-map",
       "[aout]",
       "-c:v",
@@ -719,6 +848,135 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       console.warn("[render] ffprobe failed, returning 0 duration");
       return 0;
     }
+  }
+
+  // ─── Subtitle generation ──────────────────────────────────────────────────
+
+  private formatASSTime(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}:${String(m).padStart(2, "0")}:${s.toFixed(2).padStart(5, "0")}`;
+  }
+
+  /**
+   * Split segment text into small word groups (2-3 words) for progressive
+   * subtitle display — words appear in sync with narration like modern YouTube.
+   * Uses real word timestamps from ElevenLabs alignment when available.
+   */
+  private splitIntoSubtitleLines(
+    text: string,
+    startSec: number,
+    endSec: number,
+    wordTimestamps?: Array<{ word: string; start: number; end: number }>,
+  ): Array<{ text: string; start: number; end: number }> {
+    // If we have real word timestamps, use them for accurate timing
+    if (wordTimestamps && wordTimestamps.length > 0) {
+      const CHUNK_SIZE = wordTimestamps.length <= 6 ? 2 : 3;
+      const lines: Array<{ text: string; start: number; end: number }> = [];
+      let idx = 0;
+
+      while (idx < wordTimestamps.length) {
+        const remaining = wordTimestamps.length - idx;
+        const take = remaining <= CHUNK_SIZE + 1 ? remaining : CHUNK_SIZE;
+        const chunk = wordTimestamps.slice(idx, idx + take);
+        lines.push({
+          text: chunk.map((w) => w.word).join(" "),
+          start: chunk[0].start,
+          end: chunk[chunk.length - 1].end,
+        });
+        idx += take;
+      }
+      return lines;
+    }
+
+    // Fallback: proportional distribution for old voiceovers without word timestamps
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [];
+
+    const totalDur = endSec - startSec;
+    const secPerWord = totalDur / words.length;
+
+    const CHUNK_SIZE = words.length <= 6 ? 2 : 3;
+    const lines: Array<{ text: string; start: number; end: number }> = [];
+    let wordIdx = 0;
+
+    while (wordIdx < words.length) {
+      const remaining = words.length - wordIdx;
+      const take = remaining <= CHUNK_SIZE + 1 ? remaining : CHUNK_SIZE;
+      const chunk = words.slice(wordIdx, wordIdx + take).join(" ");
+      const start = startSec + wordIdx * secPerWord;
+      const end = startSec + (wordIdx + take) * secPerWord;
+      lines.push({ text: chunk, start, end });
+      wordIdx += take;
+    }
+
+    return lines;
+  }
+
+  private generateSubtitleFile(params: {
+    segments: Array<{
+      text: string;
+      startSec: number;
+      endSec: number;
+      words?: Array<{ word: string; start: number; end: number }>;
+    }>;
+    voTrimStartSec: number;
+    voTrimEndSec: number;
+    outputPath: string;
+  }): string {
+    const { segments, voTrimStartSec, voTrimEndSec, outputPath } = params;
+    const trimDuration = voTrimEndSec - voTrimStartSec;
+
+    const header = `[Script Info]
+Title: Atlas Subtitles
+ScriptType: v4.00+
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: None
+PlayResX: 1280
+PlayResY: 720
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,42,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,3,2,0,2,40,40,50,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+
+    const dialogues: string[] = [];
+    console.log(`[render] Subtitle: ${segments.length} segments, trim=${voTrimStartSec.toFixed(1)}-${voTrimEndSec.toFixed(1)}s (dur=${trimDuration.toFixed(1)}s)`);
+
+    for (const segment of segments) {
+      console.log(`[render]   Segment: ${segment.startSec.toFixed(1)}-${segment.endSec.toFixed(1)}s "${segment.text.slice(0, 60)}..."`);
+      const lines = this.splitIntoSubtitleLines(
+        segment.text,
+        segment.startSec,
+        segment.endSec,
+        segment.words,
+      );
+
+      for (const line of lines) {
+        // Adjust for voiceover trim offset
+        const adjStart = line.start - voTrimStartSec;
+        const adjEnd = line.end - voTrimStartSec;
+
+        // Skip lines outside the trim range
+        if (adjEnd <= 0 || adjStart >= trimDuration) continue;
+
+        const clampedStart = Math.max(0, adjStart);
+        const clampedEnd = Math.min(trimDuration, adjEnd);
+
+        dialogues.push(
+          `Dialogue: 0,${this.formatASSTime(clampedStart)},${this.formatASSTime(clampedEnd)},Default,,0,0,0,,${line.text}`,
+        );
+      }
+    }
+
+    fs.writeFileSync(outputPath, header + dialogues.join("\n") + "\n");
+    console.log(`[render] Generated ${dialogues.length} subtitle lines → ${outputPath}`);
+    return outputPath;
   }
 
   async close(): Promise<void> {

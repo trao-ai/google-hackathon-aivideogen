@@ -45,7 +45,8 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
 
     if (!ELEVENLABS_KEY) throw new ApiError(500, "ELEVENLABS_API_KEY not configured");
 
-    const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+    // Use /with-timestamps endpoint to get character-level alignment for accurate subtitles
+    const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/with-timestamps`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -55,9 +56,9 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
         text: fullText,
         model_id: "eleven_multilingual_v2",
         voice_settings: {
-          stability: 0.22,        // low = high variation / expressive delivery
-          similarity_boost: 0.70, // allows more dynamic range
-          style: 0.68,            // high exaggeration = dramatic, excited reads
+          stability: 0.22,
+          similarity_boost: 0.70,
+          style: 0.68,
           use_speaker_boost: true,
         },
       }),
@@ -68,25 +69,82 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
       throw new Error(`ElevenLabs error ${ttsRes.status}: ${err.slice(0, 300)}`);
     }
 
-    const audioBuffer = Buffer.from(await ttsRes.arrayBuffer());
+    // Response is JSON with audio_base64 + alignment data
+    const ttsData = await ttsRes.json() as {
+      audio_base64: string;
+      alignment: {
+        characters: string[];
+        character_start_times_seconds: number[];
+        character_end_times_seconds: number[];
+      };
+    };
+
+    const audioBuffer = Buffer.from(ttsData.audio_base64, "base64");
 
     // Upload to cloud storage
     const audioKey = `projects/${project.id}/voiceover.mp3`;
     const audioUrl = await storage.upload(audioKey, audioBuffer, "audio/mpeg");
 
-    const wordCount = fullText.split(/\s+/).length;
-    const durationSec = Math.round((wordCount / 148) * 60);
-    const costUsd = calculateTTSCost("eleven_multilingual_v2", fullText.length);
+    // Parse word-level timestamps from character alignment
+    const { characters, character_start_times_seconds, character_end_times_seconds } = ttsData.alignment;
+    const allWords: Array<{ word: string; start: number; end: number }> = [];
+    let currentWord = "";
+    let wordStart = 0;
 
-    // Build section timestamps
-    let cursor = 0;
+    for (let i = 0; i < characters.length; i++) {
+      const ch = characters[i];
+      if (ch === " " || ch === "\n") {
+        if (currentWord) {
+          allWords.push({
+            word: currentWord,
+            start: parseFloat(wordStart.toFixed(3)),
+            end: parseFloat(character_end_times_seconds[i - 1].toFixed(3)),
+          });
+          currentWord = "";
+        }
+      } else {
+        if (!currentWord) wordStart = character_start_times_seconds[i];
+        currentWord += ch;
+      }
+    }
+    // Push last word
+    if (currentWord) {
+      allWords.push({
+        word: currentWord,
+        start: parseFloat(wordStart.toFixed(3)),
+        end: parseFloat(character_end_times_seconds[characters.length - 1].toFixed(3)),
+      });
+    }
+
+    // Real duration from alignment (last character's end time)
+    const durationSec = allWords.length > 0
+      ? parseFloat(allWords[allWords.length - 1].end.toFixed(2))
+      : 0;
+    const costUsd = calculateTTSCost("eleven_multilingual_v2", fullText.length);
+    console.log(`[voice] Alignment: ${allWords.length} words, real duration ${durationSec.toFixed(1)}s`);
+
+    // Map words back to narration sections for accurate segment timestamps
+    let wordIdx = 0;
     const segments = narrationSections.map((section) => {
-      const words = section.text.split(/\s+/).length;
-      const frac = words / Math.max(wordCount, 1);
-      const dur = durationSec * frac;
-      const startSec = parseFloat(cursor.toFixed(2));
-      cursor += dur;
-      return { sectionId: section.id, text: section.text.slice(0, 80), startSec, endSec: parseFloat(cursor.toFixed(2)) };
+      const sectionWords = section.text.split(/\s+/).filter(Boolean);
+      const sectionWordData: Array<{ word: string; start: number; end: number }> = [];
+
+      // Consume words from the alignment stream for this section
+      for (let i = 0; i < sectionWords.length && wordIdx < allWords.length; i++) {
+        sectionWordData.push(allWords[wordIdx]);
+        wordIdx++;
+      }
+
+      const startSec = sectionWordData.length > 0 ? sectionWordData[0].start : 0;
+      const endSec = sectionWordData.length > 0 ? sectionWordData[sectionWordData.length - 1].end : 0;
+
+      return {
+        sectionId: section.id,
+        text: section.text,
+        startSec,
+        endSec,
+        words: sectionWordData,
+      };
     });
 
     await trackTTSCost({

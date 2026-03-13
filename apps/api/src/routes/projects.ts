@@ -17,6 +17,7 @@ const updateSchema = z.object({
   status: z.string().optional(),
   selectedTopicId: z.string().uuid().optional(),
   selectedScriptId: z.string().uuid().optional(),
+  videoProvider: z.enum(["veo", "kling", "seedance"]).optional(),
 });
 
 // GET /projects

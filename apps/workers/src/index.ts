@@ -1,4 +1,8 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
+
+// Load .env from monorepo root (two levels up from apps/workers)
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 import { TopicDiscoveryWorker } from "./workers/topic-discovery.worker";
 import { ChannelAnalysisWorker } from "./workers/channel-analysis.worker";
@@ -9,6 +13,7 @@ import { ScenePlannerWorker } from "./workers/scene-planner.worker";
 import { FrameGenerationWorker } from "./workers/frame-generation.worker";
 import { VideoGenerationWorker } from "./workers/video-generation.worker";
 import { RenderWorker } from "./workers/render.worker";
+import { TransitionPlanningWorker } from "./workers/transition-planning.worker";
 
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
 const connection = {
@@ -27,6 +32,7 @@ const workers = [
   new ScenePlannerWorker(connection),
   new FrameGenerationWorker(connection),
   new VideoGenerationWorker(connection),
+  new TransitionPlanningWorker(connection),
   new RenderWorker(connection),
 ];
 

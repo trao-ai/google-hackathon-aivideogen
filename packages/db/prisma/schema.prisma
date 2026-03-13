@@ -19,6 +19,7 @@ model Project {
   status           String        @default("draft")
   targetRuntimeSec Int           @default(750)
   totalCostUsd     Float         @default(0)
+  videoProvider    String        @default("kling")
   styleBibleId     String?
   selectedTopicId  String?
   selectedScriptId String?
@@ -184,6 +185,7 @@ model Scene {
   continuityNotes   String?
   consistencyScore  Float?
   estimatedCostUsd  Float?
+  transitionPlan    Json?
   frameStatus       String       @default("pending")
   clipStatus        String       @default("pending")
   createdAt         DateTime     @default(now())
@@ -219,6 +221,7 @@ model SceneClip {
   videoUrl    String
   durationSec Float
   costUsd     Float    @default(0)
+  metadata    Json?
   createdAt   DateTime @default(now())
 
   scene       Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)

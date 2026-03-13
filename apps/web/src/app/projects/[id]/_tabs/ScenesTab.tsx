@@ -4,6 +4,8 @@ import { useState } from "react";
 import { api, type ProjectDetail, type Scene } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { SceneFlowEditor } from "./scene-flow/SceneFlowEditor";
+import { VideoModelSelector } from "./scene-flow/components/VideoModelSelector";
+import { TransitionPlanPanel } from "./scene-flow/components/TransitionPlanPanel";
 
 interface Props {
   project: ProjectDetail;
@@ -13,6 +15,9 @@ interface Props {
 export function ScenesTab({ project, onRefresh }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [videoProvider, setVideoProvider] = useState(
+    project.videoProvider ?? "kling",
+  );
 
   const scenes: Scene[] = project.scenes ?? [];
   const isPlanning = project.status === "planning_scenes";
@@ -75,7 +80,13 @@ export function ScenesTab({ project, onRefresh }: Props) {
         <h2 className="text-lg font-semibold">
           Scenes {scenes.length > 0 && `(${scenes.length})`}
         </h2>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <VideoModelSelector
+            projectId={project.id}
+            value={videoProvider}
+            onChange={setVideoProvider}
+            disabled={loading || isGeneratingFrames || isGeneratingVideos}
+          />
           <Button
             variant="outline"
             onClick={handlePlanScenes}
@@ -159,6 +170,15 @@ export function ScenesTab({ project, onRefresh }: Props) {
 
       {scenes.length > 0 && (
         <SceneFlowEditor
+          projectId={project.id}
+          scenes={scenes}
+          onRefresh={onRefresh}
+          videoProvider={videoProvider}
+        />
+      )}
+
+      {scenes.length >= 2 && (
+        <TransitionPlanPanel
           projectId={project.id}
           scenes={scenes}
           onRefresh={onRefresh}

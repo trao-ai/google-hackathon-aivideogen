@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, X, Film } from "lucide-react";
 import { resolveMediaUrl } from "../types";
+import { useSceneFlow } from "../SceneFlowContext";
 
 interface Props {
   projectId: string;
@@ -24,6 +25,7 @@ export function AnimationEditPanel({
   const [motionNotes, setMotionNotes] = useState(
     scene.motionNotes ?? scene.animationNotes ?? "",
   );
+  const { videoProvider } = useSceneFlow();
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
@@ -59,9 +61,11 @@ export function AnimationEditPanel({
     }
   };
 
-  const hasFrames =
-    (scene.frames ?? []).some((f) => f.frameType === "start") &&
-    (scene.frames ?? []).some((f) => f.frameType === "end");
+  const isSeDance = videoProvider === "seedance";
+  const hasFrames = isSeDance
+    ? (scene.frames ?? []).some((f) => f.frameType === "start")
+    : (scene.frames ?? []).some((f) => f.frameType === "start") &&
+      (scene.frames ?? []).some((f) => f.frameType === "end");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -107,7 +111,9 @@ export function AnimationEditPanel({
 
         {!hasFrames && (
           <p className="rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800 mb-4">
-            Generate both start and end frames before creating a video.
+            {isSeDance
+              ? "Generate the start frame before creating a video."
+              : "Generate both start and end frames before creating a video."}
           </p>
         )}
 

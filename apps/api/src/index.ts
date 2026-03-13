@@ -1,9 +1,13 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
+
+// Load .env from monorepo root (two levels up from apps/api)
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import path from "path";
 
 import { projectRouter } from "./routes/projects";
 import { topicRouter } from "./routes/topics";

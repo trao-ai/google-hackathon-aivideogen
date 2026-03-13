@@ -2,7 +2,7 @@ import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
 import * as fs from "fs";
 import * as path from "path";
-import { prisma, trackImageCost, trackCost } from "@atlas/db";
+import { prisma, trackImageCost, trackCost, trackLLMCost } from "@atlas/db";
 import {
   createImageProvider,
   createStorageProvider,
@@ -10,6 +10,7 @@ import {
 } from "@atlas/integrations";
 import { getStylePrefix } from "@atlas/style-system";
 import type { StyleBible } from "@atlas/shared";
+import { FrameValidator } from "@atlas/validation";
 
 export class FrameGenerationWorker {
   private worker: Worker;
@@ -189,64 +190,182 @@ Negative prompts: ${negativesStr}
 
 Generate END FRAME showing the scene's visual conclusion.`.trim();
 
+    // Determine if this project uses SeDance (start frame only, no end frame)
+    const isSeDance = (project as Record<string, unknown>).videoProvider === "seedance";
+
     // Load previous scene's end frame as style reference for THIS scene's start frame
     // This creates a visual chain: Scene 1 End → Scene 2 Start → Scene 2 End → Scene 3 Start → ...
-    let prevEndFrameBuffer: Buffer | undefined;
+    // For SeDance, we use the previous scene's start frame instead (since no end frames exist)
+    let prevRefFrameBuffer: Buffer | undefined;
     if (prevScene) {
-      const prevEndFrame = await prisma.sceneFrame.findFirst({
-        where: { sceneId: prevScene.id, frameType: "end" },
+      const prevRefFrame = await prisma.sceneFrame.findFirst({
+        where: { sceneId: prevScene.id, frameType: isSeDance ? "start" : "end" },
         orderBy: { id: "desc" },
       });
-      if (prevEndFrame) {
-        prevEndFrameBuffer = await this.loadFrameBuffer(prevEndFrame.imageUrl);
+      if (prevRefFrame) {
+        prevRefFrameBuffer = await this.loadFrameBuffer(prevRefFrame.imageUrl);
       }
     }
 
-    // Generate start frame (with previous scene's end frame as style reference)
-    const startResult = await imageProvider.generate(startPrompt, prevEndFrameBuffer);
+    // Generate start frame (with previous scene's reference frame as style reference)
+    const startResult = await imageProvider.generate(startPrompt, prevRefFrameBuffer);
 
-    // Generate end frame (with THIS scene's start frame as style reference)
-    // This guarantees within-scene consistency — the end frame SEES the start frame
-    const endResult = await imageProvider.generate(endPrompt, startResult.imageBuffer);
+    const validator = new FrameValidator();
 
-    // Upload both frames
-    const startKey = `projects/${projectId}/scenes/${sceneId}/frame-start.png`;
-    const endKey = `projects/${projectId}/scenes/${sceneId}/frame-end.png`;
+    if (isSeDance) {
+      // SeDance: only generate start frame
+      console.log(`[frame-gen] SeDance mode: generating start frame only for scene ${sceneId}`);
 
-    const [startUrl, endUrl] = await Promise.all([
-      storage.upload(startKey, startResult.imageBuffer, "image/png"),
-      storage.upload(endKey, endResult.imageBuffer, "image/png"),
-    ]);
+      const startValidation = await validator.validateFrame({
+        imageBuffer: startResult.imageBuffer,
+        referenceBuffer: prevRefFrameBuffer,
+        styleBible: project.styleBible as unknown as StyleBible,
+      }).catch((err) => {
+        console.warn(`[frame-gen] Start frame validation failed:`, err.message);
+        return { qualityScore: 0, styleMatchScore: 0, issues: [], recommendations: [] };
+      });
 
-    // Track image generation costs
-    const totalCost = startResult.costUsd + endResult.costUsd;
-    await trackImageCost({
-      projectId,
-      vendor: "gemini",
-      model: startResult.model,
-      imageCount: 2,
-      totalCostUsd: totalCost,
-    });
+      // Track validation costs (1 frame)
+      const validationInputTokens = 500;
+      const validationOutputTokens = 200;
+      const validationCost = (validationInputTokens * 0.000005) + (validationOutputTokens * 0.000015);
+      await trackLLMCost({
+        projectId,
+        stage: "frame_validation",
+        vendor: "gemini",
+        model: "gemini-1.5-flash",
+        inputTokens: validationInputTokens,
+        outputTokens: validationOutputTokens,
+        totalCostUsd: validationCost,
+      });
 
-    // Save frame records
-    await prisma.sceneFrame.createMany({
-      data: [
-        {
+      if (startValidation.qualityScore > 0) {
+        console.log(
+          `[frame-gen] Start frame quality: ${startValidation.qualityScore}/100, style: ${startValidation.styleMatchScore}/100`
+        );
+      }
+
+      // Upload start frame only
+      const startKey = `projects/${projectId}/scenes/${sceneId}/frame-start.png`;
+      const startUrl = await storage.upload(startKey, startResult.imageBuffer, "image/png");
+
+      await trackImageCost({
+        projectId,
+        vendor: "gemini",
+        model: startResult.model,
+        imageCount: 1,
+        totalCostUsd: startResult.costUsd,
+      });
+
+      await prisma.sceneFrame.create({
+        data: {
           sceneId,
           frameType: "start",
           imageUrl: startUrl,
           prompt: startPrompt,
+          seed: startResult.seed || null,
+          qualityScore: startValidation.qualityScore > 0 ? startValidation.qualityScore : null,
+          styleMatchScore: startValidation.styleMatchScore > 0 ? startValidation.styleMatchScore : null,
           costUsd: startResult.costUsd,
         },
-        {
-          sceneId,
-          frameType: "end",
-          imageUrl: endUrl,
-          prompt: endPrompt,
-          costUsd: endResult.costUsd,
-        },
-      ],
-    });
+      });
+    } else {
+      // Veo/Kling: generate both start and end frames
+
+      // Generate end frame (with THIS scene's start frame as style reference)
+      // This guarantees within-scene consistency — the end frame SEES the start frame
+      const endResult = await imageProvider.generate(endPrompt, startResult.imageBuffer);
+
+      // Validate frames for quality and style consistency
+      const [startValidation, endValidation] = await Promise.all([
+        validator.validateFrame({
+          imageBuffer: startResult.imageBuffer,
+          referenceBuffer: prevRefFrameBuffer,
+          styleBible: project.styleBible as unknown as StyleBible,
+        }).catch((err) => {
+          console.warn(`[frame-gen] Start frame validation failed:`, err.message);
+          return { qualityScore: 0, styleMatchScore: 0, issues: [], recommendations: [] };
+        }),
+        validator.validateFrame({
+          imageBuffer: endResult.imageBuffer,
+          referenceBuffer: startResult.imageBuffer,
+          styleBible: project.styleBible as unknown as StyleBible,
+        }).catch((err) => {
+          console.warn(`[frame-gen] End frame validation failed:`, err.message);
+          return { qualityScore: 0, styleMatchScore: 0, issues: [], recommendations: [] };
+        }),
+      ]);
+
+      // Track validation costs (using rough estimate: ~500 tokens input, ~200 tokens output per validation)
+      const validationInputTokens = 500 * 2;
+      const validationOutputTokens = 200 * 2;
+      const validationCost = (validationInputTokens * 0.000005) + (validationOutputTokens * 0.000015);
+      await trackLLMCost({
+        projectId,
+        stage: "frame_validation",
+        vendor: "gemini",
+        model: "gemini-1.5-flash",
+        inputTokens: validationInputTokens,
+        outputTokens: validationOutputTokens,
+        totalCostUsd: validationCost,
+      });
+
+      if (startValidation.qualityScore > 0) {
+        console.log(
+          `[frame-gen] Start frame quality: ${startValidation.qualityScore}/100, style: ${startValidation.styleMatchScore}/100`
+        );
+      }
+      if (endValidation.qualityScore > 0) {
+        console.log(
+          `[frame-gen] End frame quality: ${endValidation.qualityScore}/100, style: ${endValidation.styleMatchScore}/100`
+        );
+      }
+
+      // Upload both frames
+      const startKey = `projects/${projectId}/scenes/${sceneId}/frame-start.png`;
+      const endKey = `projects/${projectId}/scenes/${sceneId}/frame-end.png`;
+
+      const [startUrl, endUrl] = await Promise.all([
+        storage.upload(startKey, startResult.imageBuffer, "image/png"),
+        storage.upload(endKey, endResult.imageBuffer, "image/png"),
+      ]);
+
+      // Track image generation costs
+      const totalCost = startResult.costUsd + endResult.costUsd;
+      await trackImageCost({
+        projectId,
+        vendor: "gemini",
+        model: startResult.model,
+        imageCount: 2,
+        totalCostUsd: totalCost,
+      });
+
+      // Save frame records with validation scores and seeds
+      await prisma.sceneFrame.createMany({
+        data: [
+          {
+            sceneId,
+            frameType: "start",
+            imageUrl: startUrl,
+            prompt: startPrompt,
+            seed: startResult.seed || null,
+            qualityScore: startValidation.qualityScore > 0 ? startValidation.qualityScore : null,
+            styleMatchScore: startValidation.styleMatchScore > 0 ? startValidation.styleMatchScore : null,
+            costUsd: startResult.costUsd,
+          },
+          {
+            sceneId,
+            frameType: "end",
+            imageUrl: endUrl,
+            prompt: endPrompt,
+            seed: endResult.seed || null,
+            qualityScore: endValidation.qualityScore > 0 ? endValidation.qualityScore : null,
+            styleMatchScore: endValidation.styleMatchScore > 0 ? endValidation.styleMatchScore : null,
+            costUsd: endResult.costUsd,
+          },
+        ],
+      });
+    }
 
     // Mark this scene's frames as done
     await prisma.scene.update({

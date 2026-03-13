@@ -13,11 +13,13 @@ const ANIMATION_NODE_HEIGHT = 120;
 export function useSceneFlowLayout(
   scenes: Scene[],
   projectId: string,
+  videoProvider: string = "kling",
 ): { nodes: SceneFlowNode[]; edges: Edge[] } {
   return useMemo(() => {
     const nodes: SceneFlowNode[] = [];
     const edges: Edge[] = [];
     let xCursor = 0;
+    const isSeDance = videoProvider === "seedance";
 
     scenes.forEach((scene, i) => {
       const startFrame =
@@ -67,36 +69,45 @@ export function useSceneFlowLayout(
       });
       xCursor += ANIMATION_NODE_WIDTH + GAP_X;
 
-      // End image node
-      const endNodeId = `scene-${scene.id}-end`;
-      nodes.push({
-        id: endNodeId,
-        type: "imageFrame",
-        position: { x: xCursor, y: Y_CENTER },
-        data: {
-          scene,
-          frame: endFrame,
-          frameType: "end" as const,
-          projectId,
-        },
-        draggable: false,
-      });
-      edges.push({
-        id: `e-${animNodeId}-${endNodeId}`,
-        source: animNodeId,
-        target: endNodeId,
-        type: "smoothstep",
-        style: { stroke: "#94a3b8", strokeWidth: 2 },
-      });
-      xCursor += IMAGE_NODE_WIDTH;
+      // The last node for this scene — determines what connects to the next scene
+      let lastNodeId: string;
+
+      if (isSeDance) {
+        // SeDance: no end frame node, animation connects directly to next scene
+        lastNodeId = animNodeId;
+      } else {
+        // Veo / Kling: end image node
+        const endNodeId = `scene-${scene.id}-end`;
+        nodes.push({
+          id: endNodeId,
+          type: "imageFrame",
+          position: { x: xCursor, y: Y_CENTER },
+          data: {
+            scene,
+            frame: endFrame,
+            frameType: "end" as const,
+            projectId,
+          },
+          draggable: false,
+        });
+        edges.push({
+          id: `e-${animNodeId}-${endNodeId}`,
+          source: animNodeId,
+          target: endNodeId,
+          type: "smoothstep",
+          style: { stroke: "#94a3b8", strokeWidth: 2 },
+        });
+        xCursor += IMAGE_NODE_WIDTH;
+        lastNodeId = endNodeId;
+      }
 
       // Edge to next scene's start node
       if (i < scenes.length - 1) {
         const nextScene = scenes[i + 1];
         const nextStartId = `scene-${nextScene.id}-start`;
         edges.push({
-          id: `e-${endNodeId}-${nextStartId}`,
-          source: endNodeId,
+          id: `e-${lastNodeId}-${nextStartId}`,
+          source: lastNodeId,
           target: nextStartId,
           type: "smoothstep",
           animated: true,
@@ -107,5 +118,5 @@ export function useSceneFlowLayout(
     });
 
     return { nodes, edges };
-  }, [scenes, projectId]);
+  }, [scenes, projectId, videoProvider]);
 }

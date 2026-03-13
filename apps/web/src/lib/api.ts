@@ -29,7 +29,7 @@ export const api = {
     get: (id: string) => request<ProjectDetail>(`/api/projects/${id}`),
     update: (
       id: string,
-      data: Partial<{ title: string; niche: string; targetAudience: string }>,
+      data: Partial<{ title: string; niche: string; targetAudience: string; videoProvider: string }>,
     ) =>
       request<Project>(`/api/projects/${id}`, {
         method: "PATCH",
@@ -155,6 +155,11 @@ export const api = {
         `/api/projects/${projectId}/generate-videos`,
         { method: "POST" },
       ),
+    planTransitions: (projectId: string) =>
+      request<{ message: string; jobId: string }>(
+        `/api/projects/${projectId}/plan-transitions`,
+        { method: "POST" },
+      ),
     updateMotion: (
       projectId: string,
       sceneId: string,
@@ -208,6 +213,11 @@ export const api = {
       request<CostSummary>(`/api/projects/${projectId}/costs`),
     analytics: () =>
       request<CostAnalytics[]>("/api/projects/analytics/cost-summary"),
+    estimate: (projectId: string, provider?: "kling" | "veo" | "seedance") =>
+      request<CostEstimate>(`/api/projects/${projectId}/estimate-costs`, {
+        method: "POST",
+        body: JSON.stringify({ provider: provider || "kling" }),
+      }),
   },
 };
 
@@ -225,6 +235,7 @@ export interface Project {
 export interface ProjectDetail extends Project {
   targetAudience?: string;
   toneKeywords?: string[];
+  videoProvider?: string;
   selectedTopicId?: string;
   selectedScriptId?: string;
   selectedVoiceoverId?: string;
@@ -336,6 +347,13 @@ export interface Scene {
   animationNotes?: string;
   frames?: SceneFrame[];
   clip?: SceneClip | null;
+  transitionPlan?: {
+    type: string;
+    durationSec: number;
+    direction?: string;
+    visualNotes: string;
+    ffmpegTransition: string;
+  } | null;
 }
 
 export interface Render {
@@ -362,4 +380,16 @@ export interface CostAnalytics {
   _sum: { totalCostUsd: number };
   _count: { id: number };
   _avg: { totalCostUsd: number };
+}
+
+export interface CostEstimate {
+  frames: number;
+  videos: number;
+  motionEnrichment: number;
+  validation: number;
+  total: number;
+  perScene?: number;
+  sceneCount?: number;
+  provider?: string;
+  message?: string;
 }

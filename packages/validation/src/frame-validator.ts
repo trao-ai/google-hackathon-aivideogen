@@ -22,7 +22,7 @@ export class FrameValidator {
 
     try {
       const model = this.genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash",
       });
 
       const prompt = this.buildValidationPrompt(styleBible);
@@ -66,7 +66,7 @@ export class FrameValidator {
   ): Promise<{ consistencyScore: number; issues: string[] }> {
     try {
       const model = this.genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash",
       });
 
       const prompt = `Compare these two frames for visual consistency. Analyze:

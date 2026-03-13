@@ -161,11 +161,20 @@ class VeoVideoProvider implements VideoProvider {
     operationName: string,
     requestedDurationSec: number,
   ): Promise<VideoGenerationResult> {
+    // Use model-scoped fetchPredictOperation endpoint (POST) instead of
+    // Operations.GetOperation (GET) — the latter rejects API keys.
+    const modelPath = operationName.split("/operations/")[0]; // "models/veo-3.1-..."
+
     for (let attempt = 0; attempt < this.maxPollAttempts; attempt++) {
       await this.sleep(this.pollIntervalMs);
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${this.apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/${modelPath}:fetchPredictOperation?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ operationName }),
+        },
       );
 
       if (!res.ok) {

@@ -60,7 +60,10 @@ costRouter.get("/analytics/cost-summary", async (_req, res, next) => {
 costRouter.post("/:id/estimate-costs", async (req, res, next) => {
   try {
     const projectId = req.params.id;
-    const provider = (req.body.provider || "kling") as "kling" | "veo" | "seedance";
+    const provider = (req.body.provider || "kling") as
+      | "kling" | "veo" | "seedance"
+      | "replicate-veo" | "replicate-kling"
+      | "replicate-seedance" | "replicate-seedance-lite";
 
     // Fetch project scenes
     const scenes = await prisma.scene.findMany({

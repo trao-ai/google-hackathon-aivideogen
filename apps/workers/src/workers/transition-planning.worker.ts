@@ -180,7 +180,7 @@ Respond with ONLY a JSON array. Each element must have:
 
         await prisma.scene.update({
           where: { id: scenes[i].id },
-          data: { transitionPlan: plans[i] as unknown as Record<string, unknown> },
+          data: { transitionPlan: plans[i] as unknown as Record<string, string | number | null> },
         });
       }
 
@@ -208,7 +208,7 @@ Respond with ONLY a JSON array. Each element must have:
     for (let i = 0; i < scenes.length - 1; i++) {
       await prisma.scene.update({
         where: { id: scenes[i].id },
-        data: { transitionPlan: defaultPlan as unknown as Record<string, unknown> },
+        data: { transitionPlan: defaultPlan as unknown as Record<string, string | number | null> },
       });
     }
 

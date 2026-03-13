@@ -279,6 +279,29 @@ export function createVideoProvider(providerOverride?: string): VideoProvider {
       const { KlingVideoProvider } = require("./kling") as typeof import("./kling");
       return new KlingVideoProvider("fal-ai/bytedance/seedance/v1.5/pro/image-to-video");
     }
+
+    // ─── Replicate-hosted providers ─────────────────────────────────────
+    case "replicate-veo": {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { ReplicateVideoProvider } = require("./replicate") as typeof import("./replicate");
+      return new ReplicateVideoProvider("google/veo-2");
+    }
+    case "replicate-kling": {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { ReplicateVideoProvider } = require("./replicate") as typeof import("./replicate");
+      return new ReplicateVideoProvider("kwaivgi/kling-v2.1");
+    }
+    case "replicate-seedance": {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { ReplicateVideoProvider } = require("./replicate") as typeof import("./replicate");
+      return new ReplicateVideoProvider("bytedance/seedance-1-pro");
+    }
+    case "replicate-seedance-lite": {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { ReplicateVideoProvider } = require("./replicate") as typeof import("./replicate");
+      return new ReplicateVideoProvider("bytedance/seedance-1-lite");
+    }
+
     case "kling":
     default: {
       // Lazy import to avoid requiring FAL_KEY when using Veo

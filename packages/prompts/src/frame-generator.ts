@@ -76,8 +76,14 @@ export function buildVideoPrompt(params: {
   endFramePrompt: string;
   durationSec?: number;
 }): string {
-  const { purpose, sceneType, motionNotes, startFramePrompt, endFramePrompt, durationSec = 5 } =
-    params;
+  const {
+    purpose,
+    sceneType,
+    motionNotes,
+    startFramePrompt,
+    endFramePrompt,
+    durationSec = 5,
+  } = params;
 
   // Extract the visual description parts from frame prompts (strip meta-instructions)
   const startVisual = extractVisualDescription(startFramePrompt);

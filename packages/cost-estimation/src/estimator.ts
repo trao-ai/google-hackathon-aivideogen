@@ -2,6 +2,7 @@ import {
   calculateImageCost,
   calculateVideoCost,
   calculateLLMCost,
+  type VideoProviderType,
 } from "@atlas/shared";
 
 interface Scene {
@@ -10,6 +11,24 @@ interface Scene {
   narrationEndSec: number;
   motionNotes?: string | null;
 }
+
+// Map provider name → Replicate/fal model ID for pricing lookup
+const MODEL_ID_MAP: Record<VideoProviderType, string> = {
+  kling: "fal-ai/kling-video/o3/standard/image-to-video",
+  veo: "veo-3.1-generate-preview",
+  seedance: "fal-ai/bytedance/seedance/v1.5/pro/image-to-video",
+  "replicate-veo": "google/veo-2",
+  "replicate-kling": "kwaivgi/kling-v2.1",
+  "replicate-seedance": "bytedance/seedance-1-pro",
+  "replicate-seedance-lite": "bytedance/seedance-1-lite",
+};
+
+// Providers that always produce a fixed-duration clip
+const FIXED_DURATION_PROVIDERS = new Set<VideoProviderType>([
+  "veo",
+  "replicate-veo",
+]);
+const FIXED_DURATION_SEC = 8;
 
 export class CostEstimator {
   /**
@@ -57,28 +76,25 @@ export class CostEstimator {
 
   /**
    * Estimate video generation costs
-   * Duration-based pricing for Kling or Veo
+   * Duration-based pricing for any supported provider
    */
   static estimateVideoGeneration(
     scenes: Scene[],
-    provider: "kling" | "veo" = "kling"
+    provider: VideoProviderType = "kling"
   ): number {
     let totalCost = 0;
 
-    const klingModelId = "fal-ai/kling-video/o3/standard/image-to-video";
-    const veoModelId = "veo-3.1";
+    const modelId = MODEL_ID_MAP[provider] ?? MODEL_ID_MAP.kling;
+    const isFixed = FIXED_DURATION_PROVIDERS.has(provider);
 
     for (const scene of scenes) {
-      const sceneNarrationDuration =
-        scene.narrationEndSec - scene.narrationStartSec;
-
-      if (provider === "kling") {
-        // Kling: 5s or 10s based on narration duration
-        const clipDuration = sceneNarrationDuration >= 8 ? 10 : 5;
-        totalCost += calculateVideoCost(klingModelId, clipDuration);
+      if (isFixed) {
+        totalCost += calculateVideoCost(modelId, FIXED_DURATION_SEC);
       } else {
-        // Veo: always 8s
-        totalCost += calculateVideoCost(veoModelId, 8);
+        const sceneNarrationDuration =
+          scene.narrationEndSec - scene.narrationStartSec;
+        const clipDuration = sceneNarrationDuration >= 8 ? 10 : 5;
+        totalCost += calculateVideoCost(modelId, clipDuration);
       }
     }
 
@@ -91,7 +107,7 @@ export class CostEstimator {
   static estimateProject(params: {
     sceneCount: number;
     avgSceneDuration?: number;
-    provider?: "kling" | "veo";
+    provider?: VideoProviderType;
   }): {
     frames: number;
     videos: number;
@@ -128,7 +144,7 @@ export class CostEstimator {
    */
   static estimateScenes(
     scenes: Scene[],
-    provider: "kling" | "veo" = "kling"
+    provider: VideoProviderType = "kling"
   ): {
     frames: number;
     videos: number;

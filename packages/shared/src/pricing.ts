@@ -45,6 +45,11 @@ export const VIDEO_PRICING: Record<string, VideoPricing> = {
   "fal-ai/kling-video/o3/standard/image-to-video": { perSecond: 0.07 },
   // SeDance via fal.ai — same pricing as Kling
   "fal-ai/bytedance/seedance/v1.5/pro/image-to-video": { perSecond: 0.07 },
+  // Replicate-hosted models
+  "google/veo-2": { perSecond: 0.065 },
+  "kwaivgi/kling-v2.1": { perSecond: 0.06 },
+  "bytedance/seedance-1-pro": { perSecond: 0.05 },
+  "bytedance/seedance-1-lite": { perSecond: 0.02 },
 };
 
 const DEFAULT_LLM_MODEL = "gpt-4o";

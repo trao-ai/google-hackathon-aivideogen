@@ -6,3 +6,4 @@ export * from "./youtube/youtube-provider";
 export * from "./storage/storage-provider";
 export * from "./video/veo";
 export * from "./video/kling";
+export * from "./video/replicate";

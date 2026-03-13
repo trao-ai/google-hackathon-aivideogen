@@ -11,20 +11,42 @@ import {
 } from "@/components/ui/select";
 
 const VIDEO_MODELS = [
+  // Direct providers (fal.ai / Google API)
   {
     value: "kling",
-    label: "Kling",
+    label: "Kling (fal.ai)",
     description: "2 frames \u00b7 5s clip \u00b7 $0.07/s",
   },
   {
     value: "veo",
-    label: "Veo",
+    label: "Veo (Direct)",
     description: "2 frames \u00b7 8s clip \u00b7 $0.35/s",
   },
   {
     value: "seedance",
-    label: "SeDance",
+    label: "SeDance (fal.ai)",
     description: "1 frame \u00b7 5s clip \u00b7 $0.07/s",
+  },
+  // Replicate providers
+  {
+    value: "replicate-veo",
+    label: "Veo 2 (Replicate)",
+    description: "1 frame \u00b7 8s clip \u00b7 ~$0.065/s",
+  },
+  {
+    value: "replicate-kling",
+    label: "Kling 2.1 (Replicate)",
+    description: "2 frames \u00b7 5-10s clip \u00b7 ~$0.06/s",
+  },
+  {
+    value: "replicate-seedance",
+    label: "Seedance Pro (Replicate)",
+    description: "1 frame \u00b7 5-10s clip \u00b7 ~$0.05/s",
+  },
+  {
+    value: "replicate-seedance-lite",
+    label: "Seedance Lite (Replicate)",
+    description: "1 frame \u00b7 5-10s clip \u00b7 ~$0.02/s",
   },
 ] as const;
 
@@ -66,7 +88,7 @@ export function VideoModelSelector({
         onValueChange={handleChange}
         disabled={disabled || saving}
       >
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className="w-[220px]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

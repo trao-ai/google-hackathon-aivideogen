@@ -28,11 +28,20 @@ renderRouter.post("/:id/render", async (req, res, next) => {
       throw new ApiError(400, "No scenes found. Plan scenes first.");
     }
     if (clipCount === 0) {
-      throw new ApiError(400, "No video clips found. Generate at least one scene video first.");
+      throw new ApiError(
+        400,
+        "No video clips found. Generate at least one scene video first.",
+      );
     }
     if (!voiceover) {
       throw new ApiError(400, "No voiceover found. Generate voice first.");
     }
+
+    // Optional duration limit for test renders
+    const durationLimitSec =
+      typeof req.body.durationLimitSec === "number" && req.body.durationLimitSec > 0
+        ? req.body.durationLimitSec
+        : undefined;
 
     // Create the Render record
     const render = await prisma.render.create({
@@ -49,6 +58,7 @@ renderRouter.post("/:id/render", async (req, res, next) => {
     const job = await queue.add("compose", {
       projectId: project.id,
       renderId: render.id,
+      ...(durationLimitSec ? { durationLimitSec } : {}),
     });
 
     await prisma.project.update({

@@ -60,7 +60,7 @@ Brief motion notes: ${params.motionNotes}
 Write ONLY the animation direction. No preamble, no markdown.`;
 
   try {
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.0-flash";
+    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash-preview-05-20";
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {

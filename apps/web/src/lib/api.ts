@@ -88,7 +88,7 @@ export const api = {
   scripts: {
     generate: (
       projectId: string,
-      data: { tone?: string; targetWordCount?: number; variants?: number },
+      data: { tone?: string; targetWordCount?: number; variants?: number; duration?: "short" | "long" },
     ) =>
       request<Script>(
         `/api/projects/${projectId}/generate-scripts`,

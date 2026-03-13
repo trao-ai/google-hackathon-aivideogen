@@ -120,20 +120,24 @@ export class FrameGenerationWorker {
     const imageProvider = createImageProvider();
     const storage = createStorageProvider();
 
-    // Strong Kurzgesagt fallback when no style bible is assigned
+    // Authentic Kurzgesagt style — cinematic, detailed, NOT simple flat/Duolingo
     const KURZGESAGT_STYLE_PREFIX =
-      "Kurzgesagt-style flat vector illustration, bold vibrant colors on dark navy/deep blue background, " +
-      "no outlines, soft rounded shapes, layered composition with parallax depth, educational infographic aesthetic, " +
-      "rounded blob-like characters with large expressive dot eyes, NO mouth, NO lips, simple mitten hands, " +
-      "large head small body, flat solid colors, no gradients, " +
-      "rich layered background with subtle depth, vibrant saturated color palette, clean professional look, " +
+      "Kurzgesagt-style cinematic illustration, richly detailed with atmospheric depth and subtle lighting, " +
+      "dark navy or deep space background with glowing highlights and particle effects, " +
+      "layered parallax composition with foreground, midground, and background elements, " +
+      "smooth soft shapes with subtle gradients for volume and depth, NO hard outlines, " +
+      "sophisticated simplified characters with expressive round eyes, NO mouth, NO lips, " +
+      "warm organic color palette with vibrant accents against dark backgrounds, " +
+      "epic cinematic framing, educational infographic aesthetic with scientific precision, " +
+      "rich environmental detail, atmospheric haze and glow effects, " +
       "no text or writing in the image";
 
     const KURZGESAGT_NEGATIVES = [
       "photorealistic", "photograph", "3D render", "anime", "painterly",
       "watercolor", "sketch", "pencil", "cluttered", "inconsistent anatomy",
-      "thin lines", "sharp angular edges", "realistic shading", "gradient meshes",
+      "thin lines", "sharp angular edges", "realistic photo shading",
       "mouth", "lips", "teeth", "speaking", "talking", "open mouth",
+      "Duolingo", "simple flat cartoon", "clipart", "low detail", "childish",
     ];
 
     const stylePrefix = project.styleBible
@@ -233,7 +237,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
         projectId,
         stage: "frame_validation",
         vendor: "gemini",
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash-preview-05-20",
         inputTokens: validationInputTokens,
         outputTokens: validationOutputTokens,
         totalCostUsd: validationCost,
@@ -304,7 +308,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
         projectId,
         stage: "frame_validation",
         vendor: "gemini",
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash-preview-05-20",
         inputTokens: validationInputTokens,
         outputTokens: validationOutputTokens,
         totalCostUsd: validationCost,

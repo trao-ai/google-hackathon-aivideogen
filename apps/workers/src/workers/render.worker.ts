@@ -872,13 +872,13 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
   ): Array<{ text: string; start: number; end: number }> {
     // If we have real word timestamps, use them for accurate timing
     if (wordTimestamps && wordTimestamps.length > 0) {
-      const CHUNK_SIZE = wordTimestamps.length <= 6 ? 2 : 3;
+      const CHUNK = 6; // ~6 words per subtitle line — reads like a natural sentence
       const lines: Array<{ text: string; start: number; end: number }> = [];
       let idx = 0;
 
       while (idx < wordTimestamps.length) {
         const remaining = wordTimestamps.length - idx;
-        const take = remaining <= CHUNK_SIZE + 1 ? remaining : CHUNK_SIZE;
+        const take = remaining <= CHUNK + 2 ? remaining : CHUNK;
         const chunk = wordTimestamps.slice(idx, idx + take);
         lines.push({
           text: chunk.map((w) => w.word).join(" "),
@@ -897,13 +897,13 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     const totalDur = endSec - startSec;
     const secPerWord = totalDur / words.length;
 
-    const CHUNK_SIZE = words.length <= 6 ? 2 : 3;
+    const CHUNK = 6;
     const lines: Array<{ text: string; start: number; end: number }> = [];
     let wordIdx = 0;
 
     while (wordIdx < words.length) {
       const remaining = words.length - wordIdx;
-      const take = remaining <= CHUNK_SIZE + 1 ? remaining : CHUNK_SIZE;
+      const take = remaining <= CHUNK + 2 ? remaining : CHUNK;
       const chunk = words.slice(wordIdx, wordIdx + take).join(" ");
       const start = startSec + wordIdx * secPerWord;
       const end = startSec + (wordIdx + take) * secPerWord;
@@ -939,7 +939,7 @@ PlayResY: 720
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,42,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,3,2,0,2,40,40,50,1
+Style: Default,Arial,28,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2.5,1,2,30,30,35,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

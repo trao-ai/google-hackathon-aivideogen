@@ -24,6 +24,7 @@ export function ScriptsTab({ project, onRefresh }: Props) {
   const [expandedScript, setExpandedScript] = useState<string | null>(null);
   const [rewritingSection, setRewritingSection] = useState<string | null>(null);
   const [rewriteInstructions, setRewriteInstructions] = useState("");
+  const [duration, setDuration] = useState<"short" | "long">("short");
 
   const scripts: Script[] = project.scripts ?? [];
   const isScripting = project.status === "scripting";
@@ -33,7 +34,7 @@ export function ScriptsTab({ project, onRefresh }: Props) {
     setError("");
     setLoading(true);
     try {
-      await api.scripts.generate(project.id, {});
+      await api.scripts.generate(project.id, { duration });
       await onRefresh();
     } catch (err) {
       setError((err as Error).message);
@@ -89,13 +90,31 @@ export function ScriptsTab({ project, onRefresh }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Script</h2>
-        <Button
-          onClick={handleGenerate}
-          disabled={loading || isScripting || !hasResearch}
-          title={!hasResearch ? "Complete research first" : undefined}
-        >
-          {isScripting ? "Generating…" : loading ? "Working…" : scripts.length > 0 ? "Re-Generate" : "Generate Script"}
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+            <button
+              className={`px-3 py-1.5 transition-colors ${duration === "short" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              onClick={() => setDuration("short")}
+              disabled={loading || isScripting}
+            >
+              Short (~1 min)
+            </button>
+            <button
+              className={`px-3 py-1.5 transition-colors ${duration === "long" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              onClick={() => setDuration("long")}
+              disabled={loading || isScripting}
+            >
+              Long (4-5 min)
+            </button>
+          </div>
+          <Button
+            onClick={handleGenerate}
+            disabled={loading || isScripting || !hasResearch}
+            title={!hasResearch ? "Complete research first" : undefined}
+          >
+            {isScripting ? "Generating…" : loading ? "Working…" : scripts.length > 0 ? "Re-Generate" : "Generate Script"}
+          </Button>
+        </div>
       </div>
 
       {!hasResearch && (
@@ -107,7 +126,7 @@ export function ScriptsTab({ project, onRefresh }: Props) {
       {isScripting && (
         <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
-          <p className="text-sm text-indigo-700">Writing 10-15 minute ElevenLabs-optimized script…</p>
+          <p className="text-sm text-indigo-700">Writing {duration === "short" ? "~1 minute short-form" : "4-5 minute"} script…</p>
         </div>
       )}
 
@@ -116,7 +135,7 @@ export function ScriptsTab({ project, onRefresh }: Props) {
       {scripts.length === 0 && !isScripting && (
         <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center">
           <p className="text-gray-500 text-sm">No script yet.</p>
-          <p className="text-gray-400 text-xs mt-1">Click &quot;Generate Script&quot; to create a 10-15 min voiceover script.</p>
+          <p className="text-gray-400 text-xs mt-1">Select duration and click &quot;Generate Script&quot; to create a voiceover script.</p>
         </div>
       )}
 

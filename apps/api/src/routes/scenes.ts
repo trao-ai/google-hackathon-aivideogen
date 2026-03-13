@@ -89,17 +89,27 @@ sceneRouter.post(
   "/:projectId/scenes/:sceneId/generate-video",
   async (req, res, next) => {
     try {
-      const scene = await prisma.scene.findUnique({
-        where: { id: req.params.sceneId },
-        include: { frames: true },
-      });
+      const [scene, project] = await Promise.all([
+        prisma.scene.findUnique({
+          where: { id: req.params.sceneId },
+          include: { frames: true },
+        }),
+        prisma.project.findUnique({
+          where: { id: req.params.projectId },
+          select: { videoProvider: true },
+        }),
+      ]);
       if (!scene) throw new ApiError(404, "Scene not found");
       if (scene.projectId !== req.params.projectId)
         throw new ApiError(400, "Scene does not belong to this project");
 
+      const isSeDance = project?.videoProvider === "seedance";
       const hasStart = scene.frames.some((f) => f.frameType === "start");
       const hasEnd = scene.frames.some((f) => f.frameType === "end");
-      if (!hasStart || !hasEnd)
+
+      if (!hasStart)
+        throw new ApiError(400, "Scene needs a start frame before generating video.");
+      if (!isSeDance && !hasEnd)
         throw new ApiError(
           400,
           "Scene needs both start and end frames before generating video.",
@@ -117,6 +127,7 @@ sceneRouter.post(
       const job = await queue.add("generate", {
         projectId: req.params.projectId,
         sceneId: req.params.sceneId,
+        videoProvider: project?.videoProvider ?? "kling",
       });
 
       res.json({ jobId: job.id, message: "Video generation queued" });
@@ -134,6 +145,8 @@ sceneRouter.post("/:id/generate-videos", async (req, res, next) => {
     });
     if (!project) throw new ApiError(404, "Project not found");
 
+    const isSeDance = project.videoProvider === "seedance";
+
     const scenes = await prisma.scene.findMany({
       where: { projectId: project.id },
       include: { frames: true },
@@ -142,13 +155,15 @@ sceneRouter.post("/:id/generate-videos", async (req, res, next) => {
     const readyScenes = scenes.filter((s) => {
       const hasStart = s.frames.some((f) => f.frameType === "start");
       const hasEnd = s.frames.some((f) => f.frameType === "end");
-      return hasStart && hasEnd;
+      return isSeDance ? hasStart : hasStart && hasEnd;
     });
 
     if (readyScenes.length === 0)
       throw new ApiError(
         400,
-        "No scenes have both start and end frames. Generate frames first.",
+        isSeDance
+          ? "No scenes have start frames. Generate frames first."
+          : "No scenes have both start and end frames. Generate frames first.",
       );
 
     const queue = new Queue("video-generation", {
@@ -161,10 +176,14 @@ sceneRouter.post("/:id/generate-videos", async (req, res, next) => {
       data: { clipStatus: "pending" },
     });
 
+    const providerToUse = project.videoProvider ?? "kling";
+    console.log(`[scenes-api] Enqueuing ${readyScenes.length} video jobs with videoProvider="${providerToUse}" (raw DB value: ${JSON.stringify(project.videoProvider)})`);
+
     for (const scene of readyScenes) {
       await queue.add("generate", {
         projectId: project.id,
         sceneId: scene.id,
+        videoProvider: providerToUse,
       });
     }
 
@@ -209,3 +228,28 @@ sceneRouter.patch(
     }
   },
 );
+
+// POST /projects/:id/plan-transitions
+sceneRouter.post("/:id/plan-transitions", async (req, res, next) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!project) throw new ApiError(404, "Project not found");
+
+    const sceneCount = await prisma.scene.count({
+      where: { projectId: project.id },
+    });
+    if (sceneCount < 2)
+      throw new ApiError(400, "Need at least 2 scenes to plan transitions.");
+
+    const queue = new Queue("transition-planning", {
+      connection: getRedisConnection(),
+    });
+    const job = await queue.add("plan", { projectId: project.id });
+
+    res.json({ jobId: job.id, message: "Transition planning queued" });
+  } catch (err) {
+    next(err);
+  }
+});

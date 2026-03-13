@@ -1,6 +1,7 @@
+// Video generation worker — uses Veo (SDK)/Kling/SeDance based on project.videoProvider
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma, trackVideoCost, trackLLMCost } from "@atlas/db";
+import { prisma, trackVideoCost, trackLLMCost, trackCost } from "@atlas/db";
 import { calculateVideoCost, calculateLLMCost } from "@atlas/shared";
 import {
   createVideoProvider,
@@ -8,6 +9,7 @@ import {
   resolveStorageDir,
 } from "@atlas/integrations";
 import { buildVideoPrompt } from "@atlas/prompts";
+import { KenBurnsProvider } from "@atlas/motion-fallback";
 
 interface MotionEnrichmentResult {
   enrichedMotion: string;
@@ -109,10 +111,10 @@ export class VideoGenerationWorker {
   }
 
   private async process(
-    job: Job<{ projectId: string; sceneId: string }>,
+    job: Job<{ projectId: string; sceneId: string; videoProvider?: string }>,
   ): Promise<void> {
     const { projectId, sceneId } = job.data;
-    console.log(`[video-gen] Generating video for scene ${sceneId}`);
+    console.log(`[video-gen] Generating video for scene ${sceneId} (job videoProvider=${job.data.videoProvider})`);
 
     const scene = await prisma.scene.findUnique({
       where: { id: sceneId },
@@ -126,31 +128,43 @@ export class VideoGenerationWorker {
       data: { clipStatus: "generating" },
     });
 
+    // Determine provider: job data > project setting > env var
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    const videoProviderName = (
+      job.data.videoProvider ??
+      (project as Record<string, unknown>)?.videoProvider as string ??
+      process.env.VIDEO_PROVIDER ??
+      "kling"
+    ).toLowerCase();
+    console.log(`[video-gen] Resolved provider: "${videoProviderName}" (job=${job.data.videoProvider}, project=${(project as Record<string, unknown>)?.videoProvider}, env=${process.env.VIDEO_PROVIDER})`);
+    const isSeDance = videoProviderName === "seedance";
+
     const startFrame = scene.frames.find((f) => f.frameType === "start");
     const endFrame = scene.frames.find((f) => f.frameType === "end");
 
-    if (!startFrame || !endFrame) {
-      throw new Error(
-        `Scene ${sceneId} is missing start or end frame. Generate frames first.`,
-      );
+    if (!startFrame) {
+      throw new Error(`Scene ${sceneId} is missing start frame. Generate frames first.`);
+    }
+    if (!isSeDance && !endFrame) {
+      throw new Error(`Scene ${sceneId} is missing end frame. Generate frames first.`);
     }
 
     // Download frame images as base64
-    const [startBase64, endBase64] = await Promise.all([
-      this.fetchFrameAsBase64(startFrame.imageUrl),
-      this.fetchFrameAsBase64(endFrame.imageUrl),
-    ]);
+    const startBase64 = await this.fetchFrameAsBase64(startFrame.imageUrl);
+    const endBase64 = endFrame
+      ? await this.fetchFrameAsBase64(endFrame.imageUrl)
+      : undefined;
 
-    const videoProvider = createVideoProvider();
+    const videoProvider = createVideoProvider(videoProviderName);
     const storage = createStorageProvider();
-    const videoProviderName = (process.env.VIDEO_PROVIDER ?? "kling").toLowerCase();
 
     // Calculate the narration duration for this specific scene
     const narrationDurationSec = scene.narrationEndSec - scene.narrationStartSec;
-    // Pick the best Kling duration (5 or 10) based on narration length
-    const clipDurationSec = narrationDurationSec >= 8 ? 10 : 5;
+    // Kling O3 supports 3-15s — round to nearest second and clamp to valid range
+    // This eliminates the need for speed adjustment in render worker
+    const clipDurationSec = Math.max(3, Math.min(15, Math.round(narrationDurationSec)));
     console.log(
-      `[video-gen] Scene narration: ${narrationDurationSec.toFixed(1)}s → requesting ${clipDurationSec}s clip`,
+      `[video-gen] Scene narration: ${narrationDurationSec.toFixed(1)}s → requesting ${clipDurationSec}s clip (exact match)`,
     );
 
     // Use Gemini to enrich the brief motionNotes into detailed animation direction
@@ -159,7 +173,7 @@ export class VideoGenerationWorker {
       sceneType: scene.sceneType,
       motionNotes: scene.motionNotes,
       startFramePrompt: startFrame.prompt,
-      endFramePrompt: endFrame.prompt,
+      endFramePrompt: endFrame?.prompt ?? scene.endPrompt,
     });
 
     // Track motion enrichment LLM cost
@@ -188,18 +202,69 @@ export class VideoGenerationWorker {
       sceneType: scene.sceneType,
       motionNotes: motionResult.enrichedMotion,
       startFramePrompt: startFrame.prompt,
-      endFramePrompt: endFrame.prompt,
+      endFramePrompt: endFrame?.prompt ?? scene.endPrompt,
       durationSec: clipDurationSec,
     });
 
     console.log(`[video-gen] Video prompt for scene ${sceneId}:\n${videoPrompt}`);
 
-    const result = await videoProvider.generate({
-      prompt: videoPrompt,
-      startFrameBase64: startBase64,
-      endFrameBase64: endBase64,
-      durationSec: clipDurationSec,
-    });
+    let result;
+    let usedFallback = false;
+    let fallbackReason = "";
+
+    try {
+      // Attempt primary video generation (Kling/Veo)
+      result = await videoProvider.generate({
+        prompt: videoPrompt,
+        startFrameBase64: startBase64,
+        endFrameBase64: endBase64,
+        durationSec: clipDurationSec,
+      });
+
+      // Duration matching verification
+      const durationDelta = Math.abs(result.durationSec - clipDurationSec);
+      const durationVariance = (durationDelta / clipDurationSec) * 100;
+
+      if (durationVariance > 10) {
+        console.warn(
+          `[video-gen] Duration mismatch: requested ${clipDurationSec}s, got ${result.durationSec}s (${durationVariance.toFixed(1)}% variance)`
+        );
+      }
+    } catch (error) {
+      // Fallback to Ken Burns when AI video generation fails
+      console.warn(`[video-gen] Primary video generation failed:`, (error as Error).message);
+      console.log(`[video-gen] Falling back to Ken Burns effect...`);
+
+      fallbackReason = (error as Error).message;
+      usedFallback = true;
+
+      const kenBurns = new KenBurnsProvider();
+      result = await kenBurns.generate({
+        prompt: videoPrompt,
+        startFrameBase64: startBase64,
+        endFrameBase64: endBase64,
+        durationSec: clipDurationSec,
+        motionNotes: scene.motionNotes || undefined,
+      });
+
+      // Track fallback usage
+      await trackCost({
+        projectId,
+        stage: "video_fallback",
+        vendor: "ken-burns-ffmpeg",
+        units: clipDurationSec,
+        unitCost: 0,
+        totalCostUsd: 0,
+        metadata: {
+          fallbackReason,
+          sceneId,
+          requestedDuration: clipDurationSec,
+          actualDuration: result.durationSec,
+        },
+      });
+
+      console.log(`[video-gen] Ken Burns fallback succeeded (${result.durationSec}s)`);
+    }
 
     // Upload video to storage
     const key = `projects/${projectId}/scenes/${sceneId}/clip-${Date.now()}.mp4`;
@@ -209,7 +274,11 @@ export class VideoGenerationWorker {
       result.mimeType,
     );
 
-    // Upsert SceneClip
+    // Calculate duration delta for metadata
+    const durationDelta = Math.abs(result.durationSec - clipDurationSec);
+    const durationVariance = (durationDelta / clipDurationSec) * 100;
+
+    // Upsert SceneClip with metadata
     await prisma.sceneClip.upsert({
       where: { sceneId },
       create: {
@@ -217,11 +286,25 @@ export class VideoGenerationWorker {
         videoUrl,
         durationSec: result.durationSec,
         costUsd: result.costUsd,
+        metadata: {
+          usedFallback,
+          fallbackReason: usedFallback ? fallbackReason : undefined,
+          requestedDuration: clipDurationSec,
+          durationDelta,
+          durationVariance,
+        },
       },
       update: {
         videoUrl,
         durationSec: result.durationSec,
         costUsd: result.costUsd,
+        metadata: {
+          usedFallback,
+          fallbackReason: usedFallback ? fallbackReason : undefined,
+          requestedDuration: clipDurationSec,
+          durationDelta,
+          durationVariance,
+        },
       },
     });
 
@@ -233,11 +316,13 @@ export class VideoGenerationWorker {
 
     // Track video generation cost — use actual provider info
     const videoVendor =
-      videoProviderName === "kling" ? "kling-fal" : "google-veo";
+      videoProviderName === "veo" ? "google-veo" : "kling-fal";
     const videoModel =
-      videoProviderName === "kling"
-        ? (process.env.KLING_MODEL_ID ?? "fal-ai/kling-video/v2.6/pro/image-to-video")
-        : "veo-3.1-generate-preview";
+      videoProviderName === "veo"
+        ? "veo-3.1-generate-preview"
+        : videoProviderName === "seedance"
+          ? "fal-ai/bytedance/seedance/v1.5/pro/image-to-video"
+          : (process.env.KLING_MODEL_ID ?? "fal-ai/kling-video/o3/standard/image-to-video");
     const videoCost = calculateVideoCost(videoModel, result.durationSec);
     await trackVideoCost({
       projectId,

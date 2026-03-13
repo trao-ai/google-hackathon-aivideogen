@@ -90,15 +90,24 @@ Scene purpose: ${purpose}
 STARTING STATE (first frame — provided as image):
 ${startVisual}
 
-ENDING STATE (the animation must reach this by the end of the clip):
+CRITICAL — ENDING STATE (the animation MUST reach exactly this state by the final frame):
 ${endVisual}
+
+The final frame of the animation must precisely match the ending state description above. Pay close attention to:
+- Character positions, poses, and expressions described in the ending state
+- Object placements and transformations
+- Camera angle and framing
+- Color palette and lighting
+- Any visual metaphors or symbolic elements
+The ending state is not optional — it defines where this scene connects to the next scene.
 
 MOTION AND TRANSITION:
 ${motionNotes}
 
+The animation must smoothly and deliberately progress from the starting state to the ending state across ${durationSec} seconds.
+
 Style: flat-design 2D editorial illustration, smooth animation, clean lines.
 Camera: steady, professional. No shaky cam.
-Duration: ${durationSec} seconds. The animation must clearly progress from the starting state to the ending state across the full duration.
 Do NOT include any text, words, or writing in the video.`.trim();
 }
 

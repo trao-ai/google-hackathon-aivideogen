@@ -27,10 +27,11 @@ interface Props {
   projectId: string;
   scenes: Scene[];
   onRefresh: () => Promise<void>;
+  videoProvider?: string;
 }
 
-export function SceneFlowEditor({ projectId, scenes, onRefresh }: Props) {
-  const { nodes, edges } = useSceneFlowLayout(scenes, projectId);
+export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = "kling" }: Props) {
+  const { nodes, edges } = useSceneFlowLayout(scenes, projectId, videoProvider);
 
   // Panel state
   const [editingFrame, setEditingFrame] = useState<{
@@ -116,6 +117,7 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh }: Props) {
       onEditAnimation,
       onGenerateVideo,
       regeneratingIds,
+      videoProvider,
     }),
     [
       onRegenerateFrame,
@@ -123,6 +125,7 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh }: Props) {
       onEditAnimation,
       onGenerateVideo,
       regeneratingIds,
+      videoProvider,
     ],
   );
 

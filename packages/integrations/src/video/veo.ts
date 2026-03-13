@@ -5,8 +5,9 @@
  * Uses Gemini API (generativelanguage.googleapis.com) with predictLongRunning.
  * Default model: veo-3.1-generate-preview (supports image-to-video).
  *
- * IMPORTANT: The Gemini API uses `bytesBase64Encoded` (NOT `inlineData`) for images,
- * and `durationSeconds` must be a number (NOT a string).
+ * IMPORTANT: Uses raw fetch with ?key= auth — the @google/genai SDK's
+ * operations.getVideosOperation() routes through a different endpoint
+ * that does NOT support API keys, causing 401 errors.
  */
 
 import { calculateVideoCost } from "@atlas/shared";
@@ -22,13 +23,13 @@ export interface VideoProvider {
   generate(opts: {
     prompt: string;
     startFrameBase64: string;
-    endFrameBase64: string;
+    endFrameBase64?: string;
     aspectRatio?: string;
     durationSec?: number;
   }): Promise<VideoGenerationResult>;
 }
 
-// ─── Google Veo provider ────────────────────────────────────────────────────
+// ─── Google Veo provider (raw fetch with predictLongRunning) ────────────────
 
 class VeoVideoProvider implements VideoProvider {
   private apiKey: string;
@@ -47,76 +48,86 @@ class VeoVideoProvider implements VideoProvider {
   async generate(opts: {
     prompt: string;
     startFrameBase64: string;
-    endFrameBase64: string;
+    endFrameBase64?: string;
     aspectRatio?: string;
+    durationSec?: number;
   }): Promise<VideoGenerationResult> {
-    const { prompt, startFrameBase64, endFrameBase64, aspectRatio = "16:9" } =
-      opts;
+    const {
+      prompt,
+      startFrameBase64,
+      endFrameBase64,
+      aspectRatio = "16:9",
+      durationSec = 8,
+    } = opts;
 
-    // Try with first + last frame (veo-3.1 feature).
-    // If the API rejects lastFrame, fall back to start frame only.
+    // Veo supports 4-8s only — clamp here so pollOperation gets the real value
+    const veoDuration = Math.max(4, Math.min(8, durationSec));
+    console.log(`[veo] Generating video with model ${this.model} (requested ${durationSec}s, veo clamped to ${veoDuration}s)...`);
+
     const operation = await this.submitGeneration(
       prompt,
       startFrameBase64,
       endFrameBase64,
       aspectRatio,
+      veoDuration,
     );
 
     console.log(`[veo] Operation started: ${operation.name}`);
 
-    // Poll for completion
-    const result = await this.pollOperation(operation.name);
+    const result = await this.pollOperation(operation.name, veoDuration);
     return result;
   }
 
   private async submitGeneration(
     prompt: string,
     startFrameBase64: string,
-    endFrameBase64: string,
+    endFrameBase64: string | undefined,
     aspectRatio: string,
+    durationSec: number,
   ): Promise<{ name: string }> {
-    // Gemini API requires `bytesBase64Encoded` format (NOT `inlineData`),
-    // and `durationSeconds` must be a number (NOT a string).
+    // Veo only supports 4-8 seconds — clamp to valid range
+    const veoDuration = Math.max(4, Math.min(8, durationSec));
+    const parameters = { aspectRatio, resolution: "720p", durationSeconds: veoDuration };
 
     // Attempt 1: First + Last frame (gives Veo both endpoints)
-    const instanceWithLastFrame: Record<string, unknown> = {
-      prompt,
-      image: {
-        bytesBase64Encoded: startFrameBase64,
-        mimeType: "image/png",
-      },
-      lastFrame: {
-        bytesBase64Encoded: endFrameBase64,
-        mimeType: "image/png",
-      },
-    };
+    if (endFrameBase64) {
+      const instanceWithLastFrame: Record<string, unknown> = {
+        prompt,
+        image: {
+          bytesBase64Encoded: startFrameBase64,
+          mimeType: "image/png",
+        },
+        lastFrame: {
+          bytesBase64Encoded: endFrameBase64,
+          mimeType: "image/png",
+        },
+      };
 
-    const parameters = { aspectRatio, resolution: "720p", durationSeconds: 8 };
+      console.log("[veo] Trying first + last frame generation...");
+      const res1 = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predictLongRunning?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instances: [instanceWithLastFrame],
+            parameters,
+          }),
+        },
+      );
 
-    console.log("[veo] Trying first + last frame generation...");
-    const res1 = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predictLongRunning?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instances: [instanceWithLastFrame],
-          parameters,
-        }),
-      },
-    );
+      if (res1.ok) {
+        console.log("[veo] First + last frame accepted!");
+        return (await res1.json()) as { name: string };
+      }
 
-    if (res1.ok) {
-      console.log("[veo] First + last frame accepted!");
-      return (await res1.json()) as { name: string };
+      const err1 = await res1.text();
+      console.warn(
+        `[veo] First + last frame rejected (${res1.status}), falling back to start frame only: ${err1.slice(0, 200)}`,
+      );
     }
 
-    const err1 = await res1.text();
-    console.warn(
-      `[veo] First + last frame rejected (${res1.status}), falling back to start frame only: ${err1.slice(0, 200)}`,
-    );
-
-    // Attempt 2: Start frame only
+    // Attempt 2 (or only attempt if no endFrame): Start frame only
     const instanceStartOnly: Record<string, unknown> = {
       prompt,
       image: {
@@ -125,6 +136,7 @@ class VeoVideoProvider implements VideoProvider {
       },
     };
 
+    console.log("[veo] Submitting with start frame only...");
     const res2 = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predictLongRunning?key=${this.apiKey}`,
       {
@@ -147,6 +159,7 @@ class VeoVideoProvider implements VideoProvider {
 
   private async pollOperation(
     operationName: string,
+    requestedDurationSec: number,
   ): Promise<VideoGenerationResult> {
     for (let attempt = 0; attempt < this.maxPollAttempts; attempt++) {
       await this.sleep(this.pollIntervalMs);
@@ -198,7 +211,7 @@ class VeoVideoProvider implements VideoProvider {
         const arrayBuffer = await videoRes.arrayBuffer();
         const videoBuffer = Buffer.from(arrayBuffer);
 
-        const durationSec = 8;
+        const durationSec = requestedDurationSec;
         return {
           videoBuffer,
           mimeType: samples[0].video.mimeType ?? "video/mp4",
@@ -228,7 +241,7 @@ class MockVideoProvider implements VideoProvider {
   async generate(opts: {
     prompt: string;
     startFrameBase64: string;
-    endFrameBase64: string;
+    endFrameBase64?: string;
   }): Promise<VideoGenerationResult> {
     console.log(
       `[MockVideo] Generating video for prompt: "${opts.prompt.substring(0, 80)}..."`,
@@ -244,13 +257,19 @@ class MockVideoProvider implements VideoProvider {
   }
 }
 
-export function createVideoProvider(): VideoProvider {
+export function createVideoProvider(providerOverride?: string): VideoProvider {
   if (process.env.USE_MOCK_VIDEO === "true") return new MockVideoProvider();
 
-  const provider = (process.env.VIDEO_PROVIDER ?? "kling").toLowerCase();
+  const provider = (providerOverride ?? process.env.VIDEO_PROVIDER ?? "kling").toLowerCase();
   switch (provider) {
     case "veo":
       return new VeoVideoProvider();
+    case "seedance": {
+      // SeDance is a Kling variant on fal.ai with a specific model ID
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { KlingVideoProvider } = require("./kling") as typeof import("./kling");
+      return new KlingVideoProvider("fal-ai/bytedance/seedance/v1.5/pro/image-to-video");
+    }
     case "kling":
     default: {
       // Lazy import to avoid requiring FAL_KEY when using Veo

@@ -202,11 +202,17 @@ export class RenderWorker {
           data: { step: "composing" },
         });
 
+        // Extract transition plans from scene data for FFmpeg
+        const transitionPlans = scenesWithClips.map((s) =>
+          s.transitionPlan as { durationSec?: number; ffmpegTransition?: string } | null,
+        );
+
         await this.runFFmpeg({
           clips,
           voiceoverPath,
           sfxPaths,
           outputPath,
+          transitionPlans,
         });
 
         // Read output and upload
@@ -440,8 +446,9 @@ Example: ["gentle swoosh", "dramatic hit"]`;
     voiceoverPath: string;
     sfxPaths: string[]; // one per transition (clips.length - 1), empty string = skip
     outputPath: string;
+    transitionPlans?: Array<{ durationSec?: number; ffmpegTransition?: string } | null>;
   }): Promise<void> {
-    const { clips, voiceoverPath, sfxPaths, outputPath } = params;
+    const { clips, voiceoverPath, sfxPaths, outputPath, transitionPlans } = params;
     const args: string[] = [];
 
     // --- Inputs ---
@@ -497,11 +504,33 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       }
     }
 
-    // Concatenate video streams only
-    const concatVideoInputs = clips.map((_, i) => `[v${i}]`).join("");
-    filterParts.push(
-      `${concatVideoInputs}concat=n=${clips.length}:v=1:a=0[vout]`,
-    );
+    // Add crossfade transitions between video clips
+    // xfade creates smooth dissolve/fade transitions instead of hard cuts
+    // Uses transition plans from DB when available, otherwise defaults to 0.5s fade
+    if (clips.length === 1) {
+      // Single clip — no transitions needed
+      filterParts.push(`[v0]copy[vout]`);
+    } else {
+      // Multiple clips — chain xfade transitions
+      let offset = 0;
+
+      for (let i = 0; i < clips.length - 1; i++) {
+        const plan = transitionPlans?.[i];
+        const transitionDuration = plan?.durationSec ?? 0.5;
+        const xfadeType = plan?.ffmpegTransition ?? "fade";
+
+        const inputA = i === 0 ? `[v${i}]` : `[vx${i - 1}]`;
+        const inputB = `[v${i + 1}]`;
+        const output = i === clips.length - 2 ? `[vout]` : `[vx${i}]`;
+
+        // Offset is when the second clip should start (minus transition duration for overlap)
+        offset += clips[i].targetDurationSec - transitionDuration;
+
+        filterParts.push(
+          `${inputA}${inputB}xfade=transition=${xfadeType}:duration=${transitionDuration}:offset=${offset.toFixed(3)}${output}`,
+        );
+      }
+    }
 
     // Concatenate clip audio streams separately
     const concatAudioInputs = clips.map((_, i) => `[ca${i}]`).join("");

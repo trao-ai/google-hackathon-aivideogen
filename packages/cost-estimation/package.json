@@ -1,5 +1,5 @@
 {
-  "name": "@atlas/integrations",
+  "name": "@atlas/cost-estimation",
   "version": "0.1.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,12 +9,7 @@
   },
   "dependencies": {
     "@atlas/shared": "*",
-    "@aws-sdk/client-s3": "^3.1007.0",
-    "@aws-sdk/s3-request-presigner": "^3.1007.0",
-    "@fal-ai/client": "^1.9.4",
-    "@google/genai": "^1.45.0",
-    "axios": "^1.7.2",
-    "openai": "^4.52.7"
+    "@atlas/db": "*"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",

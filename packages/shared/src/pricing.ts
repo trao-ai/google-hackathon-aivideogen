@@ -42,6 +42,9 @@ export const VIDEO_PRICING: Record<string, VideoPricing> = {
   "veo-3.1-generate-preview": { perSecond: 0.35 },
   // Kling via fal.ai — $0.07/sec without audio, $0.14/sec with audio
   "fal-ai/kling-video/v2.6/pro/image-to-video": { perSecond: 0.07 },
+  "fal-ai/kling-video/o3/standard/image-to-video": { perSecond: 0.07 },
+  // SeDance via fal.ai — same pricing as Kling
+  "fal-ai/bytedance/seedance/v1.5/pro/image-to-video": { perSecond: 0.07 },
 };
 
 const DEFAULT_LLM_MODEL = "gpt-4o";

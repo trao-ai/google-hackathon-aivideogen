@@ -14,7 +14,7 @@ export interface ImageGenerationResult {
 }
 
 export interface ImageProvider {
-  generate(prompt: string, referenceImage?: Buffer): Promise<ImageGenerationResult>;
+  generate(prompt: string, referenceImage?: Buffer, seed?: string): Promise<ImageGenerationResult>;
 }
 
 // ─── Nano Banana Pro (Gemini 3 Pro Image) provider ──────────────────────────
@@ -40,7 +40,10 @@ class NanoBananaProProvider implements ImageProvider {
     if (!this.apiKey) throw new Error("GEMINI_API_KEY is not set");
   }
 
-  async generate(prompt: string, referenceImage?: Buffer): Promise<ImageGenerationResult> {
+  async generate(prompt: string, referenceImage?: Buffer, seed?: string): Promise<ImageGenerationResult> {
+    // Generate a deterministic seed if not provided (for versioning)
+    const generationSeed = seed || this.generateSeed(prompt);
+
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       // Build parts: include reference image if provided for style consistency
       const parts: Array<
@@ -126,6 +129,7 @@ class NanoBananaProProvider implements ImageProvider {
       return {
         imageBuffer,
         mimeType: imagePart.inlineData.mimeType,
+        seed: generationSeed,
         costUsd,
         model: this.model,
       };
@@ -135,12 +139,25 @@ class NanoBananaProProvider implements ImageProvider {
       "Nano Banana Pro: max retries exceeded for rate limiting",
     );
   }
+
+  private generateSeed(prompt: string): string {
+    // Generate a deterministic hash-like seed from prompt + timestamp
+    const timestamp = Date.now();
+    const combined = `${prompt}-${timestamp}`;
+    let hash = 0;
+    for (let i = 0; i < combined.length; i++) {
+      const char = combined.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
+  }
 }
 
 // ─── Mock provider ───────────────────────────────────────────────────────────
 
 class MockImageProvider implements ImageProvider {
-  async generate(prompt: string, _referenceImage?: Buffer): Promise<ImageGenerationResult> {
+  async generate(prompt: string, _referenceImage?: Buffer, seed?: string): Promise<ImageGenerationResult> {
     // Return a tiny valid PNG (1x1 transparent pixel)
     const png1x1 = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -149,7 +166,7 @@ class MockImageProvider implements ImageProvider {
     console.log(
       `[MockImage] Generating frame for prompt: "${prompt.substring(0, 80)}..."`,
     );
-    return { imageBuffer: png1x1, mimeType: "image/png", costUsd: 0, model: "mock" };
+    return { imageBuffer: png1x1, mimeType: "image/png", seed: seed || "mock-seed", costUsd: 0, model: "mock" };
   }
 }
 

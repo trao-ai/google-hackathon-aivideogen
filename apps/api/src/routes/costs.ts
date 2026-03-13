@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "@atlas/db";
+import { CostEstimator } from "@atlas/cost-estimation";
 
 export const costRouter = Router();
 
@@ -50,6 +51,48 @@ costRouter.get("/analytics/cost-summary", async (_req, res, next) => {
       _sum: { totalCostUsd: true },
     });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /projects/:id/estimate-costs
+costRouter.post("/:id/estimate-costs", async (req, res, next) => {
+  try {
+    const projectId = req.params.id;
+    const provider = (req.body.provider || "kling") as "kling" | "veo" | "seedance";
+
+    // Fetch project scenes
+    const scenes = await prisma.scene.findMany({
+      where: { projectId },
+      orderBy: { orderIndex: "asc" },
+      select: {
+        id: true,
+        narrationStartSec: true,
+        narrationEndSec: true,
+        motionNotes: true,
+      },
+    });
+
+    if (scenes.length === 0) {
+      return res.json({
+        frames: 0,
+        videos: 0,
+        motionEnrichment: 0,
+        validation: 0,
+        total: 0,
+        message: "No scenes to estimate. Please generate scenes first.",
+      });
+    }
+
+    // Estimate costs using actual scene data
+    const estimate = CostEstimator.estimateScenes(scenes, provider);
+
+    res.json({
+      ...estimate,
+      sceneCount: scenes.length,
+      provider,
+    });
   } catch (err) {
     next(err);
   }

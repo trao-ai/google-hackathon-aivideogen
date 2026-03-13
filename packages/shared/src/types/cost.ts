@@ -1,3 +1,5 @@
+export type VideoProviderType = "veo" | "kling" | "seedance";
+
 export type CostStage =
   | "topic_discovery"
   | "research"
@@ -6,8 +8,11 @@ export type CostStage =
   | "scene_planning"
   | "image_generation"
   | "frame_regeneration"
+  | "frame_validation"
   | "video_generation"
+  | "video_fallback"
   | "motion_enrichment"
+  | "transition_planning"
   | "render"
   | "storage"
   | "channel_analysis";

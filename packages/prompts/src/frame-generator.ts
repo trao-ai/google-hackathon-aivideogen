@@ -91,15 +91,17 @@ export function buildVideoPrompt(params: {
 
   return `Animate a ${sceneType} scene for an educational explainer video.
 
+IMPORTANT — MOUTH RULE: Characters must NEVER open their mouths, talk, speak, or move their lips. Mouths stay CLOSED at all times. There is no dialogue — narration is a separate voiceover. Eye movement, blinking, and expressions are fine, but mouths must remain shut.
+
 Scene purpose: ${purpose}
 
 STARTING STATE (first frame — provided as image):
 ${startVisual}
 
-CRITICAL — ENDING STATE (the animation MUST reach exactly this state by the final frame):
+ENDING STATE (the animation MUST reach this state by the final frame):
 ${endVisual}
 
-The final frame of the animation must precisely match the ending state description above. Pay close attention to:
+Pay close attention to:
 - Character positions, poses, and expressions described in the ending state
 - Object placements and transformations
 - Camera angle and framing
@@ -110,12 +112,12 @@ The ending state is not optional — it defines where this scene connects to the
 MOTION AND TRANSITION:
 ${motionNotes}
 
-The animation must smoothly and deliberately progress from the starting state to the ending state across ${durationSec} seconds.
+The animation must smoothly progress from the starting state to the ending state across ${durationSec} seconds.
 
 Style: flat-design 2D editorial illustration, smooth animation, clean lines.
 Camera: steady, professional. No shaky cam.
 Do NOT include any text, words, or writing in the video.
-Do NOT animate mouths, lips, or any talking/speaking motion on characters. Characters must NOT appear to talk or move their mouths. Narration is handled separately as a voiceover.`.trim();
+Reminder: mouths stay CLOSED. No talking animation.`.trim();
 }
 
 /** Extract purpose/scene/metaphor lines from a frame prompt, skip meta like "Generate START FRAME". */

@@ -44,9 +44,9 @@ Be specific about:
 - How the visual state changes from start frame to end frame
 
 IMPORTANT CONSTRAINTS:
-- Do NOT add any talking, lip-sync, mouth movement, or facial expression animation to characters
-- Characters should NOT move their mouths or appear to speak
-- Focus only on body movement, gestures, camera motion, and environmental animation
+- Characters must NEVER open their mouths, talk, speak, or move their lips — mouths stay CLOSED
+- Eye movement, blinking, and facial expressions are fine
+- There is no dialogue — narration is a separate voiceover, so no character should appear to be speaking
 
 Scene purpose: ${params.purpose}
 Scene type: ${params.sceneType}

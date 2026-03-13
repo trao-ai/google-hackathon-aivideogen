@@ -229,12 +229,18 @@ export class RenderWorker {
           s.transitionPlan as { durationSec?: number; ffmpegTransition?: string } | null,
         );
 
+        // Trim voiceover to only cover the narration span of available clips
+        const voTrimStartSec = scenesWithClips[0].narrationStartSec;
+        const voTrimEndSec = scenesWithClips[scenesWithClips.length - 1].narrationEndSec;
+
         await this.runFFmpeg({
           clips,
           voiceoverPath,
           sfxPaths,
           outputPath,
           transitionPlans,
+          voTrimStartSec,
+          voTrimEndSec,
         });
 
         // Read output and upload
@@ -474,8 +480,10 @@ Example: ["gentle swoosh", "dramatic hit"]`;
     sfxPaths: string[]; // one per transition (clips.length - 1), empty string = skip
     outputPath: string;
     transitionPlans?: Array<{ durationSec?: number; ffmpegTransition?: string } | null>;
+    voTrimStartSec: number;
+    voTrimEndSec: number;
   }): Promise<void> {
-    const { clips, voiceoverPath, sfxPaths, outputPath, transitionPlans } = params;
+    const { clips, voiceoverPath, sfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec } = params;
     const args: string[] = [];
 
     // --- Inputs ---
@@ -597,8 +605,13 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       `${concatAudioInputs}concat=n=${clips.length}:v=0:a=1[clipaudio]`,
     );
 
-    // Build final audio mix: clip audio + voiceover + transition SFX
-    const audioInputLabels: string[] = [`[${voiceoverIdx}:a]`, "[clipaudio]"];
+    // Trim voiceover to only cover the narration span of available clips
+    filterParts.push(
+      `[${voiceoverIdx}:a]atrim=start=${voTrimStartSec.toFixed(3)}:end=${voTrimEndSec.toFixed(3)},asetpts=PTS-STARTPTS[vo_trimmed]`,
+    );
+
+    // Build final audio mix: clip audio + trimmed voiceover + transition SFX
+    const audioInputLabels: string[] = ["[vo_trimmed]", "[clipaudio]"];
     let mixCount = 2;
 
     if (sfxInputMap.length > 0) {

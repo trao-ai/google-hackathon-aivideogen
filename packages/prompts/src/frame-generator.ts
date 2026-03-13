@@ -114,7 +114,8 @@ The animation must smoothly and deliberately progress from the starting state to
 
 Style: flat-design 2D editorial illustration, smooth animation, clean lines.
 Camera: steady, professional. No shaky cam.
-Do NOT include any text, words, or writing in the video.`.trim();
+Do NOT include any text, words, or writing in the video.
+Do NOT animate mouths, lips, or any talking/speaking motion on characters. Characters must NOT appear to talk or move their mouths. Narration is handled separately as a voiceover.`.trim();
 }
 
 /** Extract purpose/scene/metaphor lines from a frame prompt, skip meta like "Generate START FRAME". */

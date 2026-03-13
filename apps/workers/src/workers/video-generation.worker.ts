@@ -40,8 +40,13 @@ should animate from start to end over the clip duration.
 Be specific about:
 - What elements move, scale, fade, or transform
 - Camera movements (zoom, pan, tilt)
-- Timing (what happens first, middle, end of the 8 seconds)
+- Timing (what happens first, middle, end of the clip)
 - How the visual state changes from start frame to end frame
+
+IMPORTANT CONSTRAINTS:
+- Do NOT add any talking, lip-sync, mouth movement, or facial expression animation to characters
+- Characters should NOT move their mouths or appear to speak
+- Focus only on body movement, gestures, camera motion, and environmental animation
 
 Scene purpose: ${params.purpose}
 Scene type: ${params.sceneType}

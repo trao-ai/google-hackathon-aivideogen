@@ -137,7 +137,15 @@ export class VideoGenerationWorker {
       "kling"
     ).toLowerCase();
     console.log(`[video-gen] Resolved provider: "${videoProviderName}" (job=${job.data.videoProvider}, project=${(project as Record<string, unknown>)?.videoProvider}, env=${process.env.VIDEO_PROVIDER})`);
-    const isSeDance = videoProviderName === "seedance";
+
+    // Providers that only need a start frame (no end frame required)
+    const noEndFrameProviders = new Set([
+      "seedance",
+      "replicate-veo",
+      "replicate-seedance",
+      "replicate-seedance-lite",
+    ]);
+    const needsEndFrame = !noEndFrameProviders.has(videoProviderName);
 
     const startFrame = scene.frames.find((f) => f.frameType === "start");
     const endFrame = scene.frames.find((f) => f.frameType === "end");
@@ -145,7 +153,7 @@ export class VideoGenerationWorker {
     if (!startFrame) {
       throw new Error(`Scene ${sceneId} is missing start frame. Generate frames first.`);
     }
-    if (!isSeDance && !endFrame) {
+    if (needsEndFrame && !endFrame) {
       throw new Error(`Scene ${sceneId} is missing end frame. Generate frames first.`);
     }
 
@@ -214,12 +222,16 @@ export class VideoGenerationWorker {
 
     try {
       // Attempt primary video generation (Kling/Veo)
+      console.log(`[video-gen] Submitting to ${videoProviderName} provider (${clipDurationSec}s clip)...`);
+      const genStartTime = Date.now();
       result = await videoProvider.generate({
         prompt: videoPrompt,
         startFrameBase64: startBase64,
         endFrameBase64: endBase64,
         durationSec: clipDurationSec,
       });
+      const genElapsed = ((Date.now() - genStartTime) / 1000).toFixed(1);
+      console.log(`[video-gen] Provider returned ${result.durationSec}s clip in ${genElapsed}s (cost: $${result.costUsd.toFixed(4)})`);
 
       // Duration matching verification
       const durationDelta = Math.abs(result.durationSec - clipDurationSec);
@@ -267,12 +279,14 @@ export class VideoGenerationWorker {
     }
 
     // Upload video to storage
+    console.log(`[video-gen] Uploading ${(result.videoBuffer.length / 1024 / 1024).toFixed(1)}MB clip to storage...`);
     const key = `projects/${projectId}/scenes/${sceneId}/clip-${Date.now()}.mp4`;
     const videoUrl = await storage.upload(
       key,
       result.videoBuffer,
       result.mimeType,
     );
+    console.log(`[video-gen] Upload complete: ${key}`);
 
     // Calculate duration delta for metadata
     const durationDelta = Math.abs(result.durationSec - clipDurationSec);
@@ -315,14 +329,26 @@ export class VideoGenerationWorker {
     });
 
     // Track video generation cost — use actual provider info
-    const videoVendor =
-      videoProviderName === "veo" ? "google-veo" : "kling-fal";
-    const videoModel =
-      videoProviderName === "veo"
-        ? "veo-3.1-generate-preview"
-        : videoProviderName === "seedance"
-          ? "fal-ai/bytedance/seedance/v1.5/pro/image-to-video"
-          : (process.env.KLING_MODEL_ID ?? "fal-ai/kling-video/o3/standard/image-to-video");
+    const vendorMap: Record<string, string> = {
+      veo: "google-veo",
+      kling: "kling-fal",
+      seedance: "kling-fal",
+      "replicate-veo": "replicate",
+      "replicate-kling": "replicate",
+      "replicate-seedance": "replicate",
+      "replicate-seedance-lite": "replicate",
+    };
+    const modelMap: Record<string, string> = {
+      veo: "veo-3.1-generate-preview",
+      seedance: "fal-ai/bytedance/seedance/v1.5/pro/image-to-video",
+      kling: process.env.KLING_MODEL_ID ?? "fal-ai/kling-video/o3/standard/image-to-video",
+      "replicate-veo": "google/veo-2",
+      "replicate-kling": "kwaivgi/kling-v2.1",
+      "replicate-seedance": "bytedance/seedance-1-pro",
+      "replicate-seedance-lite": "bytedance/seedance-1-lite",
+    };
+    const videoVendor = vendorMap[videoProviderName] ?? "replicate";
+    const videoModel = modelMap[videoProviderName] ?? "google/veo-2";
     const videoCost = calculateVideoCost(videoModel, result.durationSec);
     await trackVideoCost({
       projectId,

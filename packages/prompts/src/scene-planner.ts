@@ -11,10 +11,13 @@ CRITICAL: Each scene's startPrompt and endPrompt must be DETAILED visual descrip
 - NEVER include text, words, labels, or writing in the visual description
 
 Scene creation rules:
-- Create a new scene when a new core idea begins, a visual metaphor changes, emotional tone shifts, or narration crosses 6-14 second threshold
-- Average scene duration: 6-14 seconds
-- Every scene needs a clear purpose and visual concept
+- EVERY scene MUST be between 5 and 14 seconds long. This is a HARD constraint.
+- If a script section is longer than 14 seconds, you MUST split it into multiple scenes.
+- Create a new scene when a new core idea begins, a visual metaphor changes, emotional tone shifts, or narration crosses the 14-second limit.
+- Target ~8-10 seconds per scene for optimal pacing.
+- Every scene needs a clear purpose and visual concept.
 - Scenes MUST follow the script in order — scene 0 = first part of script, scene 1 = next part, etc.
+- The scenes must COVER THE ENTIRE narration timeline with no gaps — from 0s to the end of the audio.
 
 Scene types:
 - character_explanation: character presents information
@@ -39,10 +42,15 @@ export function buildScenePlannerPrompt(
   scriptSections: string,
   voiceoverTimestamps: string,
   styleBibleSummary: string,
+  audioDurationSec?: number,
 ): string {
+  const expectedScenes = audioDurationSec
+    ? `\nTotal audio duration: ${audioDurationSec.toFixed(1)} seconds. You MUST create approximately ${Math.max(Math.round(audioDurationSec / 10), 2)}-${Math.max(Math.round(audioDurationSec / 6), 3)} scenes to cover this duration. Each scene should be 5-14 seconds. Do NOT create fewer scenes than this range.\n`
+    : "";
+
   return `Style bible summary:
 ${styleBibleSummary}
-
+${expectedScenes}
 Voiceover transcript with timestamps:
 ${voiceoverTimestamps}
 

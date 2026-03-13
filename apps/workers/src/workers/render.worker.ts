@@ -42,10 +42,13 @@ export class RenderWorker {
   }
 
   private async process(
-    job: Job<{ projectId: string; renderId: string }>,
+    job: Job<{ projectId: string; renderId: string; durationLimitSec?: number }>,
   ): Promise<void> {
-    const { projectId, renderId } = job.data;
-    console.log(`[render] Starting render for project ${projectId}`);
+    const { projectId, renderId, durationLimitSec } = job.data;
+    console.log(
+      `[render] Starting render for project ${projectId}` +
+        (durationLimitSec ? ` (test mode: ${durationLimitSec}s limit)` : ""),
+    );
 
     try {
       await prisma.render.update({
@@ -65,9 +68,28 @@ export class RenderWorker {
         include: { clip: true },
       });
 
-      const scenesWithClips = scenes.filter((s) => s.clip !== null);
+      let scenesWithClips = scenes.filter((s) => s.clip !== null);
       if (scenesWithClips.length === 0) {
         throw new Error("No scene clips found. Generate videos first.");
+      }
+
+      // Apply duration limit — only include scenes that start before the cutoff
+      if (durationLimitSec) {
+        const before = scenesWithClips.length;
+        scenesWithClips = scenesWithClips.filter(
+          (s) => s.narrationStartSec < durationLimitSec,
+        );
+        console.log(
+          `[render] Duration limit ${durationLimitSec}s: using ${scenesWithClips.length}/${before} scenes`,
+        );
+      }
+
+      console.log(`[render] Found ${scenesWithClips.length}/${scenes.length} scenes with clips`);
+      for (const s of scenesWithClips) {
+        const narDur = s.narrationEndSec - s.narrationStartSec;
+        console.log(
+          `[render]   Scene ${s.orderIndex}: narration ${s.narrationStartSec.toFixed(1)}s-${s.narrationEndSec.toFixed(1)}s (${narDur.toFixed(1)}s), clip=${s.clip!.durationSec.toFixed(1)}s`,
+        );
       }
 
       // Fetch voiceover
@@ -433,9 +455,14 @@ Example: ["gentle swoosh", "dramatic hit"]`;
     return filters.join(",");
   }
 
+  /** Maximum slowdown factor before freeze-frame padding kicks in */
+  private static readonly MAX_SLOWDOWN = 2.0;
+
   /**
    * Build and run the FFmpeg filter graph:
    * - Speed-adjust each clip's video AND audio to match narration duration
+   *   (capped at MAX_SLOWDOWN to avoid jittery slow-motion)
+   * - If more time is needed, freeze the last frame (tpad stop_mode=clone)
    * - Concatenate all clips (video only — audio mixed separately for control)
    * - Preserve original clip audio (SFX/ambient) at low volume
    * - Mix: clip audio (quiet) + voiceover (full) + transition SFX (medium)
@@ -472,29 +499,61 @@ Example: ["gentle swoosh", "dramatic hit"]`;
 
     // --- Filter graph ---
     const filterParts: string[] = [];
+    const MAX_SLOW = RenderWorker.MAX_SLOWDOWN;
 
-    // Smooth speed-adjust video for each clip to match narration duration
-    // With per-scene Kling durations, ratios are small (e.g. 1.3x) so animation stays smooth
+    // Speed-adjust video for each clip, capped at MAX_SLOWDOWN
+    // Beyond cap: slow-motion the clip to max then freeze last frame for remaining time
     for (let i = 0; i < clips.length; i++) {
-      const speedFactor = clips[i].targetDurationSec / clips[i].clipDurationSec;
+      const rawFactor = clips[i].targetDurationSec / clips[i].clipDurationSec;
+      const cappedFactor = Math.min(rawFactor, MAX_SLOW);
+      const slowedDuration = clips[i].clipDurationSec * cappedFactor;
+      const padSec = Math.max(0, clips[i].targetDurationSec - slowedDuration);
+
       console.log(
-        `[render] Clip ${i}: ${clips[i].clipDurationSec.toFixed(1)}s → ${clips[i].targetDurationSec.toFixed(1)}s (${speedFactor.toFixed(2)}x)`,
+        `[render] Clip ${i}: ${clips[i].clipDurationSec.toFixed(1)}s → target ${clips[i].targetDurationSec.toFixed(1)}s | raw=${rawFactor.toFixed(2)}x, capped=${cappedFactor.toFixed(2)}x` +
+          (padSec > 0 ? `, freeze-pad=${padSec.toFixed(1)}s` : ""),
       );
-      filterParts.push(
-        `[${i}:v]setpts=PTS*${speedFactor.toFixed(6)},` +
-          `scale=1280:720:force_original_aspect_ratio=decrease,` +
-          `pad=1280:720:(ow-iw)/2:(oh-ih)/2,` +
-          `fps=30,format=yuv420p[v${i}]`,
-      );
+
+      if (padSec > 0.01) {
+        // Slow down video by capped factor, then freeze last frame for remaining time
+        filterParts.push(
+          `[${i}:v]setpts=PTS*${cappedFactor.toFixed(6)},` +
+            `tpad=stop_mode=clone:stop_duration=${padSec.toFixed(3)},` +
+            `scale=1280:720:force_original_aspect_ratio=decrease,` +
+            `pad=1280:720:(ow-iw)/2:(oh-ih)/2,` +
+            `fps=30,format=yuv420p[v${i}]`,
+        );
+      } else {
+        filterParts.push(
+          `[${i}:v]setpts=PTS*${cappedFactor.toFixed(6)},` +
+            `scale=1280:720:force_original_aspect_ratio=decrease,` +
+            `pad=1280:720:(ow-iw)/2:(oh-ih)/2,` +
+            `fps=30,format=yuv420p[v${i}]`,
+        );
+      }
     }
 
-    // Speed-adjust clip audio (or generate silence for clips without audio)
+    // Speed-adjust clip audio (capped) or generate silence
     for (let i = 0; i < clips.length; i++) {
-      const atempoRate = clips[i].clipDurationSec / clips[i].targetDurationSec;
+      const rawFactor = clips[i].targetDurationSec / clips[i].clipDurationSec;
+      const cappedFactor = Math.min(rawFactor, MAX_SLOW);
+      const slowedDuration = clips[i].clipDurationSec * cappedFactor;
+      const padSec = Math.max(0, clips[i].targetDurationSec - slowedDuration);
+      const atempoRate = 1.0 / cappedFactor; // inverse for audio speed
+
       if (clips[i].hasAudio) {
-        // Speed-adjust and lower volume of original clip audio
         const atempoChain = this.buildAtempoChain(atempoRate);
-        filterParts.push(`[${i}:a]${atempoChain},volume=0.25[ca${i}]`);
+        if (padSec > 0.01) {
+          // Slow audio then concat with silence for the freeze-frame portion
+          filterParts.push(
+            `[${i}:a]${atempoChain},volume=0.25[ca_raw${i}];` +
+              `anullsrc=r=48000:cl=stereo[spad${i}];` +
+              `[spad${i}]atrim=0:${padSec.toFixed(3)}[spad_t${i}];` +
+              `[ca_raw${i}][spad_t${i}]concat=n=2:v=0:a=1[ca${i}]`,
+          );
+        } else {
+          filterParts.push(`[${i}:a]${atempoChain},volume=0.25[ca${i}]`);
+        }
       } else {
         // No audio stream — generate silence matching target duration
         filterParts.push(
@@ -564,10 +623,11 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       }
     }
 
-    // amix with normalize=0 keeps each input at its set volume
+    // amix: duration=first → voiceover (first input) controls total length
+    // normalize=0 keeps each input at its set volume
     const allAudioLabels = audioInputLabels.join("");
     filterParts.push(
-      `${allAudioLabels}amix=inputs=${mixCount}:duration=longest:dropout_transition=0:normalize=0[aout]`,
+      `${allAudioLabels}amix=inputs=${mixCount}:duration=first:dropout_transition=0:normalize=0[aout]`,
     );
 
     const filterComplex = filterParts.join(";\n");
@@ -591,11 +651,14 @@ Example: ["gentle swoosh", "dramatic hit"]`;
       "192k",
       "-movflags",
       "+faststart",
-      "-shortest",
       "-y",
       outputPath,
     );
 
+    const totalTargetSec = clips.reduce((s, c) => s + c.targetDurationSec, 0);
+    console.log(
+      `[render] FFmpeg: ${clips.length} clips, total target duration ${totalTargetSec.toFixed(1)}s`,
+    );
     console.log(`[render] FFmpeg filter graph:\n${filterComplex}`);
 
     const { stderr } = await execFileAsync("ffmpeg", args, {

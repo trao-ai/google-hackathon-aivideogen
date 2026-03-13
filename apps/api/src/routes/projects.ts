@@ -17,7 +17,11 @@ const updateSchema = z.object({
   status: z.string().optional(),
   selectedTopicId: z.string().uuid().optional(),
   selectedScriptId: z.string().uuid().optional(),
-  videoProvider: z.enum(["veo", "kling", "seedance"]).optional(),
+  videoProvider: z.enum([
+    "veo", "kling", "seedance",
+    "replicate-veo", "replicate-kling",
+    "replicate-seedance", "replicate-seedance-lite",
+  ]).optional(),
 });
 
 // GET /projects

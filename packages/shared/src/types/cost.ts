@@ -1,4 +1,11 @@
-export type VideoProviderType = "veo" | "kling" | "seedance";
+export type VideoProviderType =
+  | "veo"
+  | "kling"
+  | "seedance"
+  | "replicate-veo"
+  | "replicate-kling"
+  | "replicate-seedance"
+  | "replicate-seedance-lite";
 
 export type CostStage =
   | "topic_discovery"

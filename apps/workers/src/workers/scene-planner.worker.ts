@@ -65,7 +65,7 @@ export class ScenePlannerWorker {
       return {
         order: s.orderIndex,
         type: s.sectionType,
-        text: s.text.slice(0, 200),
+        text: s.text,
         startSec: seg?.startSec ?? 0,
         endSec: seg?.endSec ?? 0,
       };
@@ -83,6 +83,7 @@ export class ScenePlannerWorker {
           JSON.stringify(sectionSummaries, null, 2),
           JSON.stringify(segments, null, 2),
           styleSummary,
+          voiceover.durationSec,
         ),
       },
     ]);
@@ -132,11 +133,43 @@ export class ScenePlannerWorker {
       }));
     }
 
+    // Post-validation: auto-split any scene longer than 14s into ~10s sub-scenes
+    const MAX_SCENE_SEC = 14;
+    const validated: typeof scenes = [];
+    for (const sc of scenes) {
+      const dur = sc.narrationEndSec - sc.narrationStartSec;
+      if (dur <= MAX_SCENE_SEC) {
+        validated.push({ ...sc, orderIndex: validated.length });
+      } else {
+        // Split into ~10s parts
+        const parts = Math.ceil(dur / 10);
+        const partDur = dur / parts;
+        console.log(
+          `[scene-planner] Auto-splitting scene "${sc.purpose.slice(0, 50)}" (${dur.toFixed(1)}s) into ${parts} parts of ~${partDur.toFixed(1)}s`,
+        );
+        for (let p = 0; p < parts; p++) {
+          validated.push({
+            ...sc,
+            orderIndex: validated.length,
+            narrationStartSec: parseFloat((sc.narrationStartSec + p * partDur).toFixed(2)),
+            narrationEndSec: parseFloat((sc.narrationStartSec + (p + 1) * partDur).toFixed(2)),
+            purpose: parts > 1 ? `${sc.purpose} (part ${p + 1}/${parts})` : sc.purpose,
+          });
+        }
+      }
+    }
+
+    if (validated.length !== scenes.length) {
+      console.log(
+        `[scene-planner] Post-validation: ${scenes.length} scenes → ${validated.length} scenes after splitting`,
+      );
+    }
+
     // Delete any old scenes for this project
     await prisma.scene.deleteMany({ where: { projectId } });
 
     await prisma.scene.createMany({
-      data: scenes.map((sc) => ({
+      data: validated.map((sc) => ({
         projectId,
         orderIndex: sc.orderIndex,
         narrationStartSec: sc.narrationStartSec,
@@ -158,7 +191,7 @@ export class ScenePlannerWorker {
     });
 
     console.log(
-      `[scene-planner] Created ${scenes.length} scenes for project ${projectId}`,
+      `[scene-planner] Created ${validated.length} scenes for project ${projectId}`,
     );
   }
 

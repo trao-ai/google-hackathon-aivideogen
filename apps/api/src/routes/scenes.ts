@@ -103,13 +103,16 @@ sceneRouter.post(
       if (scene.projectId !== req.params.projectId)
         throw new ApiError(400, "Scene does not belong to this project");
 
-      const isSeDance = project?.videoProvider === "seedance";
+      const noEndFrameProviders = new Set([
+        "seedance", "replicate-veo", "replicate-seedance", "replicate-seedance-lite",
+      ]);
+      const needsEndFrame = !noEndFrameProviders.has(project?.videoProvider ?? "kling");
       const hasStart = scene.frames.some((f) => f.frameType === "start");
       const hasEnd = scene.frames.some((f) => f.frameType === "end");
 
       if (!hasStart)
         throw new ApiError(400, "Scene needs a start frame before generating video.");
-      if (!isSeDance && !hasEnd)
+      if (needsEndFrame && !hasEnd)
         throw new ApiError(
           400,
           "Scene needs both start and end frames before generating video.",
@@ -145,7 +148,10 @@ sceneRouter.post("/:id/generate-videos", async (req, res, next) => {
     });
     if (!project) throw new ApiError(404, "Project not found");
 
-    const isSeDance = project.videoProvider === "seedance";
+    const noEndFrameProviders = new Set([
+      "seedance", "replicate-veo", "replicate-seedance", "replicate-seedance-lite",
+    ]);
+    const onlyNeedsStart = noEndFrameProviders.has(project.videoProvider ?? "kling");
 
     const scenes = await prisma.scene.findMany({
       where: { projectId: project.id },
@@ -155,13 +161,13 @@ sceneRouter.post("/:id/generate-videos", async (req, res, next) => {
     const readyScenes = scenes.filter((s) => {
       const hasStart = s.frames.some((f) => f.frameType === "start");
       const hasEnd = s.frames.some((f) => f.frameType === "end");
-      return isSeDance ? hasStart : hasStart && hasEnd;
+      return onlyNeedsStart ? hasStart : hasStart && hasEnd;
     });
 
     if (readyScenes.length === 0)
       throw new ApiError(
         400,
-        isSeDance
+        onlyNeedsStart
           ? "No scenes have start frames. Generate frames first."
           : "No scenes have both start and end frames. Generate frames first.",
       );

@@ -183,11 +183,42 @@ export class KlingVideoProvider implements VideoProvider {
       throw new Error("Failed to download video buffer");
     }
 
+    // Probe actual duration from the downloaded video via ffprobe
+    let actualDuration = durationSec;
+    try {
+      const { execFileSync } = await import("child_process");
+      const fs = await import("fs");
+      const os = await import("os");
+      const path = await import("path");
+      const tmpPath = path.join(os.tmpdir(), `kling-probe-${Date.now()}.mp4`);
+      fs.writeFileSync(tmpPath, videoBuffer);
+      const stdout = execFileSync("ffprobe", [
+        "-v", "quiet",
+        "-show_entries", "format=duration",
+        "-of", "csv=p=0",
+        tmpPath,
+      ]).toString().trim();
+      fs.unlinkSync(tmpPath);
+      const probed = parseFloat(stdout);
+      if (probed > 0) {
+        actualDuration = probed;
+        if (Math.abs(probed - durationSec) > 1) {
+          console.warn(
+            `[kling/fal] Duration mismatch: requested ${durationSec}s, actual video is ${probed.toFixed(1)}s`,
+          );
+        }
+      }
+    } catch (e) {
+      console.warn(`[kling/fal] ffprobe failed, using requested duration: ${(e as Error).message}`);
+    }
+
+    console.log(`[kling/fal] Final clip: ${actualDuration.toFixed(1)}s, ${videoBuffer.length} bytes`);
+
     return {
       videoBuffer,
       mimeType: data.video.content_type ?? "video/mp4",
-      durationSec,
-      costUsd: calculateVideoCost(this.modelId, durationSec),
+      durationSec: actualDuration,
+      costUsd: calculateVideoCost(this.modelId, actualDuration),
     };
   }
 

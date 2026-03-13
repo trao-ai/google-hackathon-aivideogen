@@ -105,22 +105,34 @@ ALWAYS:
 - Give analogies that make complex things feel touchable
 - Make the listener feel SMART for understanding this
 
-════════════════════════════════
-11-SECTION STRUCTURE (10-15 MINUTES)
-════════════════════════════════
-sectionType: cold_open       (~45-60 sec, 110-140 words)  — PLUNGE mid-story, most dramatic moment first. Zero fluff.
-sectionType: hook            (~35-45 sec, 85-110 words)   — The counterintuitive truth that sets up the mystery.
-sectionType: promise         (~25-30 sec, 60-75 words)    — What we'll discover. Make it feel like a gift they can't refuse.
-sectionType: context         (~90-100 sec, 210-240 words) — Background as STORY. Characters, places, turning points. Not textbook.
-sectionType: escalation      (~90-100 sec, 210-240 words) — Things get MORE complicated, MORE surprising. Stakes rise.
-sectionType: main_explanation_1 (~100-120 sec, 230-280 words) — The deep mechanism, first half. Analogies. Visuals. WONDER.
-sectionType: main_explanation_2 (~100-120 sec, 230-280 words) — Second half of deep dive. The twist within the explanation.
-sectionType: twist           (~65-75 sec, 150-175 words)  — The reveal that reframes EVERYTHING we just learned.
-sectionType: consequences    (~65-75 sec, 150-175 words)  — What this means for the world. For YOU. For what comes next.
-sectionType: closing_hook    (~45-55 sec, 105-130 words)  — One final fact that leaves them thinking for DAYS.
-sectionType: cta             (~20-25 sec, 45-60 words)    — Natural, earned, human. "If this broke your brain a little..." style.
+{{SECTION_STRUCTURE}}`;
 
-TARGET: 1,900-2,200 words total. That's 12-14 minutes at 150 words per minute.`;
+// ─── Duration presets ────────────────────────────────────────────────────────
+
+const SECTION_STRUCTURE_SHORT = `════════════════════════════════
+4-SECTION STRUCTURE (~1 MINUTE)
+════════════════════════════════
+sectionType: cold_open       (~15 sec, 35-40 words)  — PLUNGE mid-story, one explosive hook. Zero fluff.
+sectionType: main_explanation_1 (~20 sec, 45-55 words) — The core insight. One killer analogy. Make it VISUAL.
+sectionType: twist           (~15 sec, 30-40 words)  — The reveal that flips it. Short. Punchy. Mind = blown.
+sectionType: cta             (~10 sec, 20-25 words)   — Quick close. "Share this." style. Earned, human.
+
+TARGET: 130-160 words total. That's ~1 minute at 150 words per minute.
+CRITICAL: Do NOT exceed 180 words. This is a SHORT-FORM video. Every word must earn its place.`;
+
+const SECTION_STRUCTURE_LONG = `════════════════════════════════
+8-SECTION STRUCTURE (4-5 MINUTES)
+════════════════════════════════
+sectionType: cold_open       (~30 sec, 70-80 words)   — PLUNGE mid-story, most dramatic moment first. Zero fluff.
+sectionType: hook            (~20 sec, 45-55 words)    — The counterintuitive truth that sets up the mystery.
+sectionType: context         (~50 sec, 110-130 words)  — Background as STORY. Characters, places, turning points.
+sectionType: main_explanation_1 (~60 sec, 135-155 words) — The deep mechanism. Analogies. Visuals. WONDER.
+sectionType: twist           (~35 sec, 80-90 words)    — The reveal that reframes EVERYTHING we just learned.
+sectionType: consequences    (~35 sec, 80-90 words)    — What this means for the world. For YOU.
+sectionType: closing_hook    (~25 sec, 55-65 words)    — One final fact that leaves them thinking for DAYS.
+sectionType: cta             (~15 sec, 30-40 words)    — Natural, earned, human. "If this broke your brain a little..." style.
+
+TARGET: 600-700 words total. That's 4-5 minutes at 150 words per minute.`;
 
 scriptRouter.post("/:id/generate-scripts", async (req, res, next) => {
   try {
@@ -138,8 +150,17 @@ scriptRouter.post("/:id/generate-scripts", async (req, res, next) => {
     });
     if (!brief) throw new ApiError(400, "No research brief found. Run research first.");
 
+    // Duration preset: "short" (~1 min) or "long" (4-5 min)
+    const duration: "short" | "long" = req.body.duration === "short" ? "short" : "long";
+    const sectionStructure = duration === "short" ? SECTION_STRUCTURE_SHORT : SECTION_STRUCTURE_LONG;
+    const systemPrompt = SCRIPT_WRITER_PROMPT.replace("{{SECTION_STRUCTURE}}", sectionStructure);
+
+    const targetWords = duration === "short" ? 150 : 650;
+    const targetDurationSec = duration === "short" ? 60 : 270;
+    const durationLabel = duration === "short" ? "~1 min" : "4-5 min";
+
     await prisma.project.update({ where: { id: project.id }, data: { status: "scripting" } });
-    console.log(`[script] Writing electrifying 10-15 min script for: "${topic?.title}"`);
+    console.log(`[script] Writing ${durationLabel} script for: "${topic?.title}"`);
 
     const researchContext = [
       `SUMMARY:\n${brief.summary}`,
@@ -160,11 +181,12 @@ scriptRouter.post("/:id/generate-scripts", async (req, res, next) => {
 
     const llm = createLLMProvider();
     const response = await llm.chat([
-      { role: "system", content: SCRIPT_WRITER_PROMPT },
+      { role: "system", content: systemPrompt },
       {
         role: "user",
         content: `Write the most captivating, electrifying voiceover script you have ever written. This is your masterpiece.
 
+DURATION: ${durationLabel} (${targetWords} words)
 TOPIC: "${topic?.title}"
 CATEGORY: ${project.niche}
 
@@ -176,7 +198,7 @@ ${sourceList}
 
 ═══ NON-NEGOTIABLE REQUIREMENTS ═══
 1. COLD OPEN starts MID-STORY — no intro, no "today we'll explore", just BOOM, you're in it
-2. Every 25-30 seconds: a new revelation, a new "wait, WHAT?" moment
+2. Every ${duration === "short" ? "10-15" : "25-30"} seconds: a new revelation, a new "wait, WHAT?" moment
 3. Use "..." before every major reveal — make the listener WAIT for it
 4. Use "—" when you pivot hard or cut a thought dramatically
 5. CAPS on the ONE word that carries the most weight in a sentence (max 2-3 per section)
@@ -185,19 +207,20 @@ ${sourceList}
 8. Personal stakes: bring it back to the listener's BODY, their LIFE, their FUTURE
 9. Cite sources naturally — not "according to [1]" but "A team at Oxford found..."
 10. CLOSING HOOK must leave them staring at the ceiling tonight
+${duration === "short" ? "11. CRITICAL: This is SHORT-FORM. Keep it TIGHT. No filler. Every word earns its place. ~150 words MAX." : ""}
 
 Return ONLY valid JSON. No markdown. No preamble. Just the JSON object:
 {
   "titleCandidates": ["3 punchy titles, max 60 chars each, curiosity-gap format"],
   "thumbnailAngles": ["2 specific thumbnail visuals that stop thumbs mid-scroll"],
-  "estimatedDurationSec": 780,
-  "wordCount": 2000,
+  "estimatedDurationSec": ${targetDurationSec},
+  "wordCount": ${targetWords},
   "sections": [
     {
       "sectionType": "cold_open",
       "text": "Full electrifying text with prosody markers...",
-      "estimatedDurationSec": 55,
-      "wordCount": 130
+      "estimatedDurationSec": ${duration === "short" ? 15 : 30},
+      "wordCount": ${duration === "short" ? 35 : 75}
     }
   ]
 }`,
@@ -220,7 +243,7 @@ Return ONLY valid JSON. No markdown. No preamble. Just the JSON object:
       const match = response.content.match(/\{[\s\S]*\}/);
       if (match) parsed = JSON.parse(match[0]);
     } catch {
-      parsed.sections = [{ sectionType: "narration", text: response.content, estimatedDurationSec: 780, wordCount: 1900 }];
+      parsed.sections = [{ sectionType: "narration", text: response.content, estimatedDurationSec: targetDurationSec, wordCount: targetWords }];
     }
 
     const fullText = (parsed.sections ?? []).map((s: any) => s.text).join("\n\n");

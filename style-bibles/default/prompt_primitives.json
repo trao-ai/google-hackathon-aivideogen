@@ -1,19 +1,20 @@
 {
-  "stylePrefix": "Kurzgesagt-style flat vector illustration, bold vibrant colors on dark background, no outlines, soft rounded shapes, layered composition with depth, educational infographic aesthetic, Duolingo-style friendly characters",
+  "stylePrefix": "Kurzgesagt-style cinematic illustration, richly detailed with atmospheric depth and subtle lighting, dark navy or deep space background with glowing highlights and particle effects, layered parallax composition, smooth soft shapes with subtle gradients for volume, NO hard outlines, educational infographic aesthetic with scientific precision",
   "qualityTags": [
     "high quality",
-    "clean vector shapes",
+    "cinematic framing",
     "professional educational illustration",
-    "vibrant bold colors"
+    "vibrant bold colors",
+    "atmospheric depth"
   ],
   "compositionRules": [
     "rule of thirds",
     "clear visual hierarchy",
-    "layered depth with foreground and background elements",
+    "layered depth with foreground, midground, and background elements",
     "single focal point per frame",
-    "rich but organized background"
+    "rich detailed environments with atmospheric effects"
   ],
-  "colorInstruction": "use dark rich backgrounds like #1A1A2E or #16213E with vibrant accent colors: red #E94560, yellow #FFB703, green #53D769, blue #00BBF9, pink #F15BB5",
+  "colorInstruction": "use dark rich backgrounds like #1A1A2E or #16213E with vibrant accent colors: red #E94560, yellow #FFB703, green #53D769, blue #00BBF9, pink #F15BB5. Use subtle gradients for volume and depth.",
   "textInImage": {
     "allowed": false,
     "note": "No text, words, letters, or writing of any kind in generated images"
@@ -26,8 +27,13 @@
     "sketch",
     "thin outlines",
     "sharp angular edges",
-    "realistic shading",
+    "realistic photo shading",
     "cluttered composition",
-    "text or writing"
+    "text or writing",
+    "Duolingo style",
+    "simple flat cartoon",
+    "clipart",
+    "low detail",
+    "childish"
   ]
 }

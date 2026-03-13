@@ -14,8 +14,8 @@ async function main() {
     name: "Atlas Default",
     version: "3.0",
     visualMission:
-      "Kurzgesagt-style flat vector illustration with rounded friendly characters. Bold, vibrant, and educational.",
-    emotionalTone: "Curious, warm, playful yet informative",
+      "Kurzgesagt-style cinematic illustration with rich detail, atmospheric depth, and scientific precision. Epic, vibrant, and educational.",
+    emotionalTone: "Curious, awe-inspiring, epic yet approachable",
     narrativeStance: "Friendly and approachable narrator",
     palette: {
       primary: ["#1A1A2E", "#16213E", "#0F3460"],
@@ -26,10 +26,10 @@ async function main() {
       },
     },
     characterRules: {
-      silhouette: "rounded_soft_blob_shapes_kurzgesagt_style",
+      silhouette: "smooth_rounded_simplified_shapes_with_volume",
       proportions: "large_head_small_body_2_head_ratio",
-      eyes: "large_round_expressive_dot_eyes",
-      hands: "simple_rounded_mitten_hands",
+      eyes: "large_round_expressive_eyes_with_subtle_highlights",
+      hands: "simple_rounded_hands",
       mouth: "NO_MOUTH_EVER",
       expressionStyle: "expressive_through_eyes_and_body_language_only_no_mouth",
       forbidden: [
@@ -42,12 +42,14 @@ async function main() {
         "lips",
         "teeth",
         "speaking_animation",
+        "Duolingo_style",
+        "clipart",
       ],
     },
-    lineWeights: "no_outlines_or_minimal_color_distinction_between_shapes",
-    textureRules: "completely_flat_no_texture_no_grain_pure_vector",
-    shadowRules: "subtle_flat_color_shadows_no_gradients",
-    backgroundDensity: "rich_layered_like_kurzgesagt_with_depth",
+    lineWeights: "no_hard_outlines_shapes_defined_by_color_and_subtle_shadow",
+    textureRules: "smooth_with_subtle_gradients_for_depth_and_volume",
+    shadowRules: "soft_ambient_shadows_and_atmospheric_lighting",
+    backgroundDensity: "richly_detailed_cinematic_backgrounds_with_parallax_depth",
     motionRules: "smooth_parallax_pan_zoom_organic_morphing",
     bubbleRules: "minimal_only_when_clarity_improves_retention",
     negativePrompts: [
@@ -67,22 +69,26 @@ async function main() {
       "letters",
       "thin lines",
       "sharp angular edges",
-      "realistic shading",
-      "gradient meshes",
+      "realistic photo shading",
       "mouth",
       "lips",
       "teeth",
       "speaking",
       "talking",
       "open mouth",
+      "Duolingo",
+      "simple flat cartoon",
+      "clipart",
+      "low detail",
+      "childish",
     ],
     promptPrimitives: {
       style_prefix:
-        "Kurzgesagt-style flat vector illustration, bold vibrant colors on dark navy/deep blue background, no outlines, soft rounded shapes, layered composition with parallax depth, educational infographic aesthetic,",
+        "Kurzgesagt-style cinematic illustration, richly detailed with atmospheric depth and subtle lighting, dark navy or deep space background with glowing highlights and particle effects, layered parallax composition, smooth soft shapes with subtle gradients for volume, NO hard outlines, educational infographic aesthetic with scientific precision,",
       character_prefix:
-        "rounded blob-like Kurzgesagt character with large expressive dot eyes, NO mouth, NO lips, simple mitten hands, large head small body, flat solid colors, expression conveyed through eyes and body language only,",
+        "sophisticated simplified character with expressive round eyes and subtle eye highlights, NO mouth, NO lips, smooth rounded body with volume and depth, warm organic colors, expression conveyed through eyes and body language only,",
       scene_suffix:
-        "rich layered background with subtle depth, vibrant saturated color palette, clean professional educational look, no text or writing in the image",
+        "rich environmental detail with atmospheric haze and glow effects, vibrant saturated color palette against dark background, epic cinematic framing, clean professional educational look, no text or writing in the image",
     },
   };
 

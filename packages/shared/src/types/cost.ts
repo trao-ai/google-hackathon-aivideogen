@@ -21,6 +21,7 @@ export type CostStage =
   | "motion_enrichment"
   | "transition_planning"
   | "render"
+  | "sfx"
   | "storage"
   | "channel_analysis";
 

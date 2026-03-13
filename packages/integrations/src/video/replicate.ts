@@ -64,7 +64,7 @@ const MODEL_CONFIGS: Record<string, ReplicateModelConfig> = {
     defaultDuration: 5,
     supportsNegativePrompt: true,
     supportsAspectRatio: true,
-    extraInput: { mode: "pro" },
+    extraInput: { mode: "pro", cfg_scale: 0.9 },
   },
   "bytedance/seedance-1-pro": {
     imageInputKey: "image",
@@ -167,7 +167,7 @@ export class ReplicateVideoProvider implements VideoProvider {
 
     if (this.config.supportsNegativePrompt) {
       input.negative_prompt =
-        "text, words, letters, numbers, watermark, caption, subtitle, label, blurry, low quality";
+        "text, words, letters, numbers, watermark, caption, subtitle, label, blurry, low quality, talking, speaking, lip sync, mouth movement, open mouth, moving lips";
     }
 
     if (this.config.supportsAspectRatio && opts.aspectRatio) {
@@ -183,9 +183,12 @@ export class ReplicateVideoProvider implements VideoProvider {
       console.log(`[replicate] Request payload:`, {
         model: this.modelId,
         duration,
+        mode: input.mode ?? "standard",
         hasStartImage: true,
         hasEndImage: !!endFrameBase64 && !!this.config.endImageInputKey,
         promptLength: prompt.length,
+        prompt: prompt.slice(0, 500),
+        negative_prompt: input.negative_prompt ?? "(none)",
       });
 
       output = await this.client.run(

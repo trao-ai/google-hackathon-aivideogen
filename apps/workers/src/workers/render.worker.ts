@@ -346,7 +346,7 @@ ${transitionList}
 Respond with ONLY a JSON array of strings, one per transition. No markdown, no explanation.
 Example: ["gentle swoosh", "dramatic hit"]`;
 
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-1.5-flash";
+    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.0-flash";
 
     try {
       const res = await fetch(

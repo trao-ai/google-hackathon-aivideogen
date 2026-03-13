@@ -1,7 +1,7 @@
 // Video generation worker — uses Veo (SDK)/Kling/SeDance based on project.videoProvider
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma, trackVideoCost, trackLLMCost, trackCost } from "@atlas/db";
+import { prisma, trackVideoCost, trackLLMCost } from "@atlas/db";
 import { calculateVideoCost, calculateLLMCost } from "@atlas/shared";
 import {
   createVideoProvider,
@@ -9,7 +9,7 @@ import {
   resolveStorageDir,
 } from "@atlas/integrations";
 import { buildVideoPrompt } from "@atlas/prompts";
-import { KenBurnsProvider } from "@atlas/motion-fallback";
+
 
 interface MotionEnrichmentResult {
   enrichedMotion: string;
@@ -55,7 +55,7 @@ Brief motion notes: ${params.motionNotes}
 Write ONLY the animation direction. No preamble, no markdown.`;
 
   try {
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-1.5-flash";
+    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.0-flash";
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
@@ -185,7 +185,7 @@ export class VideoGenerationWorker {
     });
 
     // Track motion enrichment LLM cost
-    const textModel = process.env.GEMINI_TEXT_MODEL ?? "gemini-1.5-flash";
+    const textModel = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.0-flash";
     if (motionResult.inputTokens > 0 || motionResult.outputTokens > 0) {
       const motionCost = calculateLLMCost(
         textModel,
@@ -216,66 +216,25 @@ export class VideoGenerationWorker {
 
     console.log(`[video-gen] Video prompt for scene ${sceneId}:\n${videoPrompt}`);
 
-    let result;
-    let usedFallback = false;
-    let fallbackReason = "";
+    console.log(`[video-gen] Submitting to ${videoProviderName} provider (${clipDurationSec}s clip)...`);
+    const genStartTime = Date.now();
+    const result = await videoProvider.generate({
+      prompt: videoPrompt,
+      startFrameBase64: startBase64,
+      endFrameBase64: endBase64,
+      durationSec: clipDurationSec,
+    });
+    const genElapsed = ((Date.now() - genStartTime) / 1000).toFixed(1);
+    console.log(`[video-gen] Provider returned ${result.durationSec}s clip in ${genElapsed}s (cost: $${result.costUsd.toFixed(4)})`);
 
-    try {
-      // Attempt primary video generation (Kling/Veo)
-      console.log(`[video-gen] Submitting to ${videoProviderName} provider (${clipDurationSec}s clip)...`);
-      const genStartTime = Date.now();
-      result = await videoProvider.generate({
-        prompt: videoPrompt,
-        startFrameBase64: startBase64,
-        endFrameBase64: endBase64,
-        durationSec: clipDurationSec,
-      });
-      const genElapsed = ((Date.now() - genStartTime) / 1000).toFixed(1);
-      console.log(`[video-gen] Provider returned ${result.durationSec}s clip in ${genElapsed}s (cost: $${result.costUsd.toFixed(4)})`);
+    // Duration matching verification
+    const durationDelta = Math.abs(result.durationSec - clipDurationSec);
+    const durationVariance = (durationDelta / clipDurationSec) * 100;
 
-      // Duration matching verification
-      const durationDelta = Math.abs(result.durationSec - clipDurationSec);
-      const durationVariance = (durationDelta / clipDurationSec) * 100;
-
-      if (durationVariance > 10) {
-        console.warn(
-          `[video-gen] Duration mismatch: requested ${clipDurationSec}s, got ${result.durationSec}s (${durationVariance.toFixed(1)}% variance)`
-        );
-      }
-    } catch (error) {
-      // Fallback to Ken Burns when AI video generation fails
-      console.warn(`[video-gen] Primary video generation failed:`, (error as Error).message);
-      console.log(`[video-gen] Falling back to Ken Burns effect...`);
-
-      fallbackReason = (error as Error).message;
-      usedFallback = true;
-
-      const kenBurns = new KenBurnsProvider();
-      result = await kenBurns.generate({
-        prompt: videoPrompt,
-        startFrameBase64: startBase64,
-        endFrameBase64: endBase64,
-        durationSec: clipDurationSec,
-        motionNotes: scene.motionNotes || undefined,
-      });
-
-      // Track fallback usage
-      await trackCost({
-        projectId,
-        stage: "video_fallback",
-        vendor: "ken-burns-ffmpeg",
-        units: clipDurationSec,
-        unitCost: 0,
-        totalCostUsd: 0,
-        metadata: {
-          fallbackReason,
-          sceneId,
-          requestedDuration: clipDurationSec,
-          actualDuration: result.durationSec,
-        },
-      });
-
-      console.log(`[video-gen] Ken Burns fallback succeeded (${result.durationSec}s)`);
+    if (durationVariance > 10) {
+      console.warn(
+        `[video-gen] Duration mismatch: requested ${clipDurationSec}s, got ${result.durationSec}s (${durationVariance.toFixed(1)}% variance)`
+      );
     }
 
     // Upload video to storage
@@ -288,10 +247,6 @@ export class VideoGenerationWorker {
     );
     console.log(`[video-gen] Upload complete: ${key}`);
 
-    // Calculate duration delta for metadata
-    const durationDelta = Math.abs(result.durationSec - clipDurationSec);
-    const durationVariance = (durationDelta / clipDurationSec) * 100;
-
     // Upsert SceneClip with metadata
     await prisma.sceneClip.upsert({
       where: { sceneId },
@@ -301,8 +256,6 @@ export class VideoGenerationWorker {
         durationSec: result.durationSec,
         costUsd: result.costUsd,
         metadata: {
-          usedFallback,
-          fallbackReason: usedFallback ? fallbackReason : undefined,
           requestedDuration: clipDurationSec,
           durationDelta,
           durationVariance,
@@ -313,8 +266,6 @@ export class VideoGenerationWorker {
         durationSec: result.durationSec,
         costUsd: result.costUsd,
         metadata: {
-          usedFallback,
-          fallbackReason: usedFallback ? fallbackReason : undefined,
           requestedDuration: clipDurationSec,
           durationDelta,
           durationVariance,

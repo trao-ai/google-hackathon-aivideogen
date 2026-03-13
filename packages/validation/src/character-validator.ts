@@ -18,7 +18,7 @@ export class CharacterValidator {
   async extractCharacters(imageBuffer: Buffer): Promise<CharacterProfile[]> {
     try {
       const model = this.genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash",
       });
 
       const prompt = `Analyze this image and identify all characters present.

@@ -31,12 +31,16 @@ interface ReplicateModelConfig {
   /** Duration constraints */
   minDuration: number;
   maxDuration: number;
+  /** If set, duration must be one of these exact values */
+  allowedDurations?: number[];
   /** Default duration if not specified */
   defaultDuration: number;
   /** Whether to include negative_prompt */
   supportsNegativePrompt: boolean;
   /** Whether to include aspect_ratio */
   supportsAspectRatio: boolean;
+  /** Extra static fields to include in every request */
+  extraInput?: Record<string, unknown>;
 }
 
 const MODEL_CONFIGS: Record<string, ReplicateModelConfig> = {
@@ -51,14 +55,16 @@ const MODEL_CONFIGS: Record<string, ReplicateModelConfig> = {
     supportsAspectRatio: true,
   },
   "kwaivgi/kling-v2.1": {
-    imageInputKey: "image",
+    imageInputKey: "start_image",
     endImageInputKey: "end_image",
     durationKey: "duration",
     minDuration: 5,
     maxDuration: 10,
+    allowedDurations: [5, 10],
     defaultDuration: 5,
     supportsNegativePrompt: true,
     supportsAspectRatio: true,
+    extraInput: { mode: "pro" },
   },
   "bytedance/seedance-1-pro": {
     imageInputKey: "image",
@@ -129,15 +135,24 @@ export class ReplicateVideoProvider implements VideoProvider {
 
     // Clamp duration to model's valid range
     const requestedDur = opts.durationSec ?? this.config.defaultDuration;
-    const duration = Math.max(
-      this.config.minDuration,
-      Math.min(this.config.maxDuration, Math.round(requestedDur)),
-    );
+    let duration: number;
+    if (this.config.allowedDurations?.length) {
+      // Snap to the nearest allowed value
+      duration = this.config.allowedDurations.reduce((best, v) =>
+        Math.abs(v - requestedDur) < Math.abs(best - requestedDur) ? v : best,
+      );
+    } else {
+      duration = Math.max(
+        this.config.minDuration,
+        Math.min(this.config.maxDuration, Math.round(requestedDur)),
+      );
+    }
 
     // Build input payload
     const input: Record<string, unknown> = {
       prompt,
       [this.config.durationKey]: duration,
+      ...this.config.extraInput,
     };
 
     // Replicate SDK accepts data URIs — convert base64 to data URI

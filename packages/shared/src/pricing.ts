@@ -23,6 +23,7 @@ export interface VideoPricing {
 export const LLM_PRICING: Record<string, LLMPricing> = {
   // Google Gemini — ai.google.dev/gemini-api/docs/pricing (Mar 2026)
   "gemini-2.5-flash": { inputPer1kTokens: 0.0003, outputPer1kTokens: 0.0025 },
+  "gemini-3.1-pro-preview": { inputPer1kTokens: 0.002, outputPer1kTokens: 0.012 },
 };
 
 export const TTS_PRICING: Record<string, TTSPricing> = {

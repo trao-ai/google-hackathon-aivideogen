@@ -82,6 +82,7 @@ export class ScenePlannerWorker {
         styleSummary,
         voiceover.durationSec,
       ),
+      model: "gemini-3.1-pro-preview",
     });
 
     await trackLLMCost({

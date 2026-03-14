@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { api, type ProjectDetail } from "@/lib/api";
 import { getProjectStep } from "@/lib/pipeline";
 import { Header } from "@/components/layout/Header";
@@ -137,14 +137,14 @@ export default function ProjectPage() {
       <Header totalSpend={project.totalCostUsd ?? 0} />
 
       <main className="flex-1 overflow-y-auto px-4 pt-4 pb-0">
-        <div className="bg-brand-off-white rounded-2xl border border-brand-border-light p-5 flex flex-col gap-8">
+        <div className="bg-brand-off-white rounded-2xl border border-brand-border-light p-5 flex flex-col gap-5">
           {/* Title + Refresh */}
           <div className="flex items-start justify-between gap-8">
             <div className="flex flex-col gap-2">
-              <h1 className="text-3xl font-bold text-foreground leading-9">
+              <h1 className="text-2xl font-semibold text-foreground">
                 {tabInfo.title}
               </h1>
-              <p className="text-xl text-foreground/70 leading-7">
+              <p className="text-base font-extralight text-[#141413B2]">
                 {tabInfo.subtitle}
               </p>
             </div>
@@ -153,7 +153,7 @@ export default function ProjectPage() {
               onClick={() => void loadProject()}
               className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
             >
-              <ArrowCounterClockwiseIcon size={20} weight="regular" />
+              <ArrowClockwiseIcon size={20} weight="regular" />
               <span>Refresh</span>
             </button>
           </div>

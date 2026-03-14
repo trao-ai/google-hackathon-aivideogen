@@ -17,10 +17,10 @@ export function StepNav({
               key={step.id}
               type="button"
               onClick={() => onStepClick?.(step.id)}
-              className={`px-5 py-3 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-2.5 rounded-full bg-[#FAF9F580] text-sm font-medium transition-colors ${
                 isActive
                   ? "bg-brand-black text-brand-off-white"
-                  : "bg-brand-surface/60 border border-brand-border-light text-foreground"
+                  : "bg-brand-surface border border-brand-border-light text-foreground"
               }`}
             >
               {step.label}
@@ -28,7 +28,7 @@ export function StepNav({
           );
         })}
       </div>
-      <span className="px-3.5 py-1.5 bg-brand-green/20 rounded-full text-xs font-medium text-brand-green">
+      <span className="px-3.5 py-1.5 bg-brand-green-light rounded-full text-xs font-medium text-brand-green">
         Step {currentStepIndex + 1} of {totalSteps}
       </span>
     </div>

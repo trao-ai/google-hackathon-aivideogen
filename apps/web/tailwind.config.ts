@@ -9,6 +9,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-plus-jakarta)", "system-ui", "sans-serif"],
+      },
       colors: {
         /* ── Brand palette (use these directly: bg-brand-green, text-brand-red, etc.) ── */
         brand: {

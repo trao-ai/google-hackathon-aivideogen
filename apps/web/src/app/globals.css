@@ -12,9 +12,14 @@
     --color-dark-green: #017752;
     --color-red: #FF5252;
     --color-blue: #759AC8;
+    --color-indigo: #5379FF;
+    --color-indigo-light: #5379FF33;
+    --color-green-light: #00A19133;
     --color-warm-orange: #D97757;
     --color-golden-yellow: #F6A814;
     --color-surface: #FAF9F599;
+    --color-foreground-70: #141413B2;
+    --color-foreground-50: #14141380;
     --color-border-light: #E3E2DE;
 
     /* ── Semantic Tokens ── */

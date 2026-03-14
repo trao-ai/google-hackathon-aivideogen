@@ -10,6 +10,61 @@ type Props = {
   onRefresh: () => Promise<void>;
 };
 
+const MOCK_TOPICS: Topic[] = [
+  {
+    id: "mock-1",
+    title: "Why Churros Outperformed Disney+ in the Profit Race",
+    summary:
+      "Disney's theme park churros are now generating more revenue than its streaming platform, highlighting unexpected shifts in entertainment profits.",
+    thumbnailAngle:
+      "A giant stack of churros towering over a small Disney+ logo with dollar symbols floating around.",
+    status: "discovered",
+    trendScore: 85,
+    evergreenScore: 88,
+    visualStorytellingScore: 80,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "mock-2",
+    title: "Why Churros Outperformed Disney+ in the Profit Race",
+    summary:
+      "Disney's theme park churros are now generating more revenue than its streaming platform, highlighting unexpected shifts in entertainment profits.",
+    thumbnailAngle:
+      "A giant stack of churros towering over a small Disney+ logo with dollar symbols floating around.",
+    status: "discovered",
+    trendScore: 85,
+    evergreenScore: 88,
+    visualStorytellingScore: 80,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "mock-3",
+    title: "Why Churros Outperformed Disney+ in the Profit Race",
+    summary:
+      "Disney's theme park churros are now generating more revenue than its streaming platform, highlighting unexpected shifts in entertainment profits.",
+    thumbnailAngle:
+      "A giant stack of churros towering over a small Disney+ logo with dollar symbols floating around.",
+    status: "discovered",
+    trendScore: 85,
+    evergreenScore: 88,
+    visualStorytellingScore: 80,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "mock-4",
+    title: "Why Churros Outperformed Disney+ in the Profit Race",
+    summary:
+      "Disney's theme park churros are now generating more revenue than its streaming platform, highlighting unexpected shifts in entertainment profits.",
+    thumbnailAngle:
+      "A giant stack of churros towering over a small Disney+ logo with dollar symbols floating around.",
+    status: "discovered",
+    trendScore: 85,
+    evergreenScore: 88,
+    visualStorytellingScore: 80,
+    createdAt: new Date().toISOString(),
+  },
+];
+
 function getTopicScores(topic: Topic): ScoreBarProps[] {
   const scores: ScoreBarProps[] = [];
   if (topic.trendScore !== undefined) {
@@ -31,7 +86,8 @@ export function TopicsTab({ project, onRefresh }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const topics: Topic[] = project.topics ?? [];
+  const apiTopics: Topic[] = project.topics ?? [];
+  const topics = apiTopics.length > 0 ? apiTopics : MOCK_TOPICS;
   const isDiscovering = ["discovering_topics"].includes(project.status);
 
   const handleDiscover = async () => {
@@ -59,7 +115,7 @@ export function TopicsTab({ project, onRefresh }: Props) {
     }
   };
 
-  if (topics.length === 0) {
+  if (apiTopics.length === 0 && project.status !== "draft") {
     return (
       <div className="rounded-2xl border border-dashed border-brand-border-light py-16 text-center">
         <p className="mb-3 text-foreground/70">No topics discovered yet.</p>
@@ -75,9 +131,7 @@ export function TopicsTab({ project, onRefresh }: Props) {
               ? "Working..."
               : "Discover Topics"}
         </button>
-        {error && (
-          <p className="mt-3 text-sm text-brand-red">{error}</p>
-        )}
+        {error && <p className="mt-3 text-sm text-brand-red">{error}</p>}
       </div>
     );
   }
@@ -86,7 +140,7 @@ export function TopicsTab({ project, onRefresh }: Props) {
     <div className="flex flex-col gap-5">
       {error && <p className="text-sm text-brand-red">{error}</p>}
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="flex items-start gap-5">
         {topics.map((topic) => (
           <TopicCard
             key={topic.id}

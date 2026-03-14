@@ -1,3 +1,18 @@
+import type {
+  Project,
+  ProjectDetail,
+  Topic,
+  ResearchBrief,
+  Script,
+  Voiceover,
+  SceneFrame,
+  Scene,
+  Render,
+  CostSummary,
+  CostAnalytics,
+  CostEstimate,
+} from "@/types/api";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -228,181 +243,5 @@ export const api = {
   },
 };
 
-// Lightweight type aliases for API responses (not importing from @atlas/shared to keep types lean)
-export interface Project {
-  id: string;
-  title: string;
-  niche: string;
-  status: string;
-  totalCostUsd: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProjectDetail extends Project {
-  targetAudience?: string;
-  toneKeywords?: string[];
-  videoProvider?: string;
-  selectedTopicId?: string;
-  selectedScriptId?: string;
-  selectedVoiceoverId?: string;
-  topics?: Topic[];
-  researchBriefs?: ResearchBrief[];
-  scripts?: Script[];
-  voiceovers?: Voiceover[];
-  scenes?: Scene[];
-  renders?: Render[];
-}
-
-export interface Topic {
-  id: string;
-  title: string;
-  summary: string;
-  thumbnailAngle?: string;
-  status: string;
-  opportunityScore?: number;
-  visualStorytellingScore?: number;
-  evergreenScore?: number;
-  trendScore?: number;
-  curiosityGapScore?: number;
-  factDensityScore?: number;
-  createdAt: string;
-}
-
-export interface ResearchBrief {
-  id: string;
-  projectId: string;
-  summary: string;
-  background?: string;
-  currentDevelopments?: string;
-  controversies?: string;
-  stakes?: string;
-  keyFacts: string[];
-  storyAngles: string[];
-  claims: Array<{ fact?: string; text?: string; confidence?: string; source?: string }>;
-  sources: Array<{ title: string; url: string; type: string; year?: number; credibility?: string; keyContribution?: string }>;
-  confidenceScore: number;
-  createdAt: string;
-}
-
-export interface ScriptSection {
-  id: string;
-  orderIndex: number;
-  sectionType: string;
-  text: string;
-  estimatedDurationSec: number;
-}
-
-export interface Script {
-  id: string;
-  titleCandidates: string[];
-  outline: string;
-  fullText: string;
-  estimatedDurationSec: number;
-  status: string;
-  sections?: ScriptSection[];
-  createdAt: string;
-}
-
-export interface Voiceover {
-  id: string;
-  audioUrl: string;
-  durationSec: number;
-  segments: unknown[];
-  createdAt: string;
-}
-
-export interface SceneFrame {
-  id: string;
-  frameType: string;
-  imageUrl: string;
-  prompt: string;
-  width?: number;
-  height?: number;
-}
-
-export interface SceneClip {
-  id: string;
-  videoUrl: string;
-  durationSec: number;
-  costUsd: number;
-}
-
-export interface Scene {
-  id: string;
-  // Prisma field names
-  orderIndex: number;
-  sceneType: string;
-  narrationStartSec: number;
-  narrationEndSec: number;
-  purpose: string;
-  motionNotes: string;
-  startPrompt: string;
-  endPrompt: string;
-  bubbleText?: string | null;
-  continuityNotes?: string | null;
-  frameStatus?: string;
-  clipStatus?: string;
-  // Aliases used by old UI (kept for compat)
-  order: number;
-  type: string;
-  title: string;
-  startSec: number;
-  endSec: number;
-  durationSec: number;
-  visualDescription: string;
-  animationNotes?: string;
-  frames?: SceneFrame[];
-  clip?: SceneClip | null;
-  transitionPlan?: {
-    type: string;
-    durationSec: number;
-    direction?: string;
-    visualNotes: string;
-    ffmpegTransition: string;
-  } | null;
-}
-
-export interface Render {
-  id: string;
-  projectId: string;
-  videoUrl: string | null;
-  subtitleUrl: string | null;
-  durationSec: number | null;
-  costUsd: number;
-  status: "pending" | "processing" | "complete" | "failed";
-  step?: string | null;
-  errorMsg: string | null;
-  createdAt: string;
-}
-
-export interface CostSummary {
-  breakdown: Array<{ stage: string; totalCostUsd: number; eventCount: number }>;
-  total: number;
-  costPerFinishedMinute?: number;
-}
-
-export interface CostAnalytics {
-  stage: string;
-  _sum: { totalCostUsd: number };
-  _count: { id: number };
-  _avg: { totalCostUsd: number };
-}
-
-export interface VoicePreset {
-  key: string;
-  name: string;
-  accent: string;
-}
-
-export interface CostEstimate {
-  frames: number;
-  videos: number;
-  motionEnrichment: number;
-  validation: number;
-  total: number;
-  perScene?: number;
-  sceneCount?: number;
-  provider?: string;
-  message?: string;
-}
+// Re-export all API types from the centralized types directory
+export type * from "@/types/api";

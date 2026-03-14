@@ -39,37 +39,54 @@ function loadEnv() {
 }
 loadEnv();
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM";
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "pNInz6obpgDQGcFmaJgB";
 
-if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY not set in .env");
 if (!ELEVENLABS_KEY) throw new Error("ELEVENLABS_API_KEY not set in .env");
 if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY not set in .env");
 
 // ─── API Helpers ──────────────────────────────────────────────────────────────
 
-async function callOpenAI(messages, model = "gpt-4o") {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_KEY}`,
-    },
-    body: JSON.stringify({ model, messages, temperature: 0.85 }),
-  });
+async function callGemini(messages, model = "gemini-2.5-flash") {
+  // Convert OpenAI-style messages to Gemini format
+  const systemInstruction = messages.find((m) => m.role === "system");
+  const userMessages = messages.filter((m) => m.role !== "system");
+
+  const contents = userMessages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const body = {
+    contents,
+    generationConfig: { temperature: 0.85 },
+  };
+  if (systemInstruction) {
+    body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+  }
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`OpenAI error ${res.status}: ${err}`);
+    throw new Error(`Gemini error ${res.status}: ${err.slice(0, 300)}`);
   }
   const data = await res.json();
-  const tokens = data.usage;
-  const cost = tokens.prompt_tokens * 0.000005 + tokens.completion_tokens * 0.000015;
+  const usage = data.usageMetadata ?? {};
+  const inputTokens = usage.promptTokenCount ?? 0;
+  const outputTokens = usage.candidatesTokenCount ?? 0;
+  const cost = inputTokens * 0.00000015 + outputTokens * 0.0000006; // gemini-2.5-flash pricing
   console.log(
-    `   [OpenAI] ${tokens.prompt_tokens}in/${tokens.completion_tokens}out tokens — $${cost.toFixed(4)}`
+    `   [Gemini] ${inputTokens}in/${outputTokens}out tokens — $${cost.toFixed(4)}`
   );
-  return data.choices[0].message.content;
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
 
 async function generateTTS(text) {
@@ -210,7 +227,7 @@ async function main() {
   // ── STEP 1: RESEARCH ────────────────────────────────────────────────────────
   console.log("📚  Step 1/6  Research");
 
-  const researchResponse = await callOpenAI([
+  const researchResponse = await callGemini([
     {
       role: "system",
       content:
@@ -246,7 +263,7 @@ Return JSON exactly:
   // ── STEP 2: SCRIPT ───────────────────────────────────────────────────────────
   console.log("\n✍️   Step 2/6  Script (1-minute short-form)");
 
-  const scriptResponse = await callOpenAI([
+  const scriptResponse = await callGemini([
     {
       role: "system",
       content: `You are a viral script writer for 1-minute animated educational YouTube videos.
@@ -340,7 +357,7 @@ Write the 1-minute script now.`,
     "vibrant colors (#3B6EF8 blue, #F97316 orange, #10B981 green), " +
     "bold outlines, no gradients, white background, high quality, professional";
 
-  const scenePlanResponse = await callOpenAI([
+  const scenePlanResponse = await callGemini([
     {
       role: "system",
       content:

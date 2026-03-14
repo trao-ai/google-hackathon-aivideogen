@@ -411,10 +411,10 @@ export class RenderWorker {
     }
   }
 
-  // ─── AI Audio Design via OpenAI ─────────────────────────────────────────────
+  // ─── AI Audio Design via Gemini ─────────────────────────────────────────────
 
   /**
-   * Ask OpenAI to design ambient sounds per scene + transition SFX where natural.
+   * Ask Gemini to design ambient sounds per scene + transition SFX where natural.
    * Returns one AudioDesign per scene with ambient description and optional transition.
    */
   private async describeAudioDesign(scenes: SceneAudioInfo[]): Promise<AudioDesign[]> {

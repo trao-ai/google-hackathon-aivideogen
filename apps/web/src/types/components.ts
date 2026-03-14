@@ -38,3 +38,51 @@ export type ProjectCardProps = {
   currentStep: PipelineStep;
   completedSteps: number;
 };
+
+export type ContentCategory =
+  | "Education"
+  | "Technology"
+  | "Finance"
+  | "Motivation"
+  | "Entertainment";
+
+export type TargetPlatform = "youtube" | "instagram" | "tiktok" | "linkedin";
+
+export type PlatformOption = {
+  id: TargetPlatform;
+  label: string;
+  resolution: string;
+  icon: React.ReactNode;
+};
+
+export type VideoType = "short" | "medium" | "long";
+
+export type VideoTypeOption = {
+  id: VideoType;
+  label: string;
+  duration: string;
+  description: string;
+  icon: React.ReactNode;
+};
+
+export type VideoStyle =
+  | "Educational"
+  | "Storytelling"
+  | "Documentary"
+  | "Explainer"
+  | "Viral Social Media";
+
+export type ToneKeyword =
+  | "Professional"
+  | "Casual"
+  | "Energetic"
+  | "Inspirational";
+
+export type CreateProjectFormData = {
+  title: string;
+  category: ContentCategory | null;
+  platform: TargetPlatform | null;
+  videoType: VideoType | null;
+  videoStyle: VideoStyle | null;
+  tone: ToneKeyword | null;
+};

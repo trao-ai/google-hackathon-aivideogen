@@ -11,16 +11,16 @@ import {
 } from "@/components/ui/select";
 
 const VIDEO_MODELS = [
-  // Direct providers (fal.ai / Google API)
-  {
-    value: "kling",
-    label: "Kling (fal.ai)",
-    description: "2 frames \u00b7 5s clip \u00b7 $0.07/s",
-  },
+  // Direct providers (Google API / fal.ai)
   {
     value: "veo",
     label: "Veo (Direct)",
     description: "2 frames \u00b7 8s clip \u00b7 $0.35/s",
+  },
+  {
+    value: "kling",
+    label: "Kling (fal.ai)",
+    description: "2 frames \u00b7 5s clip \u00b7 $0.07/s",
   },
   {
     value: "seedance",

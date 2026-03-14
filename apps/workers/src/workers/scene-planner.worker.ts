@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
 import { prisma, trackLLMCost } from "@atlas/db";
-import { createLLMProvider } from "@atlas/integrations";
+import { runAgent } from "@atlas/integrations";
 import {
   SCENE_PLANNER_SYSTEM_PROMPT,
   buildScenePlannerPrompt,
@@ -51,8 +51,6 @@ export class ScenePlannerWorker {
       data: { status: "planning_scenes" },
     });
 
-    const llm = createLLMProvider();
-
     // Build section summaries with timestamps
     const segments = voiceover.segments as Array<{
       sectionId: string;
@@ -75,23 +73,21 @@ export class ScenePlannerWorker {
       ? styleBibleToPromptSummary(project.styleBible as unknown as StyleBible)
       : "Kurzgesagt-style cinematic illustration, vibrant colorful backgrounds that match scene mood, glowing highlights, sophisticated simplified characters with expressive eyes and no mouth, atmospheric depth";
 
-    const llmResponse = await llm.chat([
-      { role: "system", content: SCENE_PLANNER_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: buildScenePlannerPrompt(
-          JSON.stringify(sectionSummaries, null, 2),
-          JSON.stringify(segments, null, 2),
-          styleSummary,
-          voiceover.durationSec,
-        ),
-      },
-    ]);
+    const llmResponse = await runAgent({
+      agentName: "scene-planner",
+      instruction: SCENE_PLANNER_SYSTEM_PROMPT,
+      userMessage: buildScenePlannerPrompt(
+        JSON.stringify(sectionSummaries, null, 2),
+        JSON.stringify(segments, null, 2),
+        styleSummary,
+        voiceover.durationSec,
+      ),
+    });
 
     await trackLLMCost({
       projectId,
       stage: "scene_planning",
-      vendor: "openai",
+      vendor: "gemini",
       model: llmResponse.model,
       inputTokens: llmResponse.inputTokens,
       outputTokens: llmResponse.outputTokens,

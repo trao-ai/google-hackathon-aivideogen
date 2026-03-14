@@ -141,7 +141,7 @@ function ChipSelect<T extends string>({
           key={option}
           type="button"
           onClick={() => onSelect(option)}
-          className={`p-4 rounded-xl border text-base font-medium transition-colors ${
+          className={`px-4 py-2.5 rounded-xl bg-[#FAF9F580] border text-base font-normal transition-colors ${
             selected === option
               ? "bg-brand-surface border-brand-black"
               : "bg-brand-surface border-brand-border-light"
@@ -199,10 +199,10 @@ export default function CreateProjectPage() {
         <div className="bg-brand-off-white rounded-2xl border border-brand-border-light p-5 flex flex-col gap-6">
           {/* Page Title */}
           <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold text-foreground">
+            <h1 className="text-3xl font-medium text-foreground">
               Create New Project
             </h1>
-            <p className="text-xl font-normal text-foreground/70">
+            <p className="text-lg font-light text-foreground/70">
               Set up your video project and let AI help you create engaging
               content
             </p>
@@ -210,7 +210,7 @@ export default function CreateProjectPage() {
 
           {/* Project Name */}
           <div className="flex flex-col gap-2">
-            <label className="text-base font-medium text-foreground">
+            <label className="text-base font-normal text-foreground">
               Project Name
             </label>
             <input
@@ -218,13 +218,13 @@ export default function CreateProjectPage() {
               placeholder="e.g., AI in 2026 Explained"
               value={form.title}
               onChange={(e) => updateForm("title", e.target.value)}
-              className="px-4 py-3 bg-brand-surface rounded-xl border border-brand-border-light text-sm text-foreground placeholder:text-muted-foreground outline-none"
+              className="px-4 py-3 bg-[#FAF9F580] rounded-xl border border-brand-border-light text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
           </div>
 
           {/* Content Category */}
           <div className="flex flex-col gap-2">
-            <label className="text-base font-medium text-foreground">
+            <label className="text-base font-normal text-foreground">
               Content Category
             </label>
             <ChipSelect
@@ -236,7 +236,7 @@ export default function CreateProjectPage() {
 
           {/* Target Platform */}
           <div className="flex flex-col gap-2">
-            <label className="text-base font-medium text-foreground">
+            <label className="text-base font-normal text-foreground">
               Target Platform
             </label>
             <div className="flex items-center gap-3 flex-wrap">
@@ -245,7 +245,7 @@ export default function CreateProjectPage() {
                   key={platform.id}
                   type="button"
                   onClick={() => updateForm("platform", platform.id)}
-                  className={`flex-1 min-w-44 p-4 rounded-xl border flex flex-col gap-2 transition-colors ${
+                  className={`flex-1 min-w-44 p-4 bg-[#FAF9F580] rounded-xl border flex flex-col gap-2 transition-colors ${
                     form.platform === platform.id
                       ? "bg-brand-surface border-brand-black"
                       : "bg-brand-surface border-brand-border-light"
@@ -268,17 +268,17 @@ export default function CreateProjectPage() {
           {/* Configure Your Video */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-semibold text-foreground capitalize">
+              <h2 className="text-xl font-medium text-foreground capitalize">
                 Configure Your Video
               </h2>
-              <p className="text-base text-muted-foreground">
+              <p className="text-sm font-light text-muted-foreground">
                 Customize the style and format of your AI-generated video
               </p>
             </div>
 
             {/* Video Type */}
             <div className="flex flex-col gap-2">
-              <label className="text-base font-medium text-foreground">
+              <label className="text-base font-normal text-foreground">
                 Video Type
               </label>
               <div className="flex items-center gap-5">
@@ -287,14 +287,14 @@ export default function CreateProjectPage() {
                     key={type.id}
                     type="button"
                     onClick={() => updateForm("videoType", type.id)}
-                    className={`flex-1 p-5 rounded-xl border flex flex-col gap-2 transition-colors ${
+                    className={`flex-1 p-4 rounded-xl border bg-[#FAF9F580] flex flex-col gap-2 transition-colors ${
                       form.videoType === type.id
                         ? "bg-brand-surface border-brand-black"
                         : "bg-brand-surface border-brand-border-light"
                     }`}
                   >
                     <div className="flex items-start gap-2.5">
-                      <div className="size-11 p-3.5 bg-secondary rounded-xl flex items-center justify-center">
+                      <div className="size-11 p-2 bg-secondary rounded-xl flex items-center justify-center">
                         {type.icon}
                       </div>
                       <div className="flex flex-col gap-0.5">
@@ -317,7 +317,7 @@ export default function CreateProjectPage() {
 
           {/* Video Style */}
           <div className="flex flex-col gap-2">
-            <label className="text-base font-medium text-foreground">
+            <label className="text-base font-normal text-foreground">
               Video Style
             </label>
             <ChipSelect
@@ -329,7 +329,7 @@ export default function CreateProjectPage() {
 
           {/* Tone */}
           <div className="flex flex-col gap-2">
-            <label className="text-base font-medium text-foreground">
+            <label className="text-base font-normal text-foreground">
               Tone
             </label>
             <ChipSelect

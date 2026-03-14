@@ -52,10 +52,10 @@ export const VIDEO_PRICING: Record<string, VideoPricing> = {
   "bytedance/seedance-1-lite": { perSecond: 0.02 },
 };
 
-const DEFAULT_LLM_MODEL = "gpt-4o";
+const DEFAULT_LLM_MODEL = "gemini-2.5-flash";
 const DEFAULT_TTS_MODEL = "eleven_multilingual_v2";
 const DEFAULT_IMAGE_MODEL = "imagen-4.0-fast-generate-001";
-const DEFAULT_VIDEO_MODEL = "fal-ai/kling-video/v2.6/pro/image-to-video";
+const DEFAULT_VIDEO_MODEL = "veo-3.1-generate-preview";
 
 export function calculateLLMCost(
   model: string,

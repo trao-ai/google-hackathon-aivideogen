@@ -7,6 +7,7 @@ import {
   createVideoProvider,
   createStorageProvider,
   resolveStorageDir,
+  runAgent,
 } from "@atlas/integrations";
 import { buildVideoPrompt } from "@atlas/prompts";
 
@@ -17,21 +18,7 @@ interface MotionEnrichmentResult {
   outputTokens: number;
 }
 
-/**
- * Use Gemini text model to enrich a brief motionNotes into a detailed
- * animation description suitable for Veo video generation.
- */
-async function enrichMotionDescription(params: {
-  purpose: string;
-  sceneType: string;
-  motionNotes: string;
-  startFramePrompt: string;
-  endFramePrompt: string;
-}): Promise<MotionEnrichmentResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
-
-  const prompt = `You are a motion director for a fast-paced, engaging animated educational video (like Kurzgesagt).
+const MOTION_DIRECTOR_INSTRUCTION = `You are a motion director for a fast-paced, engaging animated educational video (like Kurzgesagt).
 
 Given a scene's start frame description, end frame description, and brief motion notes,
 write a DETAILED animation direction (3-5 sentences) describing exactly how the scene
@@ -50,46 +37,45 @@ IMPORTANT CONSTRAINTS:
 - Eye movement, blinking, and facial expressions are fine
 - There is no dialogue — narration is a separate voiceover, so no character should appear to be speaking
 
-Scene purpose: ${params.purpose}
+Write ONLY the animation direction. No preamble, no markdown.`;
+
+/**
+ * Use ADK agent to enrich a brief motionNotes into a detailed
+ * animation description suitable for Veo video generation.
+ */
+async function enrichMotionDescription(params: {
+  purpose: string;
+  sceneType: string;
+  motionNotes: string;
+  startFramePrompt: string;
+  endFramePrompt: string;
+}): Promise<MotionEnrichmentResult> {
+  if (!process.env.GEMINI_API_KEY) {
+    return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
+  }
+
+  try {
+    const result = await runAgent({
+      agentName: "motion-enricher",
+      instruction: MOTION_DIRECTOR_INSTRUCTION,
+      userMessage: `Scene purpose: ${params.purpose}
 Scene type: ${params.sceneType}
 
 START FRAME: ${params.startFramePrompt.slice(0, 500)}
 
 END FRAME: ${params.endFramePrompt.slice(0, 500)}
 
-Brief motion notes: ${params.motionNotes}
+Brief motion notes: ${params.motionNotes}`,
+      generationConfig: { maxOutputTokens: 300 },
+    });
 
-Write ONLY the animation direction. No preamble, no markdown.`;
-
-  try {
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash";
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 300 },
-        }),
-      },
-    );
-
-    if (!res.ok) {
-      console.warn(`[video-gen] Motion enrichment failed (${res.status}), using raw notes`);
-      return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
-    }
-
-    const data = (await res.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
-    };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    const inputTokens = data.usageMetadata?.promptTokenCount ?? 0;
-    const outputTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
-    if (text) {
-      console.log(`[video-gen] Enriched motion description: ${text.slice(0, 200)}...`);
-      return { enrichedMotion: text.trim(), inputTokens, outputTokens };
+    if (result.content) {
+      console.log(`[video-gen] Enriched motion description: ${result.content.slice(0, 200)}...`);
+      return {
+        enrichedMotion: result.content.trim(),
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+      };
     }
   } catch (err) {
     console.warn(`[video-gen] Motion enrichment error:`, err);
@@ -146,7 +132,7 @@ export class VideoGenerationWorker {
       job.data.videoProvider ??
       (project as Record<string, unknown>)?.videoProvider as string ??
       process.env.VIDEO_PROVIDER ??
-      "kling"
+      "veo"
     ).toLowerCase();
     console.log(`[video-gen] Resolved provider: "${videoProviderName}" (job=${job.data.videoProvider}, project=${(project as Record<string, unknown>)?.videoProvider}, env=${process.env.VIDEO_PROVIDER})`);
 
@@ -199,7 +185,7 @@ export class VideoGenerationWorker {
     });
 
     // Track motion enrichment LLM cost
-    const textModel = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.0-flash";
+    const textModel = "gemini-2.5-flash";
     if (motionResult.inputTokens > 0 || motionResult.outputTokens > 0) {
       const motionCost = calculateLLMCost(
         textModel,

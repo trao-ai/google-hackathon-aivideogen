@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
 import { prisma, trackLLMCost } from "@atlas/db";
-import { createLLMProvider } from "@atlas/integrations";
+import { runAgent } from "@atlas/integrations";
 import {
   TOPIC_SCOUT_SYSTEM_PROMPT,
   buildTopicScoutPrompt,
@@ -29,19 +29,19 @@ export class TopicDiscoveryWorker {
     if (!project) throw new Error(`Project ${projectId} not found`);
 
     try {
-      const llm = createLLMProvider();
       const prompt = buildTopicScoutPrompt(project.niche, 10);
 
-      const response = await llm.chat([
-        { role: "system", content: TOPIC_SCOUT_SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ]);
+      const response = await runAgent({
+        agentName: "topic-scout",
+        instruction: TOPIC_SCOUT_SYSTEM_PROMPT,
+        userMessage: prompt,
+      });
 
       // Track LLM cost
       await trackLLMCost({
         projectId,
         stage: "topic_discovery",
-        vendor: "openai",
+        vendor: "gemini",
         model: response.model,
         inputTokens: response.inputTokens,
         outputTokens: response.outputTokens,

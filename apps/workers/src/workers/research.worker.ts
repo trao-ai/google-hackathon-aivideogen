@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
 import { prisma, trackLLMCost } from "@atlas/db";
-import { createSearchProvider, createLLMProvider } from "@atlas/integrations";
+import { createSearchProvider, runAgent } from "@atlas/integrations";
 import {
   RESEARCH_SYNTHESIZER_SYSTEM_PROMPT,
   buildResearchPrompt,
@@ -46,7 +46,6 @@ export class ResearchWorker {
 
     const topicTitle = selectedTopic.title;
     const search = createSearchProvider();
-    const llm = createLLMProvider();
 
     // Perform multiple search queries
     const queries = [
@@ -82,16 +81,17 @@ export class ResearchWorker {
       .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}\nURL: ${r.url}`)
       .join("\n\n");
 
-    const llmResponse = await llm.chat([
-      { role: "system", content: RESEARCH_SYNTHESIZER_SYSTEM_PROMPT },
-      { role: "user", content: buildResearchPrompt(topicTitle, searchText) },
-    ]);
+    const llmResponse = await runAgent({
+      agentName: "research-synthesizer",
+      instruction: RESEARCH_SYNTHESIZER_SYSTEM_PROMPT,
+      userMessage: buildResearchPrompt(topicTitle, searchText),
+    });
 
     // Track LLM cost
     await trackLLMCost({
       projectId,
       stage: "research",
-      vendor: "openai",
+      vendor: "gemini",
       model: llmResponse.model,
       inputTokens: llmResponse.inputTokens,
       outputTokens: llmResponse.outputTokens,

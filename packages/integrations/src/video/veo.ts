@@ -269,7 +269,7 @@ class MockVideoProvider implements VideoProvider {
 export function createVideoProvider(providerOverride?: string): VideoProvider {
   if (process.env.USE_MOCK_VIDEO === "true") return new MockVideoProvider();
 
-  const provider = (providerOverride ?? process.env.VIDEO_PROVIDER ?? "kling").toLowerCase();
+  const provider = (providerOverride ?? process.env.VIDEO_PROVIDER ?? "veo").toLowerCase();
   switch (provider) {
     case "veo":
       return new VeoVideoProvider();

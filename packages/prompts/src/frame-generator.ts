@@ -114,10 +114,11 @@ ${motionNotes}
 
 The animation must smoothly progress from the starting state to the ending state across ${durationSec} seconds.
 
-Style: flat-design 2D editorial illustration, smooth animation, clean lines.
+Style: Kurzgesagt-style cinematic illustration, richly detailed with atmospheric depth, smooth animation, dark backgrounds with vibrant accents.
+The animation should look like a professional Kurzgesagt YouTube video — polished, cinematic, and premium quality.
 Camera: steady, professional. No shaky cam.
-Do NOT include any text, words, or writing in the video.
-Reminder: mouths stay CLOSED. No talking animation.`.trim();
+CRITICAL: Absolutely ZERO text, words, letters, numbers, labels, captions, subtitles, titles, watermarks, writing, or typography anywhere in the video. The video must be purely visual.
+Reminder: mouths stay CLOSED at all times. No talking, speaking, or lip movement animation.`.trim();
 }
 
 /** Extract purpose/scene/metaphor lines from a frame prompt, skip meta like "Generate START FRAME". */

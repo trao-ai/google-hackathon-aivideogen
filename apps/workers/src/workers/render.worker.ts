@@ -227,7 +227,7 @@ export class RenderWorker {
           if (design.transition && i < audioDesigns.length - 1) {
             const transPath = path.join(tmpDir, `transition-${i}.mp3`);
             try {
-              await this.generateSFX(design.transition, transPath, 1.5, 0.5);
+              await this.generateSFX(design.transition, transPath, 1.0, 0.3);
               transitionSfxPaths.push(transPath);
               console.log(
                 `[render] Transition ${i}: "${design.transition.slice(0, 50)}"`,
@@ -413,12 +413,14 @@ export class RenderWorker {
 
     const prompt = `You are a sound designer for a Kurzgesagt-style educational explainer video.
 
+CRITICAL: All sounds must be SUBTLE, SOFT, and NON-JARRING. Think gentle background textures, not aggressive sound effects. The voiceover is the star — sound design exists to create warm atmosphere, not to distract or startle. Avoid harsh, loud, sudden, or alarming sounds. Every sound should feel warm, organic, and cinematic.
+
 For each scene, suggest:
-1. "ambient" — a subtle background sound/texture matching the scene content (5-10 words). These play softly under narration.
+1. "ambient" — a subtle, warm background sound/texture matching the scene content (5-10 words). These play softly under narration.
    Examples: "soft humming laboratory equipment", "gentle wind through open field", "quiet digital data processing beeps", "warm cozy fireplace crackling"
-2. "transition" — a short transition SFX to the NEXT scene, OR null if a clean cut sounds better.
-   Only add transition SFX where it enhances the flow. Not every cut needs a whoosh. Use null for most cuts.
-   Examples: "gentle swoosh with soft chime", "quick digital glitch transition", null
+2. "transition" — a very subtle, soft transition SFX to the NEXT scene, OR null if a clean cut sounds better.
+   Use null for MOST transitions. Only add a transition SFX for major topic changes or dramatic reveals. When used, keep it extremely gentle (soft whoosh, quiet chime, gentle fade). Never use harsh or sudden sounds.
+   Examples: "gentle soft whoosh", "quiet chime fade", null
 
 Scene list:
 ${sceneList}
@@ -734,7 +736,7 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
       const { inputIdx, sceneIdx } = ambientInputMap[i];
       const delayMs = Math.max(0, Math.round(sceneStartTimestamps[sceneIdx] * 1000));
       filterParts.push(
-        `[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=0.25[amb${i}]`,
+        `[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=0.18[amb${i}]`,
       );
       bedLabels.push(`[amb${i}]`);
     }
@@ -746,7 +748,7 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
       const transitionTime = sceneStartTimestamps[transitionIdx] + clips[transitionIdx].targetDurationSec;
       const delayMs = Math.max(0, Math.round((transitionTime - 0.5) * 1000));
       filterParts.push(
-        `[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=0.6[tsfx${i}]`,
+        `[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=0.35[tsfx${i}]`,
       );
       bedLabels.push(`[tsfx${i}]`);
     }
@@ -764,7 +766,7 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     // When narrator speaks, bed audio (SFX + clip audio) ducks ~12dB
     // Attack 200ms (smooth duck-in), Release 1000ms (rises back over 1s)
     filterParts.push(
-      `[bed_raw][vo_for_duck]sidechaincompress=level_in=1:threshold=0.02:ratio=4:attack=200:release=1000:makeup=1:knee=2.83[bed_ducked]`,
+      `[bed_raw][vo_for_duck]sidechaincompress=level_in=1:threshold=0.04:ratio=6:attack=50:release=600:makeup=1:knee=4[bed_ducked]`,
     );
 
     // ─── Audio: final mix (voiceover + ducked bed) ────────────────────────
@@ -784,9 +786,9 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
       "-c:v",
       "libx264",
       "-preset",
-      "fast",
+      "medium",
       "-crf",
-      "23",
+      "18",
       "-c:a",
       "aac",
       "-b:a",

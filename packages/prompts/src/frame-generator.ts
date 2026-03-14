@@ -118,11 +118,11 @@ Ensure the final frames of this animation create a natural visual bridge to this
 MOTION AND TRANSITION:
 ${motionNotes}
 
-The animation must smoothly progress from the starting state to the ending state across ${durationSec} seconds.
+The animation must dynamically progress from the starting state to the ending state across ${durationSec} seconds with ENERGETIC, engaging pacing. Keep things moving — no static or lingering moments.
 
-Style: Kurzgesagt-style cinematic illustration, richly detailed with atmospheric depth, smooth animation, dark backgrounds with vibrant accents.
-The animation should look like a professional Kurzgesagt YouTube video — polished, cinematic, and premium quality.
-Camera: steady, professional. No shaky cam.
+Style: Kurzgesagt-style cinematic illustration, richly detailed with atmospheric depth, dynamic animation with punchy movements, vibrant colorful palette.
+The animation should look like a professional Kurzgesagt YouTube video — polished, cinematic, engaging, and visually exciting.
+Camera: purposeful and dynamic. Smooth but energetic zooms, pans, and reveals. No shaky cam.
 CRITICAL: Absolutely ZERO text, words, letters, numbers, labels, captions, subtitles, titles, watermarks, writing, or typography anywhere in the video. The video must be purely visual.
 Reminder: mouths stay CLOSED at all times. No talking, speaking, or lip movement animation.`.trim();
 }

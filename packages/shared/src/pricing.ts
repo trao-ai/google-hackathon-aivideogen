@@ -25,7 +25,7 @@ export const LLM_PRICING: Record<string, LLMPricing> = {
   "gpt-4o-mini": { inputPer1kTokens: 0.00015, outputPer1kTokens: 0.0006 },
   "gpt-4-turbo": { inputPer1kTokens: 0.01, outputPer1kTokens: 0.03 },
   "gpt-3.5-turbo": { inputPer1kTokens: 0.0005, outputPer1kTokens: 0.0015 },
-  "gemini-2.5-flash-preview-05-20": { inputPer1kTokens: 0.00015, outputPer1kTokens: 0.00035 },
+  "gemini-2.5-flash": { inputPer1kTokens: 0.00015, outputPer1kTokens: 0.00035 },
 };
 
 export const TTS_PRICING: Record<string, TTSPricing> = {

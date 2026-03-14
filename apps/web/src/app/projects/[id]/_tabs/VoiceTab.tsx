@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { api, type ProjectDetail, type Voiceover } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { api, type ProjectDetail, type Voiceover, type VoicePreset } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDuration } from "@/lib/utils";
@@ -16,6 +16,12 @@ interface Props {
 export function VoiceTab({ project, onRefresh }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedVoice, setSelectedVoice] = useState("adam");
+  const [presets, setPresets] = useState<VoicePreset[]>([]);
+
+  useEffect(() => {
+    api.voice.presets().then(setPresets).catch(() => {});
+  }, []);
 
   const voiceovers: Voiceover[] = project.voiceovers ?? [];
   const latestVoiceover = voiceovers[0];
@@ -26,7 +32,7 @@ export function VoiceTab({ project, onRefresh }: Props) {
     setError("");
     setLoading(true);
     try {
-      await api.voice.generate(project.id);
+      await api.voice.generate(project.id, selectedVoice);
       await onRefresh();
     } catch (err) {
       setError((err as Error).message);
@@ -52,17 +58,33 @@ export function VoiceTab({ project, onRefresh }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Voiceover</h2>
-        <Button
-          onClick={handleGenerate}
-          disabled={loading || isVoicing || !hasApprovedScript}
-          title={!hasApprovedScript ? "Approve a script first" : undefined}
-        >
-          {isVoicing
-            ? "Generating…"
-            : loading
-              ? "Working…"
-              : "Generate Voiceover"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {presets.length > 0 && (
+            <select
+              value={selectedVoice}
+              onChange={(e) => setSelectedVoice(e.target.value)}
+              disabled={loading || isVoicing}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {presets.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.name} ({p.accent})
+                </option>
+              ))}
+            </select>
+          )}
+          <Button
+            onClick={handleGenerate}
+            disabled={loading || isVoicing || !hasApprovedScript}
+            title={!hasApprovedScript ? "Approve a script first" : undefined}
+          >
+            {isVoicing
+              ? "Generating…"
+              : loading
+                ? "Working…"
+                : "Generate Voiceover"}
+          </Button>
+        </div>
       </div>
 
       {!hasApprovedScript && (

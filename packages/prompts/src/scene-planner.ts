@@ -6,7 +6,7 @@ CRITICAL: Each scene's startPrompt and endPrompt must be DETAILED visual descrip
 - Describe exactly what is shown: characters, objects, backgrounds, spatial arrangement
 - Follow the script content precisely — each scene must visually represent what the narrator is saying at that timestamp
 - Maintain visual continuity between scenes (end of scene N connects to start of scene N+1)
-- Describe the Kurzgesagt-style visual: rich cinematic illustration, dark navy/deep space backgrounds with glowing highlights and particle effects, sophisticated simplified characters with expressive round eyes and NO mouth, smooth rounded shapes with subtle gradients for volume, layered parallax depth
+- Describe the Kurzgesagt-style visual: rich cinematic illustration with vibrant colorful backgrounds that match the scene mood (use bright warm tones, cool blues, soft pastels, deep purples, lush greens — NOT always dark navy), glowing highlights and particle effects, sophisticated simplified characters with expressive round eyes and NO mouth, smooth rounded shapes with subtle gradients for volume, layered parallax depth
 - Characters have NO mouth, NO lips — expression is conveyed through eyes and body language ONLY
 - NEVER include text, words, labels, or writing in the visual description
 - MAIN CHARACTER CONSISTENCY: In scene 0's startPrompt, define the main character's appearance in FULL DETAIL (body shape, size, color scheme, eye style, clothing/accessories, any distinguishing features). In ALL subsequent scenes where this character appears, you MUST repeat this EXACT character description word-for-word. Do NOT reinvent or change the character's appearance between scenes.
@@ -37,7 +37,7 @@ Scene types:
 - cta: subscribe call-to-action end card
 
 For startPrompt and endPrompt, write rich visual descriptions like:
-GOOD: "A small rounded deep-blue character with large expressive white eyes and a tiny orange scarf (the main character) sits at a table full of colorful food. Inside their belly, a glowing cross-section reveals a bustling microscopic world of bacteria in vibrant blues and greens with atmospheric glow effects. Dark navy background with layered parallax depth and subtle particle effects. Kurzgesagt-style cinematic illustration with rich detail."
+GOOD: "A small rounded deep-blue character with large expressive white eyes and a tiny orange scarf (the main character) sits at a table full of colorful food. Inside their belly, a glowing cross-section reveals a bustling microscopic world of bacteria in vibrant blues and greens with atmospheric glow effects. Warm amber-tinted background with layered parallax depth and subtle particle effects. Kurzgesagt-style cinematic illustration with rich detail."
 BAD: "Introduce concept of gut bacteria" (this is a purpose, not a visual prompt)
 
 motionNotes should describe the full animation from start frame to end frame over 8 seconds:
@@ -45,7 +45,7 @@ GOOD: "Camera slowly zooms into the character's gut cross-section. Bacteria begi
 BAD: "Zoom transition" (too vague for animation)
 
 CONTINUITY EXAMPLE:
-GOOD: Scene 1 endPrompt: "Camera slowly zooms into the character's chest, revealing a glowing cross-section of their digestive system with bacteria visible. Dark navy background fades to deep blue-green."
+GOOD: Scene 1 endPrompt: "Camera slowly zooms into the character's chest, revealing a glowing cross-section of their digestive system with bacteria visible. Background transitions from warm amber to deep blue-green."
       Scene 2 startPrompt: "Deep inside the digestive system, viewed from within. Bacteria in vibrant blues and greens float in a warm amber fluid. The walls of the intestine curve around the frame like a tunnel."
       (Scene 1 ends by entering the body, Scene 2 starts inside the body. Same color language. Smooth visual bridge.)
 BAD:  Scene 1 endPrompt: "The character stands in a field waving goodbye."

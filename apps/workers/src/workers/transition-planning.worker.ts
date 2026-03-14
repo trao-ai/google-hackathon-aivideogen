@@ -96,7 +96,7 @@ Respond with ONLY a JSON array. Each element must have:
       return;
     }
 
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash-preview-05-20";
+    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash";
 
     try {
       const res = await fetch(

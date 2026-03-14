@@ -50,7 +50,7 @@ export class CostEstimator {
     const framesCount = sceneCount * 2;
     const inputTokensPerFrame = 500;
     const outputTokensPerFrame = 200;
-    const model = "gemini-2.5-flash-preview-05-20";
+    const model = "gemini-2.5-flash";
 
     const totalInputTokens = framesCount * inputTokensPerFrame;
     const totalOutputTokens = framesCount * outputTokensPerFrame;
@@ -66,7 +66,7 @@ export class CostEstimator {
   static estimateMotionEnrichment(sceneCount: number): number {
     const inputTokensPerScene = 200;
     const outputTokensPerScene = 100;
-    const model = "gemini-2.5-flash-preview-05-20";
+    const model = "gemini-2.5-flash";
 
     const totalInputTokens = sceneCount * inputTokensPerScene;
     const totalOutputTokens = sceneCount * outputTokensPerScene;

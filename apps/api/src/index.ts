@@ -63,11 +63,11 @@ app.get("/health", (_req, res) => {
 
 // Routes
 app.use("/api/discover", discoverRouter);
+app.use("/api/projects", voiceRouter);    // before projectRouter so /voice-presets doesn't match /:id
 app.use("/api/projects", projectRouter);
 app.use("/api/projects", topicRouter);
 app.use("/api/projects", researchRouter);
 app.use("/api/projects", scriptRouter);
-app.use("/api/projects", voiceRouter);
 app.use("/api/projects", sceneRouter);
 app.use("/api/projects", frameRouter);
 app.use("/api/projects", costRouter);

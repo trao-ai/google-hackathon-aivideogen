@@ -137,7 +137,9 @@ export class RenderWorker {
           }
         }
 
-        const targetDuration = scene.narrationEndSec - scene.narrationStartSec;
+        // Use pre-planned clip target duration (includes transition overlap compensation)
+        const plannedTarget = (scene as Record<string, unknown>).clipTargetDurationSec as number | null;
+        const targetDuration = plannedTarget ?? (scene.narrationEndSec - scene.narrationStartSec);
         const hasAudio = await this.probeHasAudio(localPath);
         clips.push({
           localPath,

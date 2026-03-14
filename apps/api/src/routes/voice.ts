@@ -6,15 +6,43 @@ import { ApiError } from "../middleware/error-handler";
 
 export const voiceRouter = Router();
 
-// Adam — deep, authoritative, highly expressive narrator. Override via ELEVENLABS_VOICE_ID env var.
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID ?? "pNInz6obpgDQGcFmaJgB";
+// Available voice presets — users can select from these in the UI
+const VOICE_PRESETS: Record<string, { name: string; accent: string; voiceId: string }> = {
+  adam:    { name: "Adam",    accent: "American",  voiceId: "pNInz6obpgDQGcFmaJgB" },
+  daniel:  { name: "Daniel",  accent: "British",   voiceId: "onwK4e9ZLuTAKqWW03F9" },
+  george:  { name: "George",  accent: "British",   voiceId: "JBFqnCBsd6RMkjVDRZzb" },
+  charlie: { name: "Charlie", accent: "Australian", voiceId: "IKne3meq5aSn9XLyUdCD" },
+  bill:    { name: "Bill",    accent: "American",  voiceId: "pqHfZKP75CvOlQylNhV4" },
+  rachel:  { name: "Rachel",  accent: "American",  voiceId: "21m00Tcm4TlvDq8ikWAM" },
+};
+const DEFAULT_VOICE = "adam"; // Deep, engaging American narrator — closest to Kurzgesagt style
 const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY ?? "";
+
+// Expose available voice presets to frontend
+voiceRouter.get("/voice-presets", (_req, res) => {
+  const presets = Object.entries(VOICE_PRESETS).map(([key, v]) => ({
+    key,
+    name: v.name,
+    accent: v.accent,
+  }));
+  res.json(presets);
+});
 
 voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id } });
     if (!project) throw new ApiError(404, "Project not found");
     if (!project.selectedScriptId) throw new ApiError(400, "No script selected. Generate and approve a script first.");
+
+    // Resolve voice: UI selection > env var override > default preset
+    const requestedVoice = req.body?.voice as string | undefined;
+    const preset = VOICE_PRESETS[requestedVoice ?? ""] ?? VOICE_PRESETS[DEFAULT_VOICE];
+    const envOverride = process.env.ELEVENLABS_VOICE_ID;
+    // UI selection always wins; env var only applies when no UI selection
+    const VOICE_ID = requestedVoice && VOICE_PRESETS[requestedVoice]
+      ? preset.voiceId
+      : (envOverride || preset.voiceId);
+    console.log(`[voice] Using voice: ${preset.name} (${preset.accent}) — ${VOICE_ID}`);
 
     const script = await prisma.script.findUnique({
       where: { id: project.selectedScriptId },

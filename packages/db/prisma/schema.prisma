@@ -185,6 +185,7 @@ model Scene {
   continuityNotes   String?
   consistencyScore  Float?
   estimatedCostUsd  Float?
+  clipTargetDurationSec Float?
   transitionPlan    Json?
   frameStatus       String       @default("pending")
   clipStatus        String       @default("pending")

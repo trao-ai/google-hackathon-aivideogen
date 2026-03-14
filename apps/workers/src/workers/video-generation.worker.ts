@@ -31,16 +31,18 @@ async function enrichMotionDescription(params: {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
 
-  const prompt = `You are a motion director for an animated educational video.
+  const prompt = `You are a motion director for a fast-paced, engaging animated educational video (like Kurzgesagt).
 
 Given a scene's start frame description, end frame description, and brief motion notes,
 write a DETAILED animation direction (3-5 sentences) describing exactly how the scene
 should animate from start to end over the clip duration.
 
+PACING: Animations should feel SNAPPY and ENERGETIC — not slow or floaty. Use quick zooms, brisk camera pans, punchy element pop-ins, and dynamic reveals. Think Kurzgesagt energy: constant visual movement that keeps viewers glued to the screen. Avoid slow drifts, gentle fades, or lingering static moments.
+
 Be specific about:
-- What elements move, scale, fade, or transform
-- Camera movements (zoom, pan, tilt)
-- Timing (what happens first, middle, end of the clip)
+- What elements move, scale, fade, or transform — use FAST, purposeful movements
+- Camera movements (quick zoom, dynamic pan, energetic tilt)
+- Timing (rapid cuts and transitions, elements appearing with punch)
 - How the visual state changes from start frame to end frame
 
 IMPORTANT CONSTRAINTS:
@@ -60,7 +62,7 @@ Brief motion notes: ${params.motionNotes}
 Write ONLY the animation direction. No preamble, no markdown.`;
 
   try {
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash-preview-05-20";
+    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash";
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
@@ -176,13 +178,15 @@ export class VideoGenerationWorker {
     const videoProvider = createVideoProvider(videoProviderName);
     const storage = createStorageProvider();
 
-    // Calculate the narration duration for this specific scene
+    // Use pre-planned clip target duration (accounts for transition overlap)
+    // Falls back to narration duration if not set (backward compat with old scenes)
     const narrationDurationSec = scene.narrationEndSec - scene.narrationStartSec;
-    // Kling O3 supports 3-15s — round to nearest second and clamp to valid range
-    // This eliminates the need for speed adjustment in render worker
-    const clipDurationSec = Math.max(3, Math.min(15, Math.round(narrationDurationSec)));
+    const plannedDuration = (scene as Record<string, unknown>).clipTargetDurationSec as number | null;
+    const clipDurationSec = plannedDuration
+      ? Math.max(3, Math.min(15, Math.round(plannedDuration)))
+      : Math.max(3, Math.min(15, Math.round(narrationDurationSec)));
     console.log(
-      `[video-gen] Scene narration: ${narrationDurationSec.toFixed(1)}s → requesting ${clipDurationSec}s clip (exact match)`,
+      `[video-gen] Scene narration: ${narrationDurationSec.toFixed(1)}s, planned target: ${plannedDuration?.toFixed(1) ?? "N/A"}s → requesting ${clipDurationSec}s clip`,
     );
 
     // Use Gemini to enrich the brief motionNotes into detailed animation direction

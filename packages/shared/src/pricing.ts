@@ -21,34 +21,34 @@ export interface VideoPricing {
 }
 
 export const LLM_PRICING: Record<string, LLMPricing> = {
-  "gpt-4o": { inputPer1kTokens: 0.005, outputPer1kTokens: 0.015 },
-  "gpt-4o-mini": { inputPer1kTokens: 0.00015, outputPer1kTokens: 0.0006 },
-  "gpt-4-turbo": { inputPer1kTokens: 0.01, outputPer1kTokens: 0.03 },
-  "gpt-3.5-turbo": { inputPer1kTokens: 0.0005, outputPer1kTokens: 0.0015 },
-  "gemini-2.5-flash": { inputPer1kTokens: 0.00015, outputPer1kTokens: 0.00035 },
+  // Google Gemini — ai.google.dev/gemini-api/docs/pricing (Mar 2026)
+  "gemini-2.5-flash": { inputPer1kTokens: 0.0003, outputPer1kTokens: 0.0025 },
 };
 
 export const TTS_PRICING: Record<string, TTSPricing> = {
-  eleven_multilingual_v2: { perCharacter: 0.0003 }, // $0.30 per 1000 chars
+  // ElevenLabs — elevenlabs.io/pricing/api (usage-based tier, ~$0.20-0.30/1K chars)
+  eleven_multilingual_v2: { perCharacter: 0.0003 },
   eleven_turbo_v2_5: { perCharacter: 0.0002 },
 };
 
 export const IMAGE_PRICING: Record<string, ImagePricing> = {
-  "imagen-4.0-fast-generate-001": { perImage: 0.04 },
-  "gemini-3-pro-image-preview": { perImage: 0.04 },
+  // Google Imagen 4 — ai.google.dev/gemini-api/docs/pricing (Mar 2026)
+  "imagen-4.0-fast-generate-001": { perImage: 0.02 },   // Imagen 4 Fast
+  "gemini-3-pro-image-preview": { perImage: 0.04 },     // Gemini image generation
 };
 
 export const VIDEO_PRICING: Record<string, VideoPricing> = {
-  "veo-3.1-generate-preview": { perSecond: 0.35 },
-  // Kling via fal.ai — $0.07/sec without audio, $0.14/sec with audio
+  // Google Veo 3.1 Standard 720p — ai.google.dev/gemini-api/docs/pricing (Mar 2026)
+  "veo-3.1-generate-preview": { perSecond: 0.40 },
+  // Kling 2.6 Pro via fal.ai — fal.ai/models (no audio $0.07, with audio $0.14)
   "fal-ai/kling-video/v2.6/pro/image-to-video": { perSecond: 0.07 },
   "fal-ai/kling-video/o3/standard/image-to-video": { perSecond: 0.07 },
-  // SeDance via fal.ai — same pricing as Kling
-  "fal-ai/bytedance/seedance/v1.5/pro/image-to-video": { perSecond: 0.07 },
-  // Replicate-hosted models
-  "google/veo-2": { perSecond: 0.065 },
-  "kwaivgi/kling-v2.1": { perSecond: 0.06 },
-  "bytedance/seedance-1-pro": { perSecond: 0.05 },
+  // SeDance 1.5 via fal.ai
+  "fal-ai/bytedance/seedance/v1.5/pro/image-to-video": { perSecond: 0.052 },
+  // Replicate-hosted models — replicate.com (Mar 2026)
+  "google/veo-3.1": { perSecond: 0.10 },
+  "kwaivgi/kling-v2.1": { perSecond: 0.05 },
+  "bytedance/seedance-1.5-pro": { perSecond: 0.247 },
   "bytedance/seedance-1-lite": { perSecond: 0.02 },
 };
 

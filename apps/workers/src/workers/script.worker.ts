@@ -85,6 +85,7 @@ export class ScriptWorker {
         tone,
         targetWordCount,
       ),
+      model: "gemini-3.1-pro-preview",
     });
 
     await trackLLMCost({
@@ -178,6 +179,7 @@ export class ScriptWorker {
       instruction:
         "You are a script editor. Rewrite the given script section based on the instructions. Return only the rewritten text, no JSON wrapper.",
       userMessage: `Section type: ${section.sectionType}\nOriginal text:\n${section.text}\n\nInstructions: ${instructions}`,
+      model: "gemini-3.1-pro-preview",
     });
 
     await trackLLMCost({

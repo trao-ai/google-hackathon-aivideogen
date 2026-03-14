@@ -73,7 +73,7 @@ export class ScenePlannerWorker {
 
     const styleSummary = project.styleBible
       ? styleBibleToPromptSummary(project.styleBible as unknown as StyleBible)
-      : "Flat-design educational infographic style, vibrant colors";
+      : "Kurzgesagt-style cinematic illustration, dark navy backgrounds with glowing highlights, sophisticated simplified characters with expressive eyes and no mouth, atmospheric depth";
 
     const llmResponse = await llm.chat([
       { role: "system", content: SCENE_PLANNER_SYSTEM_PROMPT },
@@ -110,6 +110,7 @@ export class ScenePlannerWorker {
       bubbleText?: string | null;
       continuityNotes?: string | null;
       scriptSectionId?: string | null;
+      characterDescriptions?: string | null;
     }> = [];
 
     try {
@@ -117,6 +118,26 @@ export class ScenePlannerWorker {
       if (jsonMatch) scenes = JSON.parse(jsonMatch[0]);
     } catch {
       console.warn("[scene-planner] Could not parse scene JSON");
+    }
+
+    // Enforce character consistency: extract character descriptions from scene 0
+    // and inject into all subsequent scenes' prompts
+    if (scenes.length > 0 && scenes[0].characterDescriptions) {
+      const canonical = scenes[0].characterDescriptions;
+      console.log(`[scene-planner] Character descriptions from scene 0: "${canonical.slice(0, 100)}..."`);
+      for (let i = 1; i < scenes.length; i++) {
+        if (!scenes[i].characterDescriptions) {
+          scenes[i].characterDescriptions = canonical;
+        }
+        // Prepend character descriptions to prompts if not already present
+        const charPrefix = `Characters: ${canonical}\n`;
+        if (!scenes[i].startPrompt.includes(canonical.slice(0, 50))) {
+          scenes[i].startPrompt = charPrefix + scenes[i].startPrompt;
+        }
+        if (!scenes[i].endPrompt.includes(canonical.slice(0, 50))) {
+          scenes[i].endPrompt = charPrefix + scenes[i].endPrompt;
+        }
+      }
     }
 
     if (scenes.length === 0) {
@@ -163,6 +184,39 @@ export class ScenePlannerWorker {
       console.log(
         `[scene-planner] Post-validation: ${scenes.length} scenes → ${validated.length} scenes after splitting`,
       );
+    }
+
+    // Ensure scenes cover the full audio duration with no gaps
+    if (voiceover.durationSec > 0 && validated.length > 0) {
+      const audioDuration = voiceover.durationSec;
+
+      // If first scene doesn't start at 0, fix it
+      if (validated[0].narrationStartSec > 0.5) {
+        console.log(
+          `[scene-planner] First scene starts at ${validated[0].narrationStartSec.toFixed(1)}s — resetting to 0`,
+        );
+        validated[0].narrationStartSec = 0;
+      }
+
+      // Check for gaps between scenes and close them
+      for (let i = 1; i < validated.length; i++) {
+        const gap = validated[i].narrationStartSec - validated[i - 1].narrationEndSec;
+        if (gap > 0.5) {
+          console.log(
+            `[scene-planner] Gap of ${gap.toFixed(1)}s between scenes ${i - 1} and ${i} — closing`,
+          );
+          validated[i - 1].narrationEndSec = validated[i].narrationStartSec;
+        }
+      }
+
+      // If last scene ends more than 1s before audio end, extend it
+      const lastScene = validated[validated.length - 1];
+      if (lastScene.narrationEndSec < audioDuration - 1) {
+        console.log(
+          `[scene-planner] Last scene ends at ${lastScene.narrationEndSec.toFixed(1)}s but audio is ${audioDuration.toFixed(1)}s — extending`,
+        );
+        lastScene.narrationEndSec = parseFloat(audioDuration.toFixed(2));
+      }
     }
 
     // Delete any old scenes for this project

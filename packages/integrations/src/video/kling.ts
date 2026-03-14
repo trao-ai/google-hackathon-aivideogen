@@ -98,7 +98,10 @@ export class KlingVideoProvider implements VideoProvider {
         image_url: startImageUrl,
         duration: klingDuration,
         negative_prompt:
-          "text, words, letters, numbers, watermark, caption, subtitle, label, blurry, low quality",
+          "text, words, letters, numbers, watermark, caption, subtitle, label, title, writing, typography, " +
+          "blurry, low quality, low detail, " +
+          "talking, speaking, lip sync, mouth movement, open mouth, moving lips, " +
+          "photorealistic, photograph, 3D render, anime, clipart, Duolingo, childish",
         generate_audio: false,
       };
 

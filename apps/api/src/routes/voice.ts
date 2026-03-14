@@ -56,9 +56,9 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
         text: fullText,
         model_id: "eleven_multilingual_v2",
         voice_settings: {
-          stability: 0.22,
-          similarity_boost: 0.70,
-          style: 0.68,
+          stability: 0.50,
+          similarity_boost: 0.75,
+          style: 0.45,
           use_speaker_boost: true,
         },
       }),

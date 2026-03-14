@@ -58,11 +58,11 @@ class NanoBananaProProvider implements ImageProvider {
           },
         });
         parts.push({
-          text: `Use the reference image above as a STRICT style guide. You MUST match its exact art style, color palette, line weight, character proportions, shading technique, and background treatment. Generate a NEW image (not an edit) based on this description. Do NOT include any text, words, letters, or writing in the image.\n\n${prompt}`,
+          text: `Use the reference image above as a STRICT style guide. You MUST match its exact art style, color palette, line weight, character proportions, shading technique, and background treatment. Generate a NEW image (not an edit) based on this description.\n\nCRITICAL RULE: Do NOT include ANY text, words, letters, numbers, labels, captions, titles, watermarks, writing, or typography ANYWHERE in the image. The image must contain ZERO text. This is non-negotiable.\n\n${prompt}`,
         });
       } else {
         parts.push({
-          text: `Generate an image based on this description. Do NOT include any text, words, letters, or writing in the image.\n\n${prompt}`,
+          text: `Generate an image based on this description.\n\nCRITICAL RULE: Do NOT include ANY text, words, letters, numbers, labels, captions, titles, watermarks, writing, or typography ANYWHERE in the image. The image must contain ZERO text. This is non-negotiable.\n\n${prompt}`,
         });
       }
 
@@ -106,11 +106,19 @@ class NanoBananaProProvider implements ImageProvider {
       const data = (await res.json()) as GenerateContentResponse;
       const candidate = data.candidates?.[0];
       if (!candidate) {
-        throw new Error("Nano Banana Pro: no candidates in response");
+        throw new Error("Nano Banana Pro: no candidates in response — image may have been blocked by safety filter");
+      }
+
+      // Safety filter can return a candidate with no content/parts
+      const responseParts = candidate.content?.parts;
+      if (!responseParts || responseParts.length === 0) {
+        throw new Error(
+          "Nano Banana Pro: image blocked by safety filter (no content parts). Try rephrasing the prompt.",
+        );
       }
 
       // Find the image part in the response
-      const imagePart = candidate.content.parts.find(
+      const imagePart = responseParts.find(
         (p): p is { inlineData: { mimeType: string; data: string } } =>
           "inlineData" in p,
       );
@@ -118,7 +126,7 @@ class NanoBananaProProvider implements ImageProvider {
       if (!imagePart) {
         throw new Error(
           "Nano Banana Pro: no image data in response. Parts: " +
-            JSON.stringify(candidate.content.parts.map((p) => Object.keys(p))),
+            JSON.stringify(responseParts.map((p) => Object.keys(p))),
         );
       }
 

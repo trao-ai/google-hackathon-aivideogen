@@ -156,8 +156,6 @@ export class VideoGenerationWorker {
     // Providers that only need a start frame (no end frame required)
     const noEndFrameProviders = new Set([
       "seedance",
-      "replicate-veo",
-      "replicate-seedance",
       "replicate-seedance-lite",
     ]);
     const needsEndFrame = !noEndFrameProviders.has(videoProviderName);

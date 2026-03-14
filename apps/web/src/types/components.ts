@@ -78,6 +78,37 @@ export type ToneKeyword =
   | "Energetic"
   | "Inspirational";
 
+export type StepNavItem = {
+  id: PipelineStep;
+  label: string;
+};
+
+export type StepNavProps = {
+  steps: StepNavItem[];
+  activeStep: PipelineStep;
+  currentStepIndex: number;
+  totalSteps: number;
+  onStepClick?: (step: PipelineStep) => void;
+};
+
+export type ScoreBarProps = {
+  label: string;
+  value: number;
+  max?: number;
+};
+
+export type TopicCardProps = {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+  thumbnailAngle?: string;
+  scores: ScoreBarProps[];
+  isSelected?: boolean;
+  onSelect: (id: string) => void;
+  loading?: boolean;
+};
+
 export type CreateProjectFormData = {
   title: string;
   category: ContentCategory | null;

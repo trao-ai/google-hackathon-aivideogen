@@ -143,7 +143,7 @@ function ChipSelect<T extends string>({
           onClick={() => onSelect(option)}
           className={`p-2.5 rounded-2xl border text-normal font-normal transition-colors ${
             selected === option
-              ? "bg-brand-surface border-foreground/70"
+              ? "bg-brand-surface border-brand-black"
               : "bg-brand-surface border-brand-border-light"
           }`}
         >
@@ -183,15 +183,17 @@ export default function CreateProjectPage() {
       });
       router.push(`/projects/${project.id}`);
     } catch {
-      setSubmitting(false);
+      // API unavailable — navigate with mock project
+      const mockId = crypto.randomUUID();
+      router.push(`/projects/${mockId}?title=${encodeURIComponent(form.title.trim())}&niche=${encodeURIComponent(form.category)}`);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background">
       <Header />
 
-      <main className="mx-auto max-w-full px-6 py-8 flex flex-col gap-5">
+      <main className="flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-5">
         {/* Page Title */}
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-foreground">
@@ -213,7 +215,7 @@ export default function CreateProjectPage() {
             placeholder="e.g., AI in 2026 Explained"
             value={form.title}
             onChange={(e) => updateForm("title", e.target.value)}
-            className="px-4 py-3 bg-[#FAF9F5B2] rounded-xl border border-brand-border-light text-sm text-foreground placeholder:text-muted-foreground outline-none"
+            className="px-4 py-3 bg-brand-surface rounded-xl border border-brand-border-light text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
         </div>
 
@@ -242,7 +244,7 @@ export default function CreateProjectPage() {
                 onClick={() => updateForm("platform", platform.id)}
                 className={`flex-1 min-w-44 p-4 rounded-2xl border flex flex-col gap-2 transition-colors ${
                   form.platform === platform.id
-                    ? "bg-brand-surface border-foreground/70"
+                    ? "bg-brand-surface border-brand-black"
                     : "bg-brand-surface border-brand-border-light"
                 }`}
               >
@@ -281,9 +283,9 @@ export default function CreateProjectPage() {
                 key={type.id}
                 type="button"
                 onClick={() => updateForm("videoType", type.id)}
-                className={`flex-1 p-4 rounded-2xl border flex flex-col gap-2 transition-colors bg-[#FAF9F5B2] ${
+                className={`flex-1 p-4 rounded-2xl border flex flex-col gap-2 transition-colors ${
                   form.videoType === type.id
-                    ? "bg-brand-surface border-foreground/70"
+                    ? "bg-brand-surface border-brand-black"
                     : "bg-brand-surface border-brand-border-light"
                 }`}
               >
@@ -292,15 +294,15 @@ export default function CreateProjectPage() {
                     {type.icon}
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-base font-medium text-[#141413] text-left">
+                    <span className="text-base font-medium text-foreground text-left">
                       {type.label}
                     </span>
-                    <span className="text-sm text-[#141413B2] text-left">
+                    <span className="text-sm text-muted-foreground text-left">
                       {type.duration}
                     </span>
                   </div>
                 </div>
-                <span className="text-xs text-[#14141380] text-left">
+                <span className="text-xs text-muted-foreground text-left">
                   {type.description}
                 </span>
               </button>
@@ -329,26 +331,26 @@ export default function CreateProjectPage() {
             onSelect={(v) => updateForm("tone", v)}
           />
         </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-5">
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light text-sm font-medium text-foreground hover:opacity-80 transition-opacity"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting || !form.title.trim() || !form.category}
-            className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {submitting ? "Creating..." : "Continue"}
-          </button>
-        </div>
       </main>
+
+      {/* Sticky Bottom Actions */}
+      <div className="sticky bottom-0 bg-background border-t border-brand-border-light px-6 py-4 flex items-center justify-end gap-5">
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light text-sm font-medium text-foreground hover:opacity-80 transition-opacity"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitting || !form.title.trim() || !form.category}
+          className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {submitting ? "Creating..." : "Continue"}
+        </button>
+      </div>
     </div>
   );
 }

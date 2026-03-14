@@ -11,7 +11,6 @@ import {
 } from "@atlas/integrations";
 import { buildVideoPrompt } from "@atlas/prompts";
 
-
 interface MotionEnrichmentResult {
   enrichedMotion: string;
   inputTokens: number;
@@ -51,7 +50,11 @@ async function enrichMotionDescription(params: {
   endFramePrompt: string;
 }): Promise<MotionEnrichmentResult> {
   if (!process.env.GEMINI_API_KEY) {
-    return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
+    return {
+      enrichedMotion: params.motionNotes,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
   }
 
   try {
@@ -70,7 +73,9 @@ Brief motion notes: ${params.motionNotes}`,
     });
 
     if (result.content) {
-      console.log(`[video-gen] Enriched motion description: ${result.content.slice(0, 200)}...`);
+      console.log(
+        `[video-gen] Enriched motion description: ${result.content.slice(0, 200)}...`,
+      );
       return {
         enrichedMotion: result.content.trim(),
         inputTokens: result.inputTokens,
@@ -81,7 +86,11 @@ Brief motion notes: ${params.motionNotes}`,
     console.warn(`[video-gen] Motion enrichment error:`, err);
   }
 
-  return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
+  return {
+    enrichedMotion: params.motionNotes,
+    inputTokens: 0,
+    outputTokens: 0,
+  };
 }
 
 export class VideoGenerationWorker {
@@ -95,10 +104,12 @@ export class VideoGenerationWorker {
     this.worker.on("failed", (job, err) => {
       console.error(`[video-gen] job ${job?.id} failed:`, err.message);
       if (job?.data?.sceneId) {
-        prisma.scene.update({
-          where: { id: job.data.sceneId },
-          data: { clipStatus: "failed" },
-        }).catch(() => {});
+        prisma.scene
+          .update({
+            where: { id: job.data.sceneId },
+            data: { clipStatus: "failed" },
+          })
+          .catch(() => {});
       }
     });
   }
@@ -107,7 +118,9 @@ export class VideoGenerationWorker {
     job: Job<{ projectId: string; sceneId: string; videoProvider?: string }>,
   ): Promise<void> {
     const { projectId, sceneId } = job.data;
-    console.log(`[video-gen] Generating video for scene ${sceneId} (job videoProvider=${job.data.videoProvider})`);
+    console.log(
+      `[video-gen] Generating video for scene ${sceneId} (job videoProvider=${job.data.videoProvider})`,
+    );
 
     const scene = await prisma.scene.findUnique({
       where: { id: sceneId },
@@ -127,14 +140,18 @@ export class VideoGenerationWorker {
     });
 
     // Determine provider: job data > project setting > env var
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+    });
     const videoProviderName = (
       job.data.videoProvider ??
-      (project as Record<string, unknown>)?.videoProvider as string ??
+      ((project as Record<string, unknown>)?.videoProvider as string) ??
       process.env.VIDEO_PROVIDER ??
       "veo"
     ).toLowerCase();
-    console.log(`[video-gen] Resolved provider: "${videoProviderName}" (job=${job.data.videoProvider}, project=${(project as Record<string, unknown>)?.videoProvider}, env=${process.env.VIDEO_PROVIDER})`);
+    console.log(
+      `[video-gen] Resolved provider: "${videoProviderName}" (job=${job.data.videoProvider}, project=${(project as Record<string, unknown>)?.videoProvider}, env=${process.env.VIDEO_PROVIDER})`,
+    );
 
     // Providers that only need a start frame (no end frame required)
     const noEndFrameProviders = new Set([
@@ -149,10 +166,14 @@ export class VideoGenerationWorker {
     const endFrame = scene.frames.find((f) => f.frameType === "end");
 
     if (!startFrame) {
-      throw new Error(`Scene ${sceneId} is missing start frame. Generate frames first.`);
+      throw new Error(
+        `Scene ${sceneId} is missing start frame. Generate frames first.`,
+      );
     }
     if (needsEndFrame && !endFrame) {
-      throw new Error(`Scene ${sceneId} is missing end frame. Generate frames first.`);
+      throw new Error(
+        `Scene ${sceneId} is missing end frame. Generate frames first.`,
+      );
     }
 
     // Download frame images as base64
@@ -166,8 +187,10 @@ export class VideoGenerationWorker {
 
     // Use pre-planned clip target duration (accounts for transition overlap)
     // Falls back to narration duration if not set (backward compat with old scenes)
-    const narrationDurationSec = scene.narrationEndSec - scene.narrationStartSec;
-    const plannedDuration = (scene as Record<string, unknown>).clipTargetDurationSec as number | null;
+    const narrationDurationSec =
+      scene.narrationEndSec - scene.narrationStartSec;
+    const plannedDuration = (scene as Record<string, unknown>)
+      .clipTargetDurationSec as number | null;
     const clipDurationSec = plannedDuration
       ? Math.max(3, Math.min(15, Math.round(plannedDuration)))
       : Math.max(3, Math.min(15, Math.round(narrationDurationSec)));
@@ -201,7 +224,9 @@ export class VideoGenerationWorker {
         outputTokens: motionResult.outputTokens,
         totalCostUsd: motionCost,
       });
-      console.log(`[video-gen] Motion enrichment cost: $${motionCost.toFixed(6)} (${motionResult.inputTokens}in/${motionResult.outputTokens}out tokens)`);
+      console.log(
+        `[video-gen] Motion enrichment cost: $${motionCost.toFixed(6)} (${motionResult.inputTokens}in/${motionResult.outputTokens}out tokens)`,
+      );
     }
 
     // Build a rich video prompt with scene context + enriched motion description
@@ -215,9 +240,13 @@ export class VideoGenerationWorker {
       nextSceneStartPrompt: nextScene?.startPrompt,
     });
 
-    console.log(`[video-gen] Video prompt for scene ${sceneId}:\n${videoPrompt}`);
+    console.log(
+      `[video-gen] Video prompt for scene ${sceneId}:\n${videoPrompt}`,
+    );
 
-    console.log(`[video-gen] Submitting to ${videoProviderName} provider (${clipDurationSec}s clip)...`);
+    console.log(
+      `[video-gen] Submitting to ${videoProviderName} provider (${clipDurationSec}s clip)...`,
+    );
     const genStartTime = Date.now();
     const result = await videoProvider.generate({
       prompt: videoPrompt,
@@ -226,7 +255,9 @@ export class VideoGenerationWorker {
       durationSec: clipDurationSec,
     });
     const genElapsed = ((Date.now() - genStartTime) / 1000).toFixed(1);
-    console.log(`[video-gen] Provider returned ${result.durationSec}s clip in ${genElapsed}s (cost: $${result.costUsd.toFixed(4)})`);
+    console.log(
+      `[video-gen] Provider returned ${result.durationSec}s clip in ${genElapsed}s (cost: $${result.costUsd.toFixed(4)})`,
+    );
 
     // Duration matching verification
     const durationDelta = Math.abs(result.durationSec - clipDurationSec);
@@ -234,12 +265,14 @@ export class VideoGenerationWorker {
 
     if (durationVariance > 10) {
       console.warn(
-        `[video-gen] Duration mismatch: requested ${clipDurationSec}s, got ${result.durationSec}s (${durationVariance.toFixed(1)}% variance)`
+        `[video-gen] Duration mismatch: requested ${clipDurationSec}s, got ${result.durationSec}s (${durationVariance.toFixed(1)}% variance)`,
       );
     }
 
     // Upload video to storage
-    console.log(`[video-gen] Uploading ${(result.videoBuffer.length / 1024 / 1024).toFixed(1)}MB clip to storage...`);
+    console.log(
+      `[video-gen] Uploading ${(result.videoBuffer.length / 1024 / 1024).toFixed(1)}MB clip to storage...`,
+    );
     const key = `projects/${projectId}/scenes/${sceneId}/clip-${Date.now()}.mp4`;
     const videoUrl = await storage.upload(
       key,
@@ -293,14 +326,16 @@ export class VideoGenerationWorker {
     const modelMap: Record<string, string> = {
       veo: "veo-3.1-generate-preview",
       seedance: "fal-ai/bytedance/seedance/v1.5/pro/image-to-video",
-      kling: process.env.KLING_MODEL_ID ?? "fal-ai/kling-video/o3/standard/image-to-video",
-      "replicate-veo": "google/veo-2",
+      kling:
+        process.env.KLING_MODEL_ID ??
+        "fal-ai/kling-video/o3/standard/image-to-video",
+      "replicate-veo": "google/veo-3.1",
       "replicate-kling": "kwaivgi/kling-v2.1",
-      "replicate-seedance": "bytedance/seedance-1-pro",
+      "replicate-seedance": "bytedance/seedance-1.5-pro",
       "replicate-seedance-lite": "bytedance/seedance-1-lite",
     };
     const videoVendor = vendorMap[videoProviderName] ?? "replicate";
-    const videoModel = modelMap[videoProviderName] ?? "google/veo-2";
+    const videoModel = modelMap[videoProviderName] ?? "google/veo-3.1";
     const videoCost = calculateVideoCost(videoModel, result.durationSec);
     await trackVideoCost({
       projectId,
@@ -309,7 +344,9 @@ export class VideoGenerationWorker {
       durationSec: result.durationSec,
       totalCostUsd: videoCost,
     });
-    console.log(`[video-gen] Video cost: $${videoCost.toFixed(4)} (${result.durationSec}s, ${videoVendor})`);
+    console.log(
+      `[video-gen] Video cost: $${videoCost.toFixed(4)} (${result.durationSec}s, ${videoVendor})`,
+    );
 
     // Check if all scenes now have clips
     const [totalScenes, scenesWithClips] = await Promise.all([
@@ -365,14 +402,17 @@ export class VideoGenerationWorker {
         const storage = createStorageProvider();
         // Extract key from URL: https://bucket.endpoint/prefix/key → key
         const urlPath = new URL(imageUrl).pathname.slice(1); // remove leading /
-        const key = storagePrefix && urlPath.startsWith(storagePrefix + "/")
-          ? urlPath.slice(storagePrefix.length + 1)
-          : urlPath;
+        const key =
+          storagePrefix && urlPath.startsWith(storagePrefix + "/")
+            ? urlPath.slice(storagePrefix.length + 1)
+            : urlPath;
         console.log(`[video-gen] Downloading frame via S3 SDK: ${key}`);
         const buffer = await storage.download(key);
         return buffer.toString("base64");
       } catch (err) {
-        console.warn(`[video-gen] S3 SDK download failed, falling back to fetch: ${(err as Error).message}`);
+        console.warn(
+          `[video-gen] S3 SDK download failed, falling back to fetch: ${(err as Error).message}`,
+        );
       }
     }
 
@@ -386,7 +426,9 @@ export class VideoGenerationWorker {
         const arrayBuffer = await res.arrayBuffer();
         return Buffer.from(arrayBuffer).toString("base64");
       } catch (err) {
-        console.warn(`[video-gen] Frame fetch attempt ${attempt + 1}/3 failed: ${(err as Error).message}`);
+        console.warn(
+          `[video-gen] Frame fetch attempt ${attempt + 1}/3 failed: ${(err as Error).message}`,
+        );
         if (attempt === 2) throw err;
         await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
       }

@@ -161,19 +161,18 @@ class VeoVideoProvider implements VideoProvider {
     operationName: string,
     requestedDurationSec: number,
   ): Promise<VideoGenerationResult> {
-    // Use model-scoped fetchPredictOperation endpoint (POST) instead of
-    // Operations.GetOperation (GET) — the latter rejects API keys.
-    const modelPath = operationName.split("/operations/")[0]; // "models/veo-3.1-..."
+    // Use GET on the operation resource with x-goog-api-key header.
+    // The Gemini API polling endpoint is:
+    //   GET https://generativelanguage.googleapis.com/v1beta/{operationName}
 
     for (let attempt = 0; attempt < this.maxPollAttempts; attempt++) {
       await this.sleep(this.pollIntervalMs);
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/${modelPath}:fetchPredictOperation?key=${this.apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/${operationName}`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ operationName }),
+          method: "GET",
+          headers: { "x-goog-api-key": this.apiKey },
         },
       );
 
@@ -284,7 +283,7 @@ export function createVideoProvider(providerOverride?: string): VideoProvider {
     case "replicate-veo": {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { ReplicateVideoProvider } = require("./replicate") as typeof import("./replicate");
-      return new ReplicateVideoProvider("google/veo-2");
+      return new ReplicateVideoProvider("google/veo-3.1");
     }
     case "replicate-kling": {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -294,7 +293,7 @@ export function createVideoProvider(providerOverride?: string): VideoProvider {
     case "replicate-seedance": {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { ReplicateVideoProvider } = require("./replicate") as typeof import("./replicate");
-      return new ReplicateVideoProvider("bytedance/seedance-1-pro");
+      return new ReplicateVideoProvider("bytedance/seedance-1.5-pro");
     }
     case "replicate-seedance-lite": {
       // eslint-disable-next-line @typescript-eslint/no-require-imports

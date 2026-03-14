@@ -3,16 +3,16 @@
  *
  * Uses the `replicate` npm SDK to call video models hosted on Replicate.
  * Supports multiple models via modelId override:
- *   - google/veo-2
+ *   - google/veo-3.1
  *   - kwaivgi/kling-v2.1
- *   - bytedance/seedance-1-pro
+ *   - bytedance/seedance-1.5-pro
  *   - bytedance/seedance-1-lite
  *
  * Required env vars:
  *   REPLICATE_API_TOKEN  – Replicate API token
  *
  * Optional env vars:
- *   REPLICATE_MODEL_ID   – Default model (default: "google/veo-2")
+ *   REPLICATE_MODEL_ID   – Default model (default: "google/veo-3.1")
  */
 
 import Replicate from "replicate";
@@ -44,7 +44,7 @@ interface ReplicateModelConfig {
 }
 
 const MODEL_CONFIGS: Record<string, ReplicateModelConfig> = {
-  "google/veo-2": {
+  "google/veo-3.1": {
     imageInputKey: "image",
     endImageInputKey: null,
     durationKey: "duration",
@@ -66,15 +66,16 @@ const MODEL_CONFIGS: Record<string, ReplicateModelConfig> = {
     supportsAspectRatio: true,
     extraInput: { mode: "pro", cfg_scale: 0.9 },
   },
-  "bytedance/seedance-1-pro": {
+  "bytedance/seedance-1.5-pro": {
     imageInputKey: "image",
-    endImageInputKey: null,
+    endImageInputKey: "last_frame_image",
     durationKey: "duration",
     minDuration: 5,
     maxDuration: 10,
     defaultDuration: 5,
-    supportsNegativePrompt: true,
+    supportsNegativePrompt: false,
     supportsAspectRatio: true,
+    extraInput: { fps: 24, camera_fixed: false, generate_audio: false },
   },
   "bytedance/seedance-1-lite": {
     imageInputKey: "image",
@@ -115,7 +116,7 @@ export class ReplicateVideoProvider implements VideoProvider {
     this.modelId =
       modelIdOverride ??
       process.env.REPLICATE_MODEL_ID ??
-      "google/veo-2";
+      "google/veo-3.1";
     this.config = MODEL_CONFIGS[this.modelId] ?? DEFAULT_CONFIG;
   }
 

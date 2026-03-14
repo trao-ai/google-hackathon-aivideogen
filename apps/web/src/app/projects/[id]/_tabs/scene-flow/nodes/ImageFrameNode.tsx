@@ -10,9 +10,9 @@ import { useSceneFlow } from "../SceneFlowContext";
 
 function ImageFrameNodeComponent({ data }: { data: ImageFrameNodeData }) {
   const { scene, frame, frameType } = data;
-  const { onRegenerateFrame, onEditFrame, regeneratingIds } = useSceneFlow();
+  const { onRegenerateFrame, onEditFrame, onGenerateSceneFrames, regeneratingIds } = useSceneFlow();
 
-  const isRegenerating = frame ? regeneratingIds.has(frame.id) : false;
+  const isRegenerating = frame ? regeneratingIds.has(frame.id) : regeneratingIds.has(`frames-${scene.id}`);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white shadow-sm w-[240px] overflow-hidden">
@@ -61,6 +61,16 @@ function ImageFrameNodeComponent({ data }: { data: ImageFrameNodeData }) {
                 <span className="text-[10px] text-gray-400 mt-1">
                   No frame yet
                 </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGenerateSceneFrames(scene.id);
+                  }}
+                  disabled={isRegenerating}
+                  className="mt-1 text-[10px] text-blue-600 hover:bg-blue-50 rounded px-2 py-0.5 disabled:opacity-50"
+                >
+                  {isRegenerating ? "Generating..." : "Generate"}
+                </button>
               </>
             )}
           </div>

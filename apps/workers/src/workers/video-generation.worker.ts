@@ -127,6 +127,11 @@ export class VideoGenerationWorker {
     });
     if (!scene) throw new Error(`Scene ${sceneId} not found`);
 
+    // Fetch next scene for cross-scene continuity context
+    const nextScene = await prisma.scene.findFirst({
+      where: { projectId, orderIndex: scene.orderIndex + 1 },
+    });
+
     // Mark this scene as generating video
     await prisma.scene.update({
       where: { id: sceneId },
@@ -217,6 +222,7 @@ export class VideoGenerationWorker {
       startFramePrompt: startFrame.prompt,
       endFramePrompt: endFrame?.prompt ?? scene.endPrompt,
       durationSec: clipDurationSec,
+      nextSceneStartPrompt: nextScene?.startPrompt,
     });
 
     console.log(`[video-gen] Video prompt for scene ${sceneId}:\n${videoPrompt}`);

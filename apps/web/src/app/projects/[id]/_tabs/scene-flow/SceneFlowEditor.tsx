@@ -110,12 +110,29 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = 
     [projectId, onRefresh, addRegenerating, removeRegenerating],
   );
 
+  const onGenerateSceneFrames = useCallback(
+    async (sceneId: string) => {
+      addRegenerating(`frames-${sceneId}`);
+      try {
+        await api.frames.generateForScene(projectId, sceneId);
+        setTimeout(async () => {
+          await onRefresh();
+          removeRegenerating(`frames-${sceneId}`);
+        }, 3000);
+      } catch {
+        removeRegenerating(`frames-${sceneId}`);
+      }
+    },
+    [projectId, onRefresh, addRegenerating, removeRegenerating],
+  );
+
   const contextValue = useMemo(
     () => ({
       onRegenerateFrame,
       onEditFrame,
       onEditAnimation,
       onGenerateVideo,
+      onGenerateSceneFrames,
       regeneratingIds,
       videoProvider,
     }),
@@ -124,6 +141,7 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = 
       onEditFrame,
       onEditAnimation,
       onGenerateVideo,
+      onGenerateSceneFrames,
       regeneratingIds,
       videoProvider,
     ],

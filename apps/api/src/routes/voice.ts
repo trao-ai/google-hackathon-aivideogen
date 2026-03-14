@@ -41,7 +41,20 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
        "main_explanation_1", "main_explanation_2", "twist",
        "consequences", "closing_hook", "cta", "narration"].includes(s.sectionType)
     );
-    const fullText = narrationSections.map((s) => s.text).join("\n\n");
+    // Insert natural pause markers for dramatic sections — ElevenLabs interprets
+    // trailing ellipses as slight pauses with trailing intonation for more human delivery
+    const fullText = narrationSections
+      .map((s) => {
+        let text = s.text.trim();
+        if (
+          ["cold_open", "hook", "twist", "dramatic_reveal"].includes(s.sectionType) &&
+          !text.endsWith("...")
+        ) {
+          text = text.replace(/\.(\s*)$/, "...$1");
+        }
+        return text;
+      })
+      .join("\n\n");
 
     if (!ELEVENLABS_KEY) throw new ApiError(500, "ELEVENLABS_API_KEY not configured");
 
@@ -56,9 +69,9 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
         text: fullText,
         model_id: "eleven_multilingual_v2",
         voice_settings: {
-          stability: 0.50,
+          stability: 0.30,
           similarity_boost: 0.75,
-          style: 0.45,
+          style: 0.70,
           use_speaker_boost: true,
         },
       }),
@@ -124,6 +137,8 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
     console.log(`[voice] Alignment: ${allWords.length} words, real duration ${durationSec.toFixed(1)}s`);
 
     // Map words back to narration sections for accurate segment timestamps
+    // Use ORIGINAL script text for display (source of truth for spelling/caps),
+    // alignment data for timing only — fixes subtitle spelling and double-cap issues
     let wordIdx = 0;
     const segments = narrationSections.map((section) => {
       const sectionWords = section.text.split(/\s+/).filter(Boolean);
@@ -131,7 +146,11 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
 
       // Consume words from the alignment stream for this section
       for (let i = 0; i < sectionWords.length && wordIdx < allWords.length; i++) {
-        sectionWordData.push(allWords[wordIdx]);
+        sectionWordData.push({
+          word: sectionWords[i],           // original script text (correct spelling)
+          start: allWords[wordIdx].start,  // timing from alignment
+          end: allWords[wordIdx].end,
+        });
         wordIdx++;
       }
 

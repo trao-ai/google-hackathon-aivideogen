@@ -54,6 +54,47 @@ frameRouter.post("/:id/generate-frames", async (req, res, next) => {
   }
 });
 
+// POST /projects/:projectId/scenes/:sceneId/generate-frames
+// Generate frames for a SINGLE scene (on-demand, similar to per-scene video generation)
+frameRouter.post(
+  "/:projectId/scenes/:sceneId/generate-frames",
+  async (req, res, next) => {
+    try {
+      const scene = await prisma.scene.findUnique({
+        where: { id: req.params.sceneId },
+      });
+      if (!scene) throw new ApiError(404, "Scene not found");
+      if (scene.projectId !== req.params.projectId)
+        throw new ApiError(400, "Scene does not belong to this project");
+
+      const queue = new Queue("frame-generation", {
+        connection: getRedisConnection(),
+      });
+
+      // Reset frame status and delete existing frames for a fresh generation
+      await prisma.scene.update({
+        where: { id: req.params.sceneId },
+        data: { frameStatus: "pending" },
+      });
+      await prisma.sceneFrame.deleteMany({
+        where: { sceneId: req.params.sceneId },
+      });
+
+      await queue.add("generate", {
+        projectId: req.params.projectId,
+        sceneId: req.params.sceneId,
+      });
+
+      res.json({
+        jobCount: 1,
+        message: `Frame generation queued for scene ${scene.orderIndex + 1}`,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // GET /projects/:projectId/scenes/:sceneId/frames
 frameRouter.get(
   "/:projectId/scenes/:sceneId/frames",

@@ -11,6 +11,7 @@ export interface SceneFlowContextValue {
   ) => void;
   onEditAnimation: (sceneId: string) => void;
   onGenerateVideo: (sceneId: string) => Promise<void>;
+  onGenerateSceneFrames: (sceneId: string) => Promise<void>;
   regeneratingIds: Set<string>;
   videoProvider: string;
 }
@@ -20,6 +21,7 @@ export const SceneFlowContext = createContext<SceneFlowContextValue>({
   onEditFrame: () => {},
   onEditAnimation: () => {},
   onGenerateVideo: async () => {},
+  onGenerateSceneFrames: async () => {},
   regeneratingIds: new Set(),
   videoProvider: "kling",
 });

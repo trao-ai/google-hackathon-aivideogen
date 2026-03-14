@@ -112,7 +112,7 @@ export default function ProjectPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-secondary">
         <Header />
         <p className="text-muted-foreground py-16 text-center">
           Loading project...
@@ -123,7 +123,7 @@ export default function ProjectPage() {
 
   if (error || !project) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-secondary">
         <Header />
         <p className="text-brand-red py-16 text-center">
           {error || "Project not found"}
@@ -133,63 +133,65 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen bg-secondary">
       <Header totalSpend={project.totalCostUsd ?? 0} />
 
-      <main className="flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-8">
-        {/* Title + Refresh */}
-        <div className="flex items-start justify-between gap-8">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold text-foreground leading-9">
-              {tabInfo.title}
-            </h1>
-            <p className="text-xl text-foreground/70 leading-7">
-              {tabInfo.subtitle}
-            </p>
+      <main className="flex-1 overflow-y-auto px-4 pt-4 pb-0">
+        <div className="bg-brand-off-white rounded-2xl border border-brand-border-light p-5 flex flex-col gap-8">
+          {/* Title + Refresh */}
+          <div className="flex items-start justify-between gap-8">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-3xl font-bold text-foreground leading-9">
+                {tabInfo.title}
+              </h1>
+              <p className="text-xl text-foreground/70 leading-7">
+                {tabInfo.subtitle}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadProject()}
+              className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
+            >
+              <ArrowCounterClockwiseIcon size={20} weight="regular" />
+              <span>Refresh</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => void loadProject()}
-            className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
-          >
-            <ArrowCounterClockwiseIcon size={20} weight="regular" />
-            <span>Refresh</span>
-          </button>
+
+          {/* Step Navigation */}
+          <StepNav
+            steps={STEPS}
+            activeStep={activeStep}
+            currentStepIndex={currentStepIndex}
+            totalSteps={STEPS.length}
+            onStepClick={setActiveStep}
+          />
+
+          {/* Tab Content */}
+          {activeStep === "topic" && (
+            <TopicsTab project={project} onRefresh={loadProject} />
+          )}
+          {activeStep === "research" && (
+            <ResearchTab project={project} onRefresh={loadProject} />
+          )}
+          {activeStep === "script" && (
+            <ScriptsTab project={project} onRefresh={loadProject} />
+          )}
+          {activeStep === "voice" && (
+            <VoiceTab project={project} onRefresh={loadProject} />
+          )}
+          {activeStep === "scenes" && (
+            <ScenesTab project={project} onRefresh={loadProject} />
+          )}
+          {activeStep === "export" && (
+            <RenderTab project={project} onRefresh={loadProject} />
+          )}
+          {activeStep === "cost" && <CostsTab projectId={id} />}
         </div>
-
-        {/* Step Navigation */}
-        <StepNav
-          steps={STEPS}
-          activeStep={activeStep}
-          currentStepIndex={currentStepIndex}
-          totalSteps={STEPS.length}
-          onStepClick={setActiveStep}
-        />
-
-        {/* Tab Content */}
-        {activeStep === "topic" && (
-          <TopicsTab project={project} onRefresh={loadProject} />
-        )}
-        {activeStep === "research" && (
-          <ResearchTab project={project} onRefresh={loadProject} />
-        )}
-        {activeStep === "script" && (
-          <ScriptsTab project={project} onRefresh={loadProject} />
-        )}
-        {activeStep === "voice" && (
-          <VoiceTab project={project} onRefresh={loadProject} />
-        )}
-        {activeStep === "scenes" && (
-          <ScenesTab project={project} onRefresh={loadProject} />
-        )}
-        {activeStep === "export" && (
-          <RenderTab project={project} onRefresh={loadProject} />
-        )}
-        {activeStep === "cost" && <CostsTab projectId={id} />}
       </main>
 
       {/* Sticky Bottom Actions */}
-      <div className="sticky bottom-0 bg-background border-t border-brand-border-light px-6 py-4 flex items-center justify-end gap-5">
+      <div className="shrink-0 bg-brand-off-white border-t border-brand-border-light shadow-[0px_-4px_16px_rgba(225,218,205,0.2)] px-5 py-3 flex items-center justify-end gap-5">
         <button
           type="button"
           onClick={() => router.push("/")}

@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowClockwiseIcon } from "@phosphor-icons/react";
+import {
+  ArrowClockwiseIcon,
+  LinkIcon,
+  ChartBarIcon,
+} from "@phosphor-icons/react";
 import { api, type ProjectDetail } from "@/lib/api";
 import { getProjectStep } from "@/lib/pipeline";
 import { Header } from "@/components/layout/Header";
@@ -33,8 +37,8 @@ const TAB_TITLES: Record<PipelineStep, { title: string; subtitle: string }> = {
       "Discovered from 80+ live signals including Reddit, Hacker News, and Google Trends. Pick one to get started.",
   },
   research: {
-    title: "Research Brief",
-    subtitle: "AI-generated research to inform your script.",
+    title: "Research Stage",
+    subtitle: "Review AI-generated research and add your insights.",
   },
   script: {
     title: "Script Generation",
@@ -138,25 +142,52 @@ export default function ProjectPage() {
 
       <main className="flex-1 overflow-y-auto px-4 pt-4 pb-0">
         <div className="bg-brand-off-white rounded-2xl border border-brand-border-light p-5 flex flex-col gap-5">
-          {/* Title + Refresh */}
-          <div className="flex items-start justify-between gap-8">
-            <div className="flex flex-col gap-2">
-              <h1 className="text-2xl font-semibold text-foreground">
-                {tabInfo.title}
-              </h1>
-              <p className="text-base font-extralight text-[#141413B2]">
-                {tabInfo.subtitle}
-              </p>
+          {/* Project Title (shown on research+ steps) */}
+          {activeStep !== "topic" && project.title && (
+            <div className="flex items-start justify-between gap-8">
+              <div className="flex flex-col gap-1">
+                <h1 className="text-2xl font-semibold text-foreground">
+                  {project.title}
+                </h1>
+                {project.niche && (
+                  <p className="text-base font-extralight text-[#141413B2]">
+                    A Surprising Look At How This Topic Connects To{" "}
+                    {project.niche} And Beyond.
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadProject()}
+                className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
+              >
+                <ArrowClockwiseIcon size={20} weight="regular" />
+                <span>Refresh</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => void loadProject()}
-              className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
-            >
-              <ArrowClockwiseIcon size={20} weight="regular" />
-              <span>Refresh</span>
-            </button>
-          </div>
+          )}
+
+          {/* Topic Tab Title + Refresh */}
+          {activeStep === "topic" && (
+            <div className="flex items-start justify-between gap-8">
+              <div className="flex flex-col gap-2">
+                <h1 className="text-2xl font-semibold text-foreground">
+                  {tabInfo.title}
+                </h1>
+                <p className="text-base font-extralight text-[#141413B2]">
+                  {tabInfo.subtitle}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadProject()}
+                className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
+              >
+                <ArrowClockwiseIcon size={20} weight="regular" />
+                <span>Refresh</span>
+              </button>
+            </div>
+          )}
 
           {/* Step Navigation */}
           <StepNav
@@ -166,6 +197,43 @@ export default function ProjectPage() {
             totalSteps={STEPS.length}
             onStepClick={setActiveStep}
           />
+
+          {/* Tab-specific heading (below step nav, for non-topic steps) */}
+          {activeStep !== "topic" && (
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-semibold text-foreground">
+                  {tabInfo.title}
+                </h2>
+                <p className="text-sm font-extralight text-[#141413B2]">
+                  {tabInfo.subtitle}
+                </p>
+              </div>
+              {activeStep === "research" && (
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1.5 bg-brand-green-light rounded-full text-xs font-medium text-brand-green flex items-center gap-1.5">
+                    <LinkIcon size={14} weight="bold" />
+                    Sources: 2
+                  </span>
+                  <span className="px-3 py-1.5 bg-brand-indigo-light rounded-full text-xs font-medium text-brand-indigo flex items-center gap-1.5">
+                    <ChartBarIcon size={14} weight="bold" />
+                    Confidence Score: 85%
+                  </span>
+                  <span className="text-sm font-normal text-brand-foreground-70">
+                    Trend Score: 84 /100
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void loadProject()}
+                    className="px-4 py-2.5 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity"
+                  >
+                    <ArrowClockwiseIcon size={16} weight="regular" />
+                    Re-Research
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Tab Content */}
           {activeStep === "topic" && (
@@ -206,6 +274,15 @@ export default function ProjectPage() {
             className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
           >
             Start Research
+          </button>
+        )}
+        {activeStep === "research" && (
+          <button
+            type="button"
+            onClick={() => setActiveStep("script")}
+            className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+          >
+            Approve & Continue
           </button>
         )}
       </div>

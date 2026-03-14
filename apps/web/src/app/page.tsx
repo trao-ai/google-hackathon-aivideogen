@@ -7,6 +7,7 @@ import { formatCost } from "@/lib/utils";
 import { TopicDiscovery } from "@/components/TopicDiscovery";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Header } from "@/components/layout/Header";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -33,17 +34,8 @@ export default function DashboardPage() {
   const totalCost = projects.reduce((acc, p) => acc + (p.totalCostUsd ?? 0), 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Project Atlas</h1>
-            <p className="text-sm text-gray-500">AI Video Factory</p>
-          </div>
-          <TopicDiscovery onDone={() => void loadProjects()} />
-        </div>
-      </header>
+    <div className="min-h-screen bg-background">
+      <Header totalSpend={totalCost} />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
         {/* Stats */}

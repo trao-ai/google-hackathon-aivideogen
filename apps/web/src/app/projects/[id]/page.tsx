@@ -42,7 +42,7 @@ const TAB_TITLES: Record<PipelineStep, { title: string; subtitle: string }> = {
   },
   script: {
     title: "Script Generation",
-    subtitle: "Generate and refine your video script.",
+    subtitle: "Review and edit your AI-generated script",
   },
   voice: {
     title: "Voice Generation",
@@ -232,6 +232,16 @@ export default function ProjectPage() {
                   </button>
                 </div>
               )}
+              {activeStep === "script" && (
+                <button
+                  type="button"
+                  onClick={() => void loadProject()}
+                  className="px-4 py-2.5 bg-brand-black rounded-full flex items-center gap-2 text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+                >
+                  <ArrowClockwiseIcon size={16} weight="regular" />
+                  Re-Research
+                </button>
+              )}
             </div>
           )}
 
@@ -280,6 +290,15 @@ export default function ProjectPage() {
           <button
             type="button"
             onClick={() => setActiveStep("script")}
+            className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+          >
+            Approve & Continue
+          </button>
+        )}
+        {activeStep === "script" && (
+          <button
+            type="button"
+            onClick={() => setActiveStep("voice")}
             className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
           >
             Approve & Continue

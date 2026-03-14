@@ -1,236 +1,291 @@
-"use client";
+import {
+  SparkleIcon,
+  FileTextIcon,
+  CheckCircleIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
+import type { ProjectDetail } from "@/lib/api";
 
-import { useState } from "react";
-import { api, type ProjectDetail, type Script, type ScriptSection } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-
-interface Props {
+type Props = {
   project: ProjectDetail;
   onRefresh: () => Promise<void>;
-}
+};
 
-function formatDurationSec(sec: number) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return s > 0 ? `${m}m ${s}s` : `${m}m`;
-}
+/* ── Mock Data ── */
+const SCRIPT_FLOW =
+  "Hook → Setup → Question → Insights → Consequence → Reflection → CTA";
 
-export function ScriptsTab({ project, onRefresh }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [expandedScript, setExpandedScript] = useState<string | null>(null);
-  const [rewritingSection, setRewritingSection] = useState<string | null>(null);
-  const [rewriteInstructions, setRewriteInstructions] = useState("");
-  const [duration, setDuration] = useState<"short" | "long">("short");
+const INTRO_SECTIONS = [
+  {
+    title: "Hook",
+    duration: "8s",
+    text: "Start with a surprising comparison that grabs attention. A simple street snack is somehow beating a billion-dollar streaming platform in the profit race.",
+    actions: ["Rewrite Tone", "Make Shorter"],
+  },
+  {
+    title: "Setup",
+    duration: "8s",
+    text: "Introduce the two sides of the story: a global streaming giant and a small food business. At first glance, it seems impossible that they could even be compared.",
+    actions: ["Rewrite Tone", "Make Shorter"],
+  },
+  {
+    title: "The Big Question",
+    duration: "8s",
+    text: "This raises an interesting question. How can a tiny churro stand compete with a company backed by massive investments and global reach?",
+    actions: ["More Engaging", "Add Urgency"],
+  },
+];
 
-  const scripts: Script[] = project.scripts ?? [];
-  const isScripting = project.status === "scripting";
-  const hasResearch = (project.researchBriefs ?? []).length > 0;
+const MAIN_SECTIONS = [
+  {
+    title: "Cost Structure",
+    duration: "8s",
+    text: "Disney+ invests billions in content, technology, and marketing. Churro vendors operate with minimal costs, simple equipment, and small teams.",
+  },
+  {
+    title: "Profit Margins",
+    duration: "8s",
+    text: "Streaming platforms spend heavily before making profit. Meanwhile, churro vendors often enjoy immediate cash flow and strong margins on every sale.",
+  },
+  {
+    title: "Business Simplicity",
+    duration: "8s",
+    text: "A churro business focuses on one product with consistent demand. Fewer moving parts make the business easier to manage and more financially stable.",
+  },
+];
 
-  const handleGenerate = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      await api.scripts.generate(project.id, { duration });
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
+const CLOSING_SECTIONS = [
+  {
+    title: "Consequence",
+    duration: "8s",
+    text: "This comparison reveals that scale & technology don't guarantee profitability. Sometimes simple business outperform complex platforms.",
+    actions: ["Rewrite Tone", "Make Shorter"],
+  },
+  {
+    title: "Closing Reflection",
+    duration: "8s",
+    text: "The story highlights an important lesson for entrepreneurs and startups. Efficiency and demand often matter more than size and hype.",
+    actions: ["Rewrite Tone", "Make Shorter"],
+  },
+  {
+    title: "Final Hook / CTA",
+    duration: "8s",
+    text: "So, next time you see a churro stand, remember— simple ideas with smart margins can sometimes beat billion-dollar companies.",
+    actions: ["More Engaging", "Add Urgency"],
+  },
+];
 
-  const handleApprove = async (scriptId: string) => {
-    setLoading(true);
-    try {
-      await api.scripts.approve(project.id, scriptId);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
+const SCRIPT_TOOLS = {
+  wordCount: 156,
+  estDuration: "52 sec",
+  aiSuggestion:
+    "Your hook is strong! Consider adding a question at the end to boost engagement.",
+};
 
-  const handleDelete = async (scriptId: string) => {
-    if (!confirm("Delete this script? This cannot be undone.")) return;
-    setLoading(true);
-    try {
-      await api.scripts.delete(project.id, scriptId);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRewrite = async (scriptId: string, sectionId: string) => {
-    if (!rewriteInstructions.trim()) return;
-    setLoading(true);
-    try {
-      await api.scripts.rewriteSection(project.id, scriptId, {
-        sectionId,
-        instructions: rewriteInstructions,
-      });
-      setRewritingSection(null);
-      setRewriteInstructions("");
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+export function ScriptsTab({
+  project: _project,
+  onRefresh: _onRefresh,
+}: Props) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Script</h2>
-        <div className="flex items-center gap-3">
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+    <div className="flex flex-col gap-5">
+      {/* Script Flow */}
+      <p className="text-base font-normal text-brand-foreground-70">
+        {SCRIPT_FLOW}
+      </p>
+
+      {/* Main Layout: Content + Sidebar */}
+      <div className="flex items-start gap-5">
+        {/* Left: Script Sections */}
+        <div className="flex-1 flex flex-col gap-5">
+          {/* Intro Row (3 cards) */}
+          <div className="flex items-stretch gap-5">
+            {INTRO_SECTIONS.map((section) => (
+              <div
+                key={section.title}
+                className="flex-1 p-5 bg-[#FBFBF7] rounded-2xl border border-brand-border-light flex flex-col justify-between gap-5"
+              >
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="flex-1 text-lg font-semibold text-foreground">
+                      {section.title}
+                    </h4>
+                    <span className="text-sm font-normal text-brand-foreground-70">
+                      {section.duration}
+                    </span>
+                  </div>
+                  <p className="text-sm font-normal text-brand-foreground-70">
+                    {section.text}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {section.actions.map((action, i) => (
+                    <button
+                      key={action}
+                      type="button"
+                      className={`whitespace-nowrap px-4 py-2.5 rounded-full text-sm font-medium transition-opacity hover:opacity-80 ${
+                        i === 0
+                          ? "bg-brand-surface border border-brand-border-light text-foreground"
+                          : "bg-brand-black text-brand-off-white"
+                      }`}
+                    >
+                      {action}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Main Context */}
+          <div className="p-5 bg-[#FBFBF7] rounded-2xl flex flex-col gap-5">
+            <h3 className="text-2xl font-semibold text-foreground">
+              Main Context
+            </h3>
+            {MAIN_SECTIONS.map((section) => (
+              <div
+                key={section.title}
+                className="p-3 bg-[#F0EEE7]/50 rounded-xl border border-brand-border-light flex flex-col gap-5"
+              >
+                <div className="flex items-start gap-5">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <h4 className="text-lg font-semibold text-foreground">
+                      {section.title}
+                    </h4>
+                    <p className="text-sm font-normal text-brand-foreground-70">
+                      {section.text}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-normal text-brand-foreground-70">
+                    {section.duration}
+                  </span>
+                </div>
+                <div className="flex items-center justify-end gap-5">
+                  <button
+                    type="button"
+                    className="px-4 py-2.5 bg-[#FBFBF7] rounded-full border border-brand-border-light text-sm font-medium text-foreground hover:opacity-80 transition-opacity"
+                  >
+                    Expand
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2.5 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+                  >
+                    Shorten
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Closing Row (3 cards) */}
+          <div className="flex items-stretch gap-5">
+            {CLOSING_SECTIONS.map((section) => (
+              <div
+                key={section.title}
+                className="flex-1 p-5 bg-[#FBFBF7] rounded-2xl border border-brand-border-light flex flex-col justify-between gap-5"
+              >
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="flex-1 text-lg font-semibold text-foreground">
+                      {section.title}
+                    </h4>
+                    <span className="text-sm font-normal text-brand-foreground-70">
+                      {section.duration}
+                    </span>
+                  </div>
+                  <p className="text-sm font-normal text-brand-foreground-70">
+                    {section.text}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {section.actions.map((action, i) => (
+                    <button
+                      key={action}
+                      type="button"
+                      className={`whitespace-nowrap px-4 py-2.5 rounded-full text-sm font-medium transition-opacity hover:opacity-80 ${
+                        i === 0
+                          ? "bg-brand-surface border border-brand-border-light text-foreground"
+                          : "bg-brand-black text-brand-off-white"
+                      }`}
+                    >
+                      {action}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: Script Tools Sidebar */}
+        <div className="w-[352px] shrink-0 p-5 bg-[#FBFBF7] rounded-2xl border border-brand-border-light flex flex-col gap-5">
+          {/* Stats */}
+          <div className="flex flex-col gap-2">
+            <h4 className="text-base font-semibold text-foreground">
+              Script Tools
+            </h4>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-normal text-brand-foreground-70">
+                  word count:
+                </span>
+                <span className="text-base font-semibold text-foreground">
+                  {SCRIPT_TOOLS.wordCount}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-normal text-brand-foreground-70">
+                  Est. Duration:
+                </span>
+                <span className="text-base font-semibold text-foreground">
+                  {SCRIPT_TOOLS.estDuration}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Suggestion */}
+          <div className="p-4 bg-gradient-to-br from-brand-indigo-light to-brand-green-light rounded-xl border border-brand-indigo-border flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <SparkleIcon
+                size={20}
+                weight="fill"
+                className="text-brand-indigo"
+              />
+              <span className="text-base font-semibold text-foreground">
+                AI Suggestion
+              </span>
+            </div>
+            <p className="text-sm font-normal text-brand-foreground-70">
+              {SCRIPT_TOOLS.aiSuggestion}
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-5">
             <button
-              className={`px-3 py-1.5 transition-colors ${duration === "short" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-              onClick={() => setDuration("short")}
-              disabled={loading || isScripting}
+              type="button"
+              className="w-full px-4 py-2.5 bg-[#FBFBF7] rounded-full border border-brand-border-light flex items-center justify-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity"
             >
-              Short (~1 min)
+              <FileTextIcon size={20} weight="regular" />
+              Draft
             </button>
             <button
-              className={`px-3 py-1.5 transition-colors ${duration === "long" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-              onClick={() => setDuration("long")}
-              disabled={loading || isScripting}
+              type="button"
+              className="w-full px-4 py-2.5 bg-brand-black rounded-full flex items-center justify-center gap-2 text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
             >
-              Long (4-5 min)
+              <CheckCircleIcon size={20} weight="regular" />
+              Approve
+            </button>
+            <button
+              type="button"
+              className="w-full px-4 py-2.5 bg-[#FBFBF7] rounded-full border border-brand-red flex items-center justify-center gap-2 text-sm font-medium text-brand-red hover:opacity-80 transition-opacity"
+            >
+              <TrashIcon size={20} weight="regular" />
+              Delete
             </button>
           </div>
-          <Button
-            onClick={handleGenerate}
-            disabled={loading || isScripting || !hasResearch}
-            title={!hasResearch ? "Complete research first" : undefined}
-          >
-            {isScripting ? "Generating…" : loading ? "Working…" : scripts.length > 0 ? "Re-Generate" : "Generate Script"}
-          </Button>
         </div>
-      </div>
-
-      {!hasResearch && (
-        <p className="rounded-md bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-          Complete research before generating a script.
-        </p>
-      )}
-
-      {isScripting && (
-        <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
-          <p className="text-sm text-indigo-700">Writing {duration === "short" ? "~1 minute short-form" : "4-5 minute"} script…</p>
-        </div>
-      )}
-
-      {error && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-
-      {scripts.length === 0 && !isScripting && (
-        <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center">
-          <p className="text-gray-500 text-sm">No script yet.</p>
-          <p className="text-gray-400 text-xs mt-1">Select duration and click &quot;Generate Script&quot; to create a voiceover script.</p>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {scripts.map((script) => {
-          const wordCount = script.fullText ? script.fullText.split(/\s+/).length : 0;
-          const title = script.titleCandidates?.[0] ?? "Untitled Script";
-          const isSelected = script.id === project.selectedScriptId;
-          return (
-            <Card key={script.id} className={isSelected ? "ring-2 ring-indigo-500" : ""}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <CardTitle className="text-base leading-snug">{title}</CardTitle>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {wordCount.toLocaleString()} words · {formatDurationSec(script.estimatedDurationSec)} estimated
-                      {isSelected && <span className="ml-2 text-indigo-600 font-medium">Selected</span>}
-                    </p>
-                    {script.outline && (
-                      <p className="mt-1 text-[11px] text-gray-400 font-mono truncate">{script.outline}</p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <StatusBadge status={script.status} />
-                    {script.status === "draft" && (
-                      <Button size="sm" onClick={() => handleApprove(script.id)} disabled={loading}>
-                        Approve
-                      </Button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(script.id)}
-                      disabled={loading}
-                      className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50 disabled:opacity-40"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-                <button
-                  className="mt-2 text-left text-xs text-indigo-600 hover:underline"
-                  onClick={() => setExpandedScript(expandedScript === script.id ? null : script.id)}
-                >
-                  {expandedScript === script.id ? "Hide sections" : `Show ${script.sections?.length ?? 0} sections`}
-                </button>
-              </CardHeader>
-
-              {expandedScript === script.id && script.sections && (
-                <CardContent className="space-y-3 pt-0">
-                  {script.sections.map((section: ScriptSection) => (
-                    <div key={section.id} className="rounded-lg border bg-gray-50 p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                          {section.sectionType.replace(/_/g, " ")}
-                        </span>
-                        <span className="text-[10px] text-gray-400">
-                          ~{Math.round(section.estimatedDurationSec)}s
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{section.text}</p>
-                      {isSelected && (
-                        <div className="mt-2">
-                          {rewritingSection === section.id ? (
-                            <div className="space-y-2">
-                              <Textarea
-                                value={rewriteInstructions}
-                                onChange={(e) => setRewriteInstructions(e.target.value)}
-                                placeholder="Rewrite instructions, e.g. 'Make it more conversational'"
-                                rows={2}
-                              />
-                              <div className="flex gap-2">
-                                <Button size="sm" onClick={() => handleRewrite(script.id, section.id)} disabled={loading}>
-                                  Apply
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => setRewritingSection(null)}>
-                                  Cancel
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              className="text-xs text-indigo-600 hover:underline"
-                              onClick={() => { setRewritingSection(section.id); setRewriteInstructions(""); }}
-                            >
-                              Rewrite section
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </CardContent>
-              )}
-            </Card>
-          );
-        })}
       </div>
     </div>
   );

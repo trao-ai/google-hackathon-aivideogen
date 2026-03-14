@@ -121,11 +121,13 @@ export const api = {
   },
 
   voice: {
-    generate: (projectId: string) =>
+    generate: (projectId: string, voice?: string) =>
       request<Voiceover>(
         `/api/projects/${projectId}/generate-voice`,
-        { method: "POST" },
+        { method: "POST", body: JSON.stringify(voice ? { voice } : {}) },
       ),
+    presets: () =>
+      request<VoicePreset[]>("/api/projects/voice-presets"),
     get: (projectId: string) =>
       request<Voiceover | null>(`/api/projects/${projectId}/voiceover`),
     delete: (projectId: string, voiceoverId: string) =>
@@ -385,6 +387,12 @@ export interface CostAnalytics {
   _sum: { totalCostUsd: number };
   _count: { id: number };
   _avg: { totalCostUsd: number };
+}
+
+export interface VoicePreset {
+  key: string;
+  name: string;
+  accent: string;
 }
 
 export interface CostEstimate {

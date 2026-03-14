@@ -124,11 +124,12 @@ export class FrameGenerationWorker {
     const KURZGESAGT_STYLE_PREFIX =
       "Masterpiece quality Kurzgesagt-style cinematic illustration, professional animation studio quality, " +
       "richly detailed with atmospheric depth, cinematic lighting, and polished premium production values, " +
-      "dark navy or deep space background with glowing highlights and particle effects, " +
+      "vibrant colorful background that matches the scene mood — use bright, warm, or cool tones as appropriate, " +
+      "glowing highlights and particle effects, " +
       "layered parallax composition with foreground, midground, and background elements, " +
       "smooth soft shapes with subtle gradients for volume and depth, NO hard outlines, " +
       "sophisticated simplified characters with expressive round eyes, NO mouth, NO lips, " +
-      "warm organic color palette with vibrant accents against dark backgrounds, " +
+      "rich vibrant color palette with bold accents, varied backgrounds from warm pastels to deep blues to bright gradients, " +
       "epic cinematic framing with natural balanced composition, educational infographic aesthetic with scientific precision, " +
       "rich environmental detail, atmospheric haze and glow effects, " +
       "no text or writing in the image";
@@ -241,7 +242,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
         projectId,
         stage: "frame_validation",
         vendor: "gemini",
-        model: "gemini-2.5-flash-preview-05-20",
+        model: "gemini-2.5-flash",
         inputTokens: validationInputTokens,
         outputTokens: validationOutputTokens,
         totalCostUsd: validationCost,
@@ -312,7 +313,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
         projectId,
         stage: "frame_validation",
         vendor: "gemini",
-        model: "gemini-2.5-flash-preview-05-20",
+        model: "gemini-2.5-flash",
         inputTokens: validationInputTokens,
         outputTokens: validationOutputTokens,
         totalCostUsd: validationCost,

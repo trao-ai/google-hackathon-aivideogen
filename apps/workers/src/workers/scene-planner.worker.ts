@@ -73,7 +73,7 @@ export class ScenePlannerWorker {
 
     const styleSummary = project.styleBible
       ? styleBibleToPromptSummary(project.styleBible as unknown as StyleBible)
-      : "Kurzgesagt-style cinematic illustration, dark navy backgrounds with glowing highlights, sophisticated simplified characters with expressive eyes and no mouth, atmospheric depth";
+      : "Kurzgesagt-style cinematic illustration, vibrant colorful backgrounds that match scene mood, glowing highlights, sophisticated simplified characters with expressive eyes and no mouth, atmospheric depth";
 
     const llmResponse = await llm.chat([
       { role: "system", content: SCENE_PLANNER_SYSTEM_PROMPT },
@@ -219,15 +219,59 @@ export class ScenePlannerWorker {
       }
     }
 
+    // ─── Duration budget: compute clip target durations so video matches audio ───
+    // When clips are joined with xfade transitions, each transition overlaps two
+    // clips, making the final video shorter by sum(transitionDurations).
+    // To compensate, we extend each clip proportionally so:
+    //   sum(clipTargetDurations) - totalTransitionOverlap = audioDuration
+    const DEFAULT_TRANSITION_SEC = 0.5;
+    const numTransitions = Math.max(0, validated.length - 1);
+    const totalTransitionOverlap = numTransitions * DEFAULT_TRANSITION_SEC;
+    const audioDuration = voiceover.durationSec;
+    const totalBaseDuration = validated.reduce(
+      (sum, sc) => sum + (sc.narrationEndSec - sc.narrationStartSec),
+      0,
+    );
+
+    const clipTargetDurations: number[] = validated.map((sc) => {
+      const baseDur = sc.narrationEndSec - sc.narrationStartSec;
+      // Distribute the transition overlap proportionally to each scene's share
+      const compensation =
+        totalBaseDuration > 0
+          ? (baseDur / totalBaseDuration) * totalTransitionOverlap
+          : 0;
+      // Clamp to Kling's 3-15s range
+      return Math.max(3, Math.min(15, parseFloat((baseDur + compensation).toFixed(2))));
+    });
+
+    console.log(
+      `[scene-planner] Duration budget: audio=${audioDuration.toFixed(1)}s, ` +
+        `scenes=${validated.length}, transitions=${numTransitions}×${DEFAULT_TRANSITION_SEC}s=${totalTransitionOverlap.toFixed(1)}s, ` +
+        `totalClipTarget=${clipTargetDurations.reduce((a, b) => a + b, 0).toFixed(1)}s`,
+    );
+
+    // Set default transition plans on each scene (except last)
+    for (let i = 0; i < validated.length; i++) {
+      if (i < validated.length - 1) {
+        (validated[i] as Record<string, unknown>).transitionPlan = {
+          type: "fade",
+          durationSec: DEFAULT_TRANSITION_SEC,
+          ffmpegTransition: "fade",
+          visualNotes: "smooth cross-fade",
+        };
+      }
+    }
+
     // Delete any old scenes for this project
     await prisma.scene.deleteMany({ where: { projectId } });
 
     await prisma.scene.createMany({
-      data: validated.map((sc) => ({
+      data: validated.map((sc, i) => ({
         projectId,
         orderIndex: sc.orderIndex,
         narrationStartSec: sc.narrationStartSec,
         narrationEndSec: sc.narrationEndSec,
+        clipTargetDurationSec: clipTargetDurations[i],
         purpose: sc.purpose,
         sceneType: sc.sceneType ?? "infographic",
         startPrompt: sc.startPrompt,
@@ -236,6 +280,7 @@ export class ScenePlannerWorker {
         bubbleText: sc.bubbleText ?? null,
         continuityNotes: sc.continuityNotes ?? null,
         scriptSectionId: sc.scriptSectionId ?? null,
+        transitionPlan: (sc as Record<string, unknown>).transitionPlan as object ?? null,
       })),
     });
 

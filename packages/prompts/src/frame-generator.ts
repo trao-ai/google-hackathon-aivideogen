@@ -75,6 +75,7 @@ export function buildVideoPrompt(params: {
   startFramePrompt: string;
   endFramePrompt: string;
   durationSec?: number;
+  nextSceneStartPrompt?: string;
 }): string {
   const {
     purpose,
@@ -83,6 +84,7 @@ export function buildVideoPrompt(params: {
     startFramePrompt,
     endFramePrompt,
     durationSec = 5,
+    nextSceneStartPrompt,
   } = params;
 
   // Extract the visual description parts from frame prompts (strip meta-instructions)
@@ -108,7 +110,11 @@ Pay close attention to:
 - Color palette and lighting
 - Any visual metaphors or symbolic elements
 The ending state is not optional — it defines where this scene connects to the next scene.
-
+${nextSceneStartPrompt ? `
+NEXT SCENE CONTEXT (where this animation must lead):
+The scene immediately after this one begins with: "${extractVisualDescription(nextSceneStartPrompt).slice(0, 300)}"
+Ensure the final frames of this animation create a natural visual bridge to this next state.
+` : ""}
 MOTION AND TRANSITION:
 ${motionNotes}
 
@@ -121,20 +127,22 @@ CRITICAL: Absolutely ZERO text, words, letters, numbers, labels, captions, subti
 Reminder: mouths stay CLOSED at all times. No talking, speaking, or lip movement animation.`.trim();
 }
 
-/** Extract purpose/scene/metaphor lines from a frame prompt, skip meta like "Generate START FRAME". */
+/** Extract visual description from a frame prompt, skipping only meta-instructions. */
 function extractVisualDescription(framePrompt: string): string {
   const lines = framePrompt.split("\n");
-  const keepPrefixes = [
-    "Scene purpose:",
-    "Scene type:",
-    "Visual metaphor:",
-    "Characters:",
-    "PROGRESSION from start frame:",
+  // Skip meta-instruction lines — keep everything else (visual descriptions, style, characters)
+  const skipPrefixes = [
+    "Generate START FRAME",
+    "Generate END FRAME",
+    "IMPORTANT: Do NOT",
+    "Negative prompts:",
+    "Palette:",
+    "Background density:",
+    "Speech bubble:",
   ];
   const relevant = lines.filter(
-    (l) =>
-      keepPrefixes.some((p) => l.startsWith(p)) ||
-      l.startsWith("Narration excerpt:"),
+    (l) => l.trim().length > 0 && !skipPrefixes.some((p) => l.trim().startsWith(p)),
   );
-  return relevant.length > 0 ? relevant.join("\n") : framePrompt.slice(0, 300);
+  const joined = relevant.join("\n");
+  return joined.length > 600 ? joined.slice(0, 600) : joined;
 }

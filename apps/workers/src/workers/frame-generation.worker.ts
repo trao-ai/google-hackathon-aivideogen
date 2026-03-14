@@ -122,13 +122,14 @@ export class FrameGenerationWorker {
 
     // Authentic Kurzgesagt style — cinematic, detailed, NOT simple flat/Duolingo
     const KURZGESAGT_STYLE_PREFIX =
-      "Kurzgesagt-style cinematic illustration, richly detailed with atmospheric depth and subtle lighting, " +
+      "Masterpiece quality Kurzgesagt-style cinematic illustration, professional animation studio quality, " +
+      "richly detailed with atmospheric depth, cinematic lighting, and polished premium production values, " +
       "dark navy or deep space background with glowing highlights and particle effects, " +
       "layered parallax composition with foreground, midground, and background elements, " +
       "smooth soft shapes with subtle gradients for volume and depth, NO hard outlines, " +
       "sophisticated simplified characters with expressive round eyes, NO mouth, NO lips, " +
       "warm organic color palette with vibrant accents against dark backgrounds, " +
-      "epic cinematic framing, educational infographic aesthetic with scientific precision, " +
+      "epic cinematic framing with natural balanced composition, educational infographic aesthetic with scientific precision, " +
       "rich environmental detail, atmospheric haze and glow effects, " +
       "no text or writing in the image";
 
@@ -138,6 +139,9 @@ export class FrameGenerationWorker {
       "thin lines", "sharp angular edges", "realistic photo shading",
       "mouth", "lips", "teeth", "speaking", "talking", "open mouth",
       "Duolingo", "simple flat cartoon", "clipart", "low detail", "childish",
+      "awkward proportions", "stiff poses", "unnatural composition",
+      "amateur", "low quality rendering", "blurry", "distorted",
+      "ugly", "deformed", "disfigured", "bad anatomy", "poorly drawn",
     ];
 
     const stylePrefix = project.styleBible

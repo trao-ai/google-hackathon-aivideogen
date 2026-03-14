@@ -203,24 +203,36 @@ export class RenderWorker {
           const design = audioDesigns[i];
           const sceneDur = sceneAudioInfos[i].durationSec;
 
-          // Ambient sound for this scene
+          // Ambient sound for this scene (ElevenLabs supports up to 22s)
           const ambientPath = path.join(tmpDir, `ambient-${i}.mp3`);
+          const ambientDur = Math.min(sceneDur, 22);
           try {
             await this.generateSFX(
               design.ambient,
               ambientPath,
-              Math.min(sceneDur, 10),
+              ambientDur,
               0.3, // subtle prompt influence
             );
             ambientPaths.push(ambientPath);
             console.log(
-              `[render] Ambient ${i}: "${design.ambient.slice(0, 50)}" (${Math.min(sceneDur, 10).toFixed(1)}s)`,
+              `[render] Ambient ${i}: "${design.ambient.slice(0, 50)}" (${ambientDur.toFixed(1)}s)`,
             );
           } catch (err) {
             console.warn(
-              `[render] Ambient ${i} failed, skipping: ${(err as Error).message}`,
+              `[render] Ambient ${i} failed, retrying with fallback: ${(err as Error).message}`,
             );
-            ambientPaths.push("");
+            // Retry with simplified generic description
+            try {
+              const fallbackDesc = this.defaultAmbientForType(sceneAudioInfos[i].sceneType);
+              await this.generateSFX(fallbackDesc, ambientPath, ambientDur, 0.3);
+              ambientPaths.push(ambientPath);
+              console.log(`[render] Ambient ${i} retry succeeded with fallback: "${fallbackDesc}"`);
+            } catch (retryErr) {
+              console.error(
+                `[render] Ambient ${i} retry also failed, skipping: ${(retryErr as Error).message}`,
+              );
+              ambientPaths.push("");
+            }
           }
 
           // Transition SFX (only if Gemini recommended one and not last scene)
@@ -234,9 +246,18 @@ export class RenderWorker {
               );
             } catch (err) {
               console.warn(
-                `[render] Transition ${i} failed, skipping: ${(err as Error).message}`,
+                `[render] Transition ${i} failed, retrying with generic: ${(err as Error).message}`,
               );
-              transitionSfxPaths.push("");
+              try {
+                await this.generateSFX("gentle soft whoosh", transPath, 1.0, 0.3);
+                transitionSfxPaths.push(transPath);
+                console.log(`[render] Transition ${i} retry succeeded with generic whoosh`);
+              } catch (retryErr) {
+                console.error(
+                  `[render] Transition ${i} retry also failed, skipping: ${(retryErr as Error).message}`,
+                );
+                transitionSfxPaths.push("");
+              }
             }
           } else {
             transitionSfxPaths.push(""); // clean cut — no transition SFX
@@ -305,6 +326,7 @@ export class RenderWorker {
           voTrimStartSec,
           voTrimEndSec,
           subtitlePath,
+          sceneDurations: sceneAudioInfos.map((s) => s.durationSec),
         });
 
         // Read output and upload
@@ -569,8 +591,9 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     voTrimStartSec: number;
     voTrimEndSec: number;
     subtitlePath?: string;
+    sceneDurations?: number[];
   }): Promise<void> {
-    const { clips, voiceoverPath, ambientPaths, transitionSfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec, subtitlePath } = params;
+    const { clips, voiceoverPath, ambientPaths, transitionSfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec, subtitlePath, sceneDurations } = params;
     const args: string[] = [];
 
     // --- Inputs ---
@@ -627,14 +650,14 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
             `tpad=stop_mode=clone:stop_duration=${padSec.toFixed(3)},` +
             `scale=1280:720:force_original_aspect_ratio=decrease,` +
             `pad=1280:720:(ow-iw)/2:(oh-ih)/2,` +
-            `fps=30,format=yuv420p[v${i}]`,
+            `fps=24,format=yuv420p[v${i}]`,
         );
       } else {
         filterParts.push(
           `[${i}:v]setpts=PTS*${cappedFactor.toFixed(6)},` +
             `scale=1280:720:force_original_aspect_ratio=decrease,` +
             `pad=1280:720:(ow-iw)/2:(oh-ih)/2,` +
-            `fps=30,format=yuv420p[v${i}]`,
+            `fps=24,format=yuv420p[v${i}]`,
         );
       }
     }
@@ -735,8 +758,10 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     for (let i = 0; i < ambientInputMap.length; i++) {
       const { inputIdx, sceneIdx } = ambientInputMap[i];
       const delayMs = Math.max(0, Math.round(sceneStartTimestamps[sceneIdx] * 1000));
+      // Loop ambient audio to fill scene duration, then trim to exact length
+      const ambientDur = sceneDurations?.[sceneIdx] ?? clips[sceneIdx]?.targetDurationSec ?? 10;
       filterParts.push(
-        `[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=0.18[amb${i}]`,
+        `[${inputIdx}:a]aloop=loop=-1:size=2e+09,atrim=0:${ambientDur.toFixed(3)},adelay=${delayMs}|${delayMs},volume=0.18[amb${i}]`,
       );
       bedLabels.push(`[amb${i}]`);
     }
@@ -783,6 +808,8 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
       "[vfinal]",
       "-map",
       "[aout]",
+      "-r",
+      "24",
       "-c:v",
       "libx264",
       "-preset",
@@ -883,7 +910,7 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
         const take = remaining <= CHUNK + 2 ? remaining : CHUNK;
         const chunk = wordTimestamps.slice(idx, idx + take);
         lines.push({
-          text: chunk.map((w) => w.word).join(" "),
+          text: chunk.map((w) => w.word).join(" ").replace(/\s+/g, " ").trim(),
           start: chunk[0].start,
           end: chunk[chunk.length - 1].end,
         });

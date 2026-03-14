@@ -12,6 +12,9 @@ CRITICAL: Each scene's startPrompt and endPrompt must be DETAILED visual descrip
 - MAIN CHARACTER CONSISTENCY: In scene 0's startPrompt, define the main character's appearance in FULL DETAIL (body shape, size, color scheme, eye style, clothing/accessories, any distinguishing features). In ALL subsequent scenes where this character appears, you MUST repeat this EXACT character description word-for-word. Do NOT reinvent or change the character's appearance between scenes.
 - If secondary characters appear, define them clearly on first appearance and reuse those exact descriptions in every subsequent scene.
 - Include a "characterDescriptions" field in each scene that lists ALL characters present with their canonical appearance descriptions.
+- SCENE BOUNDARY CONTINUITY: Scene N's endPrompt MUST describe a visual state that naturally leads into Scene N+1's startPrompt. The viewer should feel a smooth visual flow, not a jarring jump. For example: if Scene 2 starts with "camera is inside a cell", then Scene 1 must end with a view that is zooming into or approaching that cell.
+- VISUAL FLOW RULES: When transitioning between scenes, maintain the same camera angle, color palette, and character positioning UNLESS the narration explicitly changes context (e.g., a new topic, a new location, or a dramatic reveal). Even during context changes, include a visual bridge element (e.g., a shared color, a recurring motif, or a camera movement that connects the two contexts).
+- CONTINUITY ANTI-PATTERNS (avoid these): Do NOT have a character facing left in one scene's endPrompt and facing right in the next scene's startPrompt. Do NOT change the background color or environment between adjacent scenes without narrative reason. Do NOT introduce new characters at a scene boundary without visual foreshadowing in the previous scene.
 
 Scene creation rules:
 - EVERY scene MUST be between 5 and 14 seconds long. This is a HARD constraint.
@@ -39,7 +42,15 @@ BAD: "Introduce concept of gut bacteria" (this is a purpose, not a visual prompt
 
 motionNotes should describe the full animation from start frame to end frame over 8 seconds:
 GOOD: "Camera slowly zooms into the character's gut cross-section. Bacteria begin to move and interact with food particles, glowing brighter. By 6 seconds the view is fully inside the microscopic world with bacteria prominently visible."
-BAD: "Zoom transition" (too vague for animation)`;
+BAD: "Zoom transition" (too vague for animation)
+
+CONTINUITY EXAMPLE:
+GOOD: Scene 1 endPrompt: "Camera slowly zooms into the character's chest, revealing a glowing cross-section of their digestive system with bacteria visible. Dark navy background fades to deep blue-green."
+      Scene 2 startPrompt: "Deep inside the digestive system, viewed from within. Bacteria in vibrant blues and greens float in a warm amber fluid. The walls of the intestine curve around the frame like a tunnel."
+      (Scene 1 ends by entering the body, Scene 2 starts inside the body. Same color language. Smooth visual bridge.)
+BAD:  Scene 1 endPrompt: "The character stands in a field waving goodbye."
+      Scene 2 startPrompt: "A close-up of a neuron firing in the brain."
+      (No visual connection. Jarring spatial jump. No bridge element.)`;
 
 export function buildScenePlannerPrompt(
   scriptSections: string,
@@ -76,7 +87,7 @@ For each scene return:
   "motionNotes": "Detailed animation direction: what moves, camera motion, timing across 8 seconds, how start transitions to end",
   "characterDescriptions": "Canonical description of every character in this scene. Must be IDENTICAL word-for-word across all scenes for the same character. E.g. 'Main: a small rounded deep-blue creature with large expressive white eyes, no mouth, wearing a tiny orange scarf'",
   "bubbleText": null,
-  "continuityNotes": "How this scene connects visually to the next scene"
+  "continuityNotes": "REQUIRED: Describe specifically how this scene's endPrompt visually transitions to the next scene's startPrompt. Include: what visual elements carry over, how camera moves between scenes, and what color/lighting bridges the transition. If this is the last scene, write 'final scene'."
 }
 
 Return a JSON array of all scenes.`;

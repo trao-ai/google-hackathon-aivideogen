@@ -194,6 +194,11 @@ export const api = {
           body: JSON.stringify(prompt ? { prompt } : {}),
         },
       ),
+    generateForScene: (projectId: string, sceneId: string) =>
+      request<{ message: string; jobCount: number }>(
+        `/api/projects/${projectId}/scenes/${sceneId}/generate-frames`,
+        { method: "POST" },
+      ),
   },
 
   renders: {

@@ -7,9 +7,9 @@ import {
   createVideoProvider,
   createStorageProvider,
   resolveStorageDir,
+  runAgent,
 } from "@atlas/integrations";
 import { buildVideoPrompt } from "@atlas/prompts";
-
 
 interface MotionEnrichmentResult {
   enrichedMotion: string;
@@ -17,21 +17,7 @@ interface MotionEnrichmentResult {
   outputTokens: number;
 }
 
-/**
- * Use Gemini text model to enrich a brief motionNotes into a detailed
- * animation description suitable for Veo video generation.
- */
-async function enrichMotionDescription(params: {
-  purpose: string;
-  sceneType: string;
-  motionNotes: string;
-  startFramePrompt: string;
-  endFramePrompt: string;
-}): Promise<MotionEnrichmentResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
-
-  const prompt = `You are a motion director for a fast-paced, engaging animated educational video (like Kurzgesagt).
+const MOTION_DIRECTOR_INSTRUCTION = `You are a motion director for a fast-paced, engaging animated educational video (like Kurzgesagt).
 
 Given a scene's start frame description, end frame description, and brief motion notes,
 write a DETAILED animation direction (3-5 sentences) describing exactly how the scene
@@ -50,52 +36,61 @@ IMPORTANT CONSTRAINTS:
 - Eye movement, blinking, and facial expressions are fine
 - There is no dialogue — narration is a separate voiceover, so no character should appear to be speaking
 
-Scene purpose: ${params.purpose}
+Write ONLY the animation direction. No preamble, no markdown.`;
+
+/**
+ * Use ADK agent to enrich a brief motionNotes into a detailed
+ * animation description suitable for Veo video generation.
+ */
+async function enrichMotionDescription(params: {
+  purpose: string;
+  sceneType: string;
+  motionNotes: string;
+  startFramePrompt: string;
+  endFramePrompt: string;
+}): Promise<MotionEnrichmentResult> {
+  if (!process.env.GEMINI_API_KEY) {
+    return {
+      enrichedMotion: params.motionNotes,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
+  }
+
+  try {
+    const result = await runAgent({
+      agentName: "motion-enricher",
+      instruction: MOTION_DIRECTOR_INSTRUCTION,
+      userMessage: `Scene purpose: ${params.purpose}
 Scene type: ${params.sceneType}
 
 START FRAME: ${params.startFramePrompt.slice(0, 500)}
 
 END FRAME: ${params.endFramePrompt.slice(0, 500)}
 
-Brief motion notes: ${params.motionNotes}
+Brief motion notes: ${params.motionNotes}`,
+      generationConfig: { maxOutputTokens: 300 },
+    });
 
-Write ONLY the animation direction. No preamble, no markdown.`;
-
-  try {
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash";
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 300 },
-        }),
-      },
-    );
-
-    if (!res.ok) {
-      console.warn(`[video-gen] Motion enrichment failed (${res.status}), using raw notes`);
-      return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
-    }
-
-    const data = (await res.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
-    };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    const inputTokens = data.usageMetadata?.promptTokenCount ?? 0;
-    const outputTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
-    if (text) {
-      console.log(`[video-gen] Enriched motion description: ${text.slice(0, 200)}...`);
-      return { enrichedMotion: text.trim(), inputTokens, outputTokens };
+    if (result.content) {
+      console.log(
+        `[video-gen] Enriched motion description: ${result.content.slice(0, 200)}...`,
+      );
+      return {
+        enrichedMotion: result.content.trim(),
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+      };
     }
   } catch (err) {
     console.warn(`[video-gen] Motion enrichment error:`, err);
   }
 
-  return { enrichedMotion: params.motionNotes, inputTokens: 0, outputTokens: 0 };
+  return {
+    enrichedMotion: params.motionNotes,
+    inputTokens: 0,
+    outputTokens: 0,
+  };
 }
 
 export class VideoGenerationWorker {
@@ -109,10 +104,12 @@ export class VideoGenerationWorker {
     this.worker.on("failed", (job, err) => {
       console.error(`[video-gen] job ${job?.id} failed:`, err.message);
       if (job?.data?.sceneId) {
-        prisma.scene.update({
-          where: { id: job.data.sceneId },
-          data: { clipStatus: "failed" },
-        }).catch(() => {});
+        prisma.scene
+          .update({
+            where: { id: job.data.sceneId },
+            data: { clipStatus: "failed" },
+          })
+          .catch(() => {});
       }
     });
   }
@@ -121,7 +118,9 @@ export class VideoGenerationWorker {
     job: Job<{ projectId: string; sceneId: string; videoProvider?: string }>,
   ): Promise<void> {
     const { projectId, sceneId } = job.data;
-    console.log(`[video-gen] Generating video for scene ${sceneId} (job videoProvider=${job.data.videoProvider})`);
+    console.log(
+      `[video-gen] Generating video for scene ${sceneId} (job videoProvider=${job.data.videoProvider})`,
+    );
 
     const scene = await prisma.scene.findUnique({
       where: { id: sceneId },
@@ -141,20 +140,22 @@ export class VideoGenerationWorker {
     });
 
     // Determine provider: job data > project setting > env var
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+    });
     const videoProviderName = (
       job.data.videoProvider ??
-      (project as Record<string, unknown>)?.videoProvider as string ??
+      ((project as Record<string, unknown>)?.videoProvider as string) ??
       process.env.VIDEO_PROVIDER ??
-      "kling"
+      "veo"
     ).toLowerCase();
-    console.log(`[video-gen] Resolved provider: "${videoProviderName}" (job=${job.data.videoProvider}, project=${(project as Record<string, unknown>)?.videoProvider}, env=${process.env.VIDEO_PROVIDER})`);
+    console.log(
+      `[video-gen] Resolved provider: "${videoProviderName}" (job=${job.data.videoProvider}, project=${(project as Record<string, unknown>)?.videoProvider}, env=${process.env.VIDEO_PROVIDER})`,
+    );
 
     // Providers that only need a start frame (no end frame required)
     const noEndFrameProviders = new Set([
       "seedance",
-      "replicate-veo",
-      "replicate-seedance",
       "replicate-seedance-lite",
     ]);
     const needsEndFrame = !noEndFrameProviders.has(videoProviderName);
@@ -163,10 +164,14 @@ export class VideoGenerationWorker {
     const endFrame = scene.frames.find((f) => f.frameType === "end");
 
     if (!startFrame) {
-      throw new Error(`Scene ${sceneId} is missing start frame. Generate frames first.`);
+      throw new Error(
+        `Scene ${sceneId} is missing start frame. Generate frames first.`,
+      );
     }
     if (needsEndFrame && !endFrame) {
-      throw new Error(`Scene ${sceneId} is missing end frame. Generate frames first.`);
+      throw new Error(
+        `Scene ${sceneId} is missing end frame. Generate frames first.`,
+      );
     }
 
     // Download frame images as base64
@@ -180,8 +185,10 @@ export class VideoGenerationWorker {
 
     // Use pre-planned clip target duration (accounts for transition overlap)
     // Falls back to narration duration if not set (backward compat with old scenes)
-    const narrationDurationSec = scene.narrationEndSec - scene.narrationStartSec;
-    const plannedDuration = (scene as Record<string, unknown>).clipTargetDurationSec as number | null;
+    const narrationDurationSec =
+      scene.narrationEndSec - scene.narrationStartSec;
+    const plannedDuration = (scene as Record<string, unknown>)
+      .clipTargetDurationSec as number | null;
     const clipDurationSec = plannedDuration
       ? Math.max(3, Math.min(15, Math.round(plannedDuration)))
       : Math.max(3, Math.min(15, Math.round(narrationDurationSec)));
@@ -199,7 +206,7 @@ export class VideoGenerationWorker {
     });
 
     // Track motion enrichment LLM cost
-    const textModel = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.0-flash";
+    const textModel = "gemini-2.5-flash";
     if (motionResult.inputTokens > 0 || motionResult.outputTokens > 0) {
       const motionCost = calculateLLMCost(
         textModel,
@@ -215,7 +222,9 @@ export class VideoGenerationWorker {
         outputTokens: motionResult.outputTokens,
         totalCostUsd: motionCost,
       });
-      console.log(`[video-gen] Motion enrichment cost: $${motionCost.toFixed(6)} (${motionResult.inputTokens}in/${motionResult.outputTokens}out tokens)`);
+      console.log(
+        `[video-gen] Motion enrichment cost: $${motionCost.toFixed(6)} (${motionResult.inputTokens}in/${motionResult.outputTokens}out tokens)`,
+      );
     }
 
     // Build a rich video prompt with scene context + enriched motion description
@@ -229,9 +238,13 @@ export class VideoGenerationWorker {
       nextSceneStartPrompt: nextScene?.startPrompt,
     });
 
-    console.log(`[video-gen] Video prompt for scene ${sceneId}:\n${videoPrompt}`);
+    console.log(
+      `[video-gen] Video prompt for scene ${sceneId}:\n${videoPrompt}`,
+    );
 
-    console.log(`[video-gen] Submitting to ${videoProviderName} provider (${clipDurationSec}s clip)...`);
+    console.log(
+      `[video-gen] Submitting to ${videoProviderName} provider (${clipDurationSec}s clip)...`,
+    );
     const genStartTime = Date.now();
     const result = await videoProvider.generate({
       prompt: videoPrompt,
@@ -240,7 +253,9 @@ export class VideoGenerationWorker {
       durationSec: clipDurationSec,
     });
     const genElapsed = ((Date.now() - genStartTime) / 1000).toFixed(1);
-    console.log(`[video-gen] Provider returned ${result.durationSec}s clip in ${genElapsed}s (cost: $${result.costUsd.toFixed(4)})`);
+    console.log(
+      `[video-gen] Provider returned ${result.durationSec}s clip in ${genElapsed}s (cost: $${result.costUsd.toFixed(4)})`,
+    );
 
     // Duration matching verification
     const durationDelta = Math.abs(result.durationSec - clipDurationSec);
@@ -248,12 +263,14 @@ export class VideoGenerationWorker {
 
     if (durationVariance > 10) {
       console.warn(
-        `[video-gen] Duration mismatch: requested ${clipDurationSec}s, got ${result.durationSec}s (${durationVariance.toFixed(1)}% variance)`
+        `[video-gen] Duration mismatch: requested ${clipDurationSec}s, got ${result.durationSec}s (${durationVariance.toFixed(1)}% variance)`,
       );
     }
 
     // Upload video to storage
-    console.log(`[video-gen] Uploading ${(result.videoBuffer.length / 1024 / 1024).toFixed(1)}MB clip to storage...`);
+    console.log(
+      `[video-gen] Uploading ${(result.videoBuffer.length / 1024 / 1024).toFixed(1)}MB clip to storage...`,
+    );
     const key = `projects/${projectId}/scenes/${sceneId}/clip-${Date.now()}.mp4`;
     const videoUrl = await storage.upload(
       key,
@@ -307,14 +324,16 @@ export class VideoGenerationWorker {
     const modelMap: Record<string, string> = {
       veo: "veo-3.1-generate-preview",
       seedance: "fal-ai/bytedance/seedance/v1.5/pro/image-to-video",
-      kling: process.env.KLING_MODEL_ID ?? "fal-ai/kling-video/o3/standard/image-to-video",
-      "replicate-veo": "google/veo-2",
+      kling:
+        process.env.KLING_MODEL_ID ??
+        "fal-ai/kling-video/o3/standard/image-to-video",
+      "replicate-veo": "google/veo-3.1",
       "replicate-kling": "kwaivgi/kling-v2.1",
-      "replicate-seedance": "bytedance/seedance-1-pro",
+      "replicate-seedance": "bytedance/seedance-1.5-pro",
       "replicate-seedance-lite": "bytedance/seedance-1-lite",
     };
     const videoVendor = vendorMap[videoProviderName] ?? "replicate";
-    const videoModel = modelMap[videoProviderName] ?? "google/veo-2";
+    const videoModel = modelMap[videoProviderName] ?? "google/veo-3.1";
     const videoCost = calculateVideoCost(videoModel, result.durationSec);
     await trackVideoCost({
       projectId,
@@ -323,7 +342,9 @@ export class VideoGenerationWorker {
       durationSec: result.durationSec,
       totalCostUsd: videoCost,
     });
-    console.log(`[video-gen] Video cost: $${videoCost.toFixed(4)} (${result.durationSec}s, ${videoVendor})`);
+    console.log(
+      `[video-gen] Video cost: $${videoCost.toFixed(4)} (${result.durationSec}s, ${videoVendor})`,
+    );
 
     // Check if all scenes now have clips
     const [totalScenes, scenesWithClips] = await Promise.all([
@@ -379,14 +400,17 @@ export class VideoGenerationWorker {
         const storage = createStorageProvider();
         // Extract key from URL: https://bucket.endpoint/prefix/key → key
         const urlPath = new URL(imageUrl).pathname.slice(1); // remove leading /
-        const key = storagePrefix && urlPath.startsWith(storagePrefix + "/")
-          ? urlPath.slice(storagePrefix.length + 1)
-          : urlPath;
+        const key =
+          storagePrefix && urlPath.startsWith(storagePrefix + "/")
+            ? urlPath.slice(storagePrefix.length + 1)
+            : urlPath;
         console.log(`[video-gen] Downloading frame via S3 SDK: ${key}`);
         const buffer = await storage.download(key);
         return buffer.toString("base64");
       } catch (err) {
-        console.warn(`[video-gen] S3 SDK download failed, falling back to fetch: ${(err as Error).message}`);
+        console.warn(
+          `[video-gen] S3 SDK download failed, falling back to fetch: ${(err as Error).message}`,
+        );
       }
     }
 
@@ -400,7 +424,9 @@ export class VideoGenerationWorker {
         const arrayBuffer = await res.arrayBuffer();
         return Buffer.from(arrayBuffer).toString("base64");
       } catch (err) {
-        console.warn(`[video-gen] Frame fetch attempt ${attempt + 1}/3 failed: ${(err as Error).message}`);
+        console.warn(
+          `[video-gen] Frame fetch attempt ${attempt + 1}/3 failed: ${(err as Error).message}`,
+        );
         if (attempt === 2) throw err;
         await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
       }

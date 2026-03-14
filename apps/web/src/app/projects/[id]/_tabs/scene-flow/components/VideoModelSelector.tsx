@@ -11,37 +11,37 @@ import {
 } from "@/components/ui/select";
 
 const VIDEO_MODELS = [
-  // Direct providers (fal.ai / Google API)
+  // Direct providers (Google API / fal.ai)
+  {
+    value: "veo",
+    label: "Veo 3.1 (Direct)",
+    description: "2 frames \u00b7 8s clip \u00b7 $0.40/s",
+  },
   {
     value: "kling",
     label: "Kling (fal.ai)",
     description: "2 frames \u00b7 5s clip \u00b7 $0.07/s",
   },
   {
-    value: "veo",
-    label: "Veo (Direct)",
-    description: "2 frames \u00b7 8s clip \u00b7 $0.35/s",
-  },
-  {
     value: "seedance",
     label: "SeDance (fal.ai)",
-    description: "1 frame \u00b7 5s clip \u00b7 $0.07/s",
+    description: "1 frame \u00b7 5s clip \u00b7 $0.052/s",
   },
   // Replicate providers
   {
     value: "replicate-veo",
-    label: "Veo 2 (Replicate)",
-    description: "1 frame \u00b7 8s clip \u00b7 ~$0.065/s",
+    label: "Veo 3.1 (Replicate)",
+    description: "1 frame \u00b7 8s clip \u00b7 ~$0.10/s",
   },
   {
     value: "replicate-kling",
     label: "Kling 2.1 (Replicate)",
-    description: "2 frames \u00b7 5-10s clip \u00b7 ~$0.06/s",
+    description: "2 frames \u00b7 5-10s clip \u00b7 ~$0.05/s",
   },
   {
     value: "replicate-seedance",
-    label: "Seedance Pro (Replicate)",
-    description: "1 frame \u00b7 5-10s clip \u00b7 ~$0.05/s",
+    label: "Seedance 1.5 Pro (Replicate)",
+    description: "2 frames \u00b7 5-10s clip \u00b7 ~$0.25/s",
   },
   {
     value: "replicate-seedance-lite",

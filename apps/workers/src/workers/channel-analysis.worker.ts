@@ -2,7 +2,7 @@ import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
 import type { Prisma } from "@atlas/db";
 import { prisma, trackLLMCost } from "@atlas/db";
-import { createYouTubeProvider, createLLMProvider } from "@atlas/integrations";
+import { createYouTubeProvider, runAgent } from "@atlas/integrations";
 
 export class ChannelAnalysisWorker {
   private worker: Worker;
@@ -31,7 +31,6 @@ export class ChannelAnalysisWorker {
       throw new Error(`ChannelProfile ${channelProfileId} not found`);
 
     const youtube = createYouTubeProvider();
-    const llm = createLLMProvider();
 
     // Extract channel ID from URL (simplified)
     const urlParts = profile.channelUrl.split("/");
@@ -57,23 +56,18 @@ export class ChannelAnalysisWorker {
       )
       .join("\n");
 
-    const llmResponse = await llm.chat([
-      {
-        role: "system",
-        content:
-          "You are a YouTube content analyst. Analyze the following top-performing video titles and extract patterns.",
-      },
-      {
-        role: "user",
-        content: `Channel: ${profile.channelName}\n\nTop videos:\n${videoList}\n\nExtract:\n1. Top topic categories (array of strings)\n2. Title patterns (array of strings)\n3. Runtime range in minutes [min, max]\n4. Visual/narrative traits (array of strings)\n\nReturn JSON with keys: topics, titlePatterns, runtimeRange, visualTraits`,
-      },
-    ]);
+    const llmResponse = await runAgent({
+      agentName: "channel-analyst",
+      instruction:
+        "You are a YouTube content analyst. Analyze the following top-performing video titles and extract patterns.",
+      userMessage: `Channel: ${profile.channelName}\n\nTop videos:\n${videoList}\n\nExtract:\n1. Top topic categories (array of strings)\n2. Title patterns (array of strings)\n3. Runtime range in minutes [min, max]\n4. Visual/narrative traits (array of strings)\n\nReturn JSON with keys: topics, titlePatterns, runtimeRange, visualTraits`,
+    });
 
     // Track cost
     await trackLLMCost({
       projectId,
       stage: "channel_analysis",
-      vendor: "openai",
+      vendor: "gemini",
       model: llmResponse.model,
       inputTokens: llmResponse.inputTokens,
       outputTokens: llmResponse.outputTokens,

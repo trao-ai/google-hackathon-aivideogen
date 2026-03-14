@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma, trackLLMCost } from "@atlas/db";
-import { createLLMProvider } from "@atlas/integrations";
+import { runAgent } from "@atlas/integrations";
 import { ApiError } from "../middleware/error-handler";
 import * as fs from "fs";
 import * as path from "path";
@@ -179,12 +179,10 @@ scriptRouter.post("/:id/generate-scripts", async (req, res, next) => {
       .map((s, i) => `[${i + 1}] ${s.title} (${s.year ?? "n.d."}) — ${s.url}`)
       .join("\n");
 
-    const llm = createLLMProvider();
-    const response = await llm.chat([
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: `Write the most captivating, electrifying voiceover script you have ever written. This is your masterpiece.
+    const response = await runAgent({
+      agentName: "script-writer",
+      instruction: systemPrompt,
+      userMessage: `Write the most captivating, electrifying voiceover script you have ever written. This is your masterpiece.
 
 DURATION: ${durationLabel} (${targetWords} words)
 TOPIC: "${topic?.title}"
@@ -224,14 +222,13 @@ Return ONLY valid JSON. No markdown. No preamble. Just the JSON object:
     }
   ]
 }`,
-      },
-    ]);
+    });
 
     // Track LLM cost
     await trackLLMCost({
       projectId: project.id,
       stage: "script",
-      vendor: "openai",
+      vendor: "gemini",
       model: response.model,
       inputTokens: response.inputTokens,
       outputTokens: response.outputTokens,

@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
 import { prisma, trackLLMCost } from "@atlas/db";
-import { createLLMProvider } from "@atlas/integrations";
+import { runAgent } from "@atlas/integrations";
 import {
   SCRIPT_ARCHITECT_SYSTEM_PROMPT,
   buildScriptPrompt,
@@ -73,27 +73,25 @@ export class ScriptWorker {
     });
 
     const brief = researchBriefs[0];
-    const llm = createLLMProvider();
 
     const briefSummary = `Summary: ${brief.summary}\n\nAngles: ${(brief.storyAngles as string[]).join(", ")}`;
 
-    const llmResponse = await llm.chat([
-      { role: "system", content: SCRIPT_ARCHITECT_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: buildScriptPrompt(
-          selectedTopic.title,
-          briefSummary,
-          tone,
-          targetWordCount,
-        ),
-      },
-    ]);
+    const llmResponse = await runAgent({
+      agentName: "script-architect",
+      instruction: SCRIPT_ARCHITECT_SYSTEM_PROMPT,
+      userMessage: buildScriptPrompt(
+        selectedTopic.title,
+        briefSummary,
+        tone,
+        targetWordCount,
+      ),
+      model: "gemini-3.1-pro-preview",
+    });
 
     await trackLLMCost({
       projectId,
       stage: "script",
-      vendor: "openai",
+      vendor: "gemini",
       model: llmResponse.model,
       inputTokens: llmResponse.inputTokens,
       outputTokens: llmResponse.outputTokens,
@@ -176,23 +174,18 @@ export class ScriptWorker {
     });
     if (!section) throw new Error(`ScriptSection ${sectionId} not found`);
 
-    const llm = createLLMProvider();
-    const llmResponse = await llm.chat([
-      {
-        role: "system",
-        content:
-          "You are a script editor. Rewrite the given script section based on the instructions. Return only the rewritten text, no JSON wrapper.",
-      },
-      {
-        role: "user",
-        content: `Section type: ${section.sectionType}\nOriginal text:\n${section.text}\n\nInstructions: ${instructions}`,
-      },
-    ]);
+    const llmResponse = await runAgent({
+      agentName: "script-rewriter",
+      instruction:
+        "You are a script editor. Rewrite the given script section based on the instructions. Return only the rewritten text, no JSON wrapper.",
+      userMessage: `Section type: ${section.sectionType}\nOriginal text:\n${section.text}\n\nInstructions: ${instructions}`,
+      model: "gemini-3.1-pro-preview",
+    });
 
     await trackLLMCost({
       projectId,
       stage: "script",
-      vendor: "openai",
+      vendor: "gemini",
       model: llmResponse.model,
       inputTokens: llmResponse.inputTokens,
       outputTokens: llmResponse.outputTokens,

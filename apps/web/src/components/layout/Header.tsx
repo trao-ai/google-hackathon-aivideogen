@@ -8,7 +8,7 @@ import type { HeaderProps } from "@/types/components";
 
 export function Header({ totalSpend = 0, userInitials = "PT" }: HeaderProps) {
   return (
-    <header className="w-full px-6 py-4 bg-brand-off-white flex items-center justify-between">
+    <header className="w-full px-6 py-4 bg-brand-surface flex items-center justify-between">
       <Link href="/dashboard" aria-label="Project Atlas home">
         <Image
           src="/logos/Logo.svg"

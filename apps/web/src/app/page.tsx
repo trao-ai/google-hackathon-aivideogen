@@ -168,7 +168,7 @@ export default function DashboardPage() {
 
         {/* Search + Filter */}
         <div className="flex items-center gap-3">
-          <div className="flex-1 px-4 py-2.5 bg-brand-off-white/50 rounded-full border border-brand-beige flex items-center gap-2">
+          <div className="flex-1 px-4 py-2.5 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2">
             <MagnifyingGlassIcon size={20} className="text-foreground" />
             <input
               type="text"
@@ -178,7 +178,7 @@ export default function DashboardPage() {
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
           </div>
-          <button className="px-4 py-2.5 bg-brand-off-white/50 rounded-full border border-brand-beige flex items-center justify-between gap-2 min-w-44">
+          <button className="px-4 py-2.5 bg-brand-surface rounded-full border border-brand-border-light flex items-center justify-between gap-2 min-w-44">
             <span className="text-sm text-foreground">All Categories</span>
             <CaretDownIcon size={20} className="text-foreground" />
           </button>

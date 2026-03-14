@@ -14,6 +14,8 @@
     --color-blue: #759AC8;
     --color-warm-orange: #D97757;
     --color-golden-yellow: #F6A814;
+    --color-surface: #FAF9F599;
+    --color-border-light: #E3E2DE;
 
     /* ── Semantic Tokens ── */
     --background: var(--color-off-white);

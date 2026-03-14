@@ -53,7 +53,7 @@ export function ProjectCard({
   const isCompleted = status === "completed";
 
   return (
-    <div className="p-3 bg-brand-off-white rounded-2xl border border-brand-beige flex flex-col gap-3 overflow-hidden">
+    <div className="p-3 bg-brand-surface rounded-2xl border border-brand-border-light flex flex-col gap-3 overflow-hidden">
       {/* Thumbnail */}
       <div className="relative aspect-video bg-muted rounded-2xl overflow-hidden">
         {thumbnailUrl ? (

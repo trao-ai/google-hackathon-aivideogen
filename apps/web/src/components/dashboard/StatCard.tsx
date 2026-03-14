@@ -16,7 +16,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "flex-1 p-5 bg-brand-off-white/60 border border-brand-beige flex items-center justify-between overflow-hidden",
+        "flex-1 p-5 bg-brand-surface border border-brand-border-light flex items-center justify-between overflow-hidden",
         positionStyles[position],
       )}
     >

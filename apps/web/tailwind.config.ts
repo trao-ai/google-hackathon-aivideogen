@@ -24,6 +24,8 @@ const config: Config = {
           blue: "var(--color-blue)",
           orange: "var(--color-warm-orange)",
           yellow: "var(--color-golden-yellow)",
+          surface: "var(--color-surface)",
+          "border-light": "var(--color-border-light)",
         },
 
         /* ── Semantic tokens (use these for consistent UI: bg-background, text-muted-foreground, etc.) ── */

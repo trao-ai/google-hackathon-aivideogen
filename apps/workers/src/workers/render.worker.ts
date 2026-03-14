@@ -10,6 +10,7 @@ import {
   createStorageProvider,
   resolveStorageDir,
   resolveUrlToLocalPath,
+  runAgent,
 } from "@atlas/integrations";
 
 const execFileAsync = promisify(execFile);
@@ -410,10 +411,10 @@ export class RenderWorker {
     }
   }
 
-  // ─── AI Audio Design via OpenAI ─────────────────────────────────────────────
+  // ─── AI Audio Design via Gemini ─────────────────────────────────────────────
 
   /**
-   * Ask OpenAI to design ambient sounds per scene + transition SFX where natural.
+   * Ask Gemini to design ambient sounds per scene + transition SFX where natural.
    * Returns one AudioDesign per scene with ambient description and optional transition.
    */
   private async describeAudioDesign(scenes: SceneAudioInfo[]): Promise<AudioDesign[]> {
@@ -422,9 +423,8 @@ export class RenderWorker {
       transition: null,
     }));
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      console.warn("[render] No OPENAI_API_KEY, using default audio designs");
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn("[render] No GEMINI_API_KEY, using default audio designs");
       return defaultDesigns;
     }
 
@@ -435,7 +435,10 @@ export class RenderWorker {
       )
       .join("\n");
 
-    const prompt = `You are a sound designer for a Kurzgesagt-style educational explainer video.
+    try {
+      const result = await runAgent({
+        agentName: "audio-designer",
+        instruction: `You are a sound designer for a Kurzgesagt-style educational explainer video.
 
 CRITICAL: All sounds must be SUBTLE, SOFT, and NON-JARRING. Think gentle background textures, not aggressive sound effects. The voiceover is the star — sound design exists to create warm atmosphere, not to distract or startle. Avoid harsh, loud, sudden, or alarming sounds. Every sound should feel warm, organic, and cinematic.
 
@@ -446,52 +449,23 @@ For each scene, suggest:
    Use null for MOST transitions. Only add a transition SFX for major topic changes or dramatic reveals. When used, keep it extremely gentle (soft whoosh, quiet chime, gentle fade). Never use harsh or sudden sounds.
    Examples: "gentle soft whoosh", "quiet chime fade", null
 
-Scene list:
-${sceneList}
-
 Respond with ONLY a JSON array. No markdown, no explanation.
-Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"nature wind","transition":null}]`;
-
-    const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-
-    try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 1000,
-          temperature: 0.7,
-        }),
+Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"nature wind","transition":null}]`,
+        userMessage: `Scene list:\n${sceneList}`,
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.7 },
       });
 
-      if (!res.ok) {
-        console.warn(`[render] OpenAI audio design failed (${res.status}), using defaults`);
-        return defaultDesigns;
-      }
-
-      const data = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-
-      const text = data.choices?.[0]?.message?.content?.trim();
-      if (!text) return defaultDesigns;
-
-      const cleaned = text.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+      const cleaned = result.content.replace(/```json\n?/g, "").replace(/```/g, "").trim();
       const designs = JSON.parse(cleaned) as AudioDesign[];
 
       // Pad with defaults if model returned fewer
       while (designs.length < scenes.length) {
         designs.push(defaultDesigns[designs.length]);
       }
-      console.log(`[render] OpenAI audio design: ${designs.length} scenes designed`);
+      console.log(`[render] Audio design: ${designs.length} scenes designed`);
       return designs.slice(0, scenes.length);
     } catch (err) {
-      console.warn("[render] OpenAI audio design error:", (err as Error).message);
+      console.warn("[render] Audio design error:", (err as Error).message);
       return defaultDesigns;
     }
   }

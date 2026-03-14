@@ -3,16 +3,16 @@
  *
  * Uses the `replicate` npm SDK to call video models hosted on Replicate.
  * Supports multiple models via modelId override:
- *   - google/veo-2
+ *   - google/veo-3.1
  *   - kwaivgi/kling-v2.1
- *   - bytedance/seedance-1-pro
+ *   - bytedance/seedance-1.5-pro
  *   - bytedance/seedance-1-lite
  *
  * Required env vars:
  *   REPLICATE_API_TOKEN  – Replicate API token
  *
  * Optional env vars:
- *   REPLICATE_MODEL_ID   – Default model (default: "google/veo-2")
+ *   REPLICATE_MODEL_ID   – Default model (default: "google/veo-3.1")
  */
 
 import Replicate from "replicate";
@@ -44,15 +44,17 @@ interface ReplicateModelConfig {
 }
 
 const MODEL_CONFIGS: Record<string, ReplicateModelConfig> = {
-  "google/veo-2": {
+  "google/veo-3.1": {
     imageInputKey: "image",
-    endImageInputKey: null,
+    endImageInputKey: "last_frame",
     durationKey: "duration",
-    minDuration: 5,
+    minDuration: 4,
     maxDuration: 8,
+    allowedDurations: [4, 6, 8],
     defaultDuration: 8,
-    supportsNegativePrompt: false,
+    supportsNegativePrompt: true,
     supportsAspectRatio: true,
+    extraInput: { resolution: "1080p", generate_audio: false },
   },
   "kwaivgi/kling-v2.1": {
     imageInputKey: "start_image",
@@ -66,15 +68,16 @@ const MODEL_CONFIGS: Record<string, ReplicateModelConfig> = {
     supportsAspectRatio: true,
     extraInput: { mode: "pro", cfg_scale: 0.9 },
   },
-  "bytedance/seedance-1-pro": {
+  "bytedance/seedance-1.5-pro": {
     imageInputKey: "image",
-    endImageInputKey: null,
+    endImageInputKey: "last_frame_image",
     durationKey: "duration",
     minDuration: 5,
     maxDuration: 10,
     defaultDuration: 5,
-    supportsNegativePrompt: true,
+    supportsNegativePrompt: false,
     supportsAspectRatio: true,
+    extraInput: { fps: 24, camera_fixed: false, generate_audio: false },
   },
   "bytedance/seedance-1-lite": {
     imageInputKey: "image",
@@ -115,7 +118,7 @@ export class ReplicateVideoProvider implements VideoProvider {
     this.modelId =
       modelIdOverride ??
       process.env.REPLICATE_MODEL_ID ??
-      "google/veo-2";
+      "google/veo-3.1";
     this.config = MODEL_CONFIGS[this.modelId] ?? DEFAULT_CONFIG;
   }
 
@@ -148,9 +151,17 @@ export class ReplicateVideoProvider implements VideoProvider {
       );
     }
 
+    // Truncate prompt — Veo and some models have prompt length limits.
+    // The images are already provided separately, so the prompt just needs
+    // the motion direction and key constraints, not full frame descriptions.
+    const maxPromptLen = 1500;
+    const truncatedPrompt = prompt.length > maxPromptLen
+      ? prompt.slice(0, maxPromptLen).replace(/\s+\S*$/, "") + "..."
+      : prompt;
+
     // Build input payload
     const input: Record<string, unknown> = {
-      prompt,
+      prompt: truncatedPrompt,
       [this.config.durationKey]: duration,
       ...this.config.extraInput,
     };

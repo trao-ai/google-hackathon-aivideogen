@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createLLMProvider } from "@atlas/integrations";
+import { runAgent } from "@atlas/integrations";
 import { prisma, trackLLMCost } from "@atlas/db";
 
 export const discoverRouter = Router();
@@ -132,12 +132,9 @@ discoverRouter.post("/", async (_req, res, next) => {
       .map((s) => `[${s.source}${s.score ? ` ↑${s.score}` : ""}] ${s.title}`)
       .join("\n");
 
-    const llm = createLLMProvider();
-
-    const response = await llm.chat([
-      {
-        role: "system",
-        content: `You are the world's best edutainment topic researcher and viral content strategist.
+    const response = await runAgent({
+      agentName: "topic-discoverer",
+      instruction: `You are the world's best edutainment topic researcher and viral content strategist.
 You have deep expertise in what makes YouTube videos go viral, specifically for educational animation
 channels like Kurzgesagt (50M subs), The Infographics Show (14M subs), and Veritasium (18M subs).
 
@@ -189,10 +186,7 @@ TRANSFORMATION EXAMPLES:
 ✅ "Why Every AI Breakthrough Is 10x Less Impressive Than It Sounds (And Still Changes Everything)"
 
 Return ONLY valid JSON. No markdown, no preamble, no explanation. Just the JSON array.`,
-      },
-      {
-        role: "user",
-        content: `Here is today's LIVE internet signal feed (${allSignals.length} signals from Reddit, Hacker News, Google Trends):
+      userMessage: `Here is today's LIVE internet signal feed (${allSignals.length} signals from Reddit, Hacker News, Google Trends):
 
 ${signalText}
 
@@ -218,8 +212,7 @@ Return a JSON array of exactly 8 objects:
 ]
 
 Make these genuinely excellent. These will become real videos watched by millions.`,
-      },
-    ]);
+    });
 
     let topics: Array<{
       title: string;
@@ -308,8 +301,8 @@ discoverRouter.post("/select", async (req, res, next) => {
       await trackLLMCost({
         projectId: project.id,
         stage: "topic_discovery",
-        vendor: "openai",
-        model: "gpt-4o",
+        vendor: "gemini",
+        model: "gemini-2.5-flash",
         inputTokens: discoverInputTokens ?? 0,
         outputTokens: discoverOutputTokens ?? 0,
         totalCostUsd: discoverCostUsd,

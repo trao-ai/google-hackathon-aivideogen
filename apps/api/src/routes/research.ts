@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma, trackLLMCost } from "@atlas/db";
-import { createLLMProvider } from "@atlas/integrations";
+import { runAgent } from "@atlas/integrations";
 import { ApiError } from "../middleware/error-handler";
 
 export const researchRouter = Router();
@@ -98,19 +98,14 @@ researchRouter.post("/:id/research", async (req, res, next) => {
       return `[SOURCE ${i + 1}] ${s.title}\n${meta}\nURL: ${s.url}\n${s.snippet}`;
     }).join("\n\n---\n\n");
 
-    const llm = createLLMProvider();
-    const response = await llm.chat([
-      {
-        role: "system",
-        content: `You are the world's most rigorous research synthesizer for educational video production.
+    const response = await runAgent({
+      agentName: "research-synthesizer",
+      instruction: `You are the world's most rigorous research synthesizer for educational video production.
 You have deep expertise across science, history, psychology, technology, and society.
 You surface counterintuitive findings, identify scientific debates, and find the human angle.
 Distinguish ESTABLISHED consensus from EMERGING or CONTESTED findings.
 Return ONLY valid JSON. No markdown. No preamble.`,
-      },
-      {
-        role: "user",
-        content: `Topic: "${topic.title}"
+      userMessage: `Topic: "${topic.title}"
 Hook: "${topic.summary}"
 
 ${allSources.length} sources collected from Wikipedia, OpenAlex, Semantic Scholar, CrossRef:
@@ -132,14 +127,13 @@ Return this JSON:
   "sources": [{ "title": "...", "url": "...", "type": "paper|wiki|web", "year": 2023, "credibility": "high|medium|low", "keyContribution": "what this uniquely adds" }],
   "confidenceScore": 0.85
 }`,
-      },
-    ]);
+    });
 
     // Track LLM cost
     await trackLLMCost({
       projectId: project.id,
       stage: "research",
-      vendor: "openai",
+      vendor: "gemini",
       model: response.model,
       inputTokens: response.inputTokens,
       outputTokens: response.outputTokens,

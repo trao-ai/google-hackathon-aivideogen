@@ -9,6 +9,7 @@ import {
   resolveStorageDir,
 } from "@atlas/integrations";
 import { getStylePrefix } from "@atlas/style-system";
+import { calculateLLMCost } from "@atlas/shared";
 import type { StyleBible } from "@atlas/shared";
 import { FrameValidator } from "@atlas/validation";
 
@@ -237,7 +238,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
       // Track validation costs (1 frame)
       const validationInputTokens = 500;
       const validationOutputTokens = 200;
-      const validationCost = (validationInputTokens * 0.000005) + (validationOutputTokens * 0.000015);
+      const validationCost = calculateLLMCost("gemini-2.5-flash", validationInputTokens, validationOutputTokens);
       await trackLLMCost({
         projectId,
         stage: "frame_validation",
@@ -308,7 +309,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
       // Track validation costs (using rough estimate: ~500 tokens input, ~200 tokens output per validation)
       const validationInputTokens = 500 * 2;
       const validationOutputTokens = 200 * 2;
-      const validationCost = (validationInputTokens * 0.000005) + (validationOutputTokens * 0.000015);
+      const validationCost = calculateLLMCost("gemini-2.5-flash", validationInputTokens, validationOutputTokens);
       await trackLLMCost({
         projectId,
         stage: "frame_validation",

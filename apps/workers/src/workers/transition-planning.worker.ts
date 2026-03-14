@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
 import { prisma, trackLLMCost } from "@atlas/db";
-import { calculateLLMCost } from "@atlas/shared";
+import { runAgent } from "@atlas/integrations";
 
 interface TransitionPlan {
   type: string;
@@ -60,15 +60,7 @@ export class TransitionPlanningWorker {
       });
     }
 
-    const prompt = `You are a video editor planning transitions between consecutive scenes in an educational explainer video.
-
-For each scene pair, recommend the ideal visual transition considering:
-- Content continuity: similar topics should use soft transitions (crossfade, dissolve)
-- Topic shifts: major changes should use stronger transitions (fade_to_black, wipe)
-- Pacing: fast sections need quick cuts, slow sections need gentle dissolves
-- The FFmpeg xfade filter supports these transitions: fade, fadeblack, fadewhite, dissolve, wipeleft, wiperight, wipeup, wipedown, slideleft, slideright, slideup, slidedown, smoothleft, smoothright, smoothup, smoothdown, circlecrop, circleopen, circleclose, vertopen, vertclose, horzopen, horzclose
-
-Scene pairs:
+    const userPrompt = `Scene pairs:
 ${scenePairs
   .map(
     (p) =>
@@ -89,67 +81,45 @@ Respond with ONLY a JSON array. Each element must have:
   "ffmpegTransition": "the xfade transition name from the list above"
 }`;
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!process.env.GEMINI_API_KEY) {
       console.warn("[transition-plan] No GEMINI_API_KEY, using default transitions");
       await this.applyDefaults(scenes);
       return;
     }
 
-    const model = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash";
-
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 2000 },
-          }),
-        },
-      );
+      const response = await runAgent({
+        agentName: "transition-planner",
+        instruction: `You are a video editor planning transitions between consecutive scenes in an educational explainer video.
 
-      if (!res.ok) {
-        console.warn(`[transition-plan] Gemini API error ${res.status}, using defaults`);
-        await this.applyDefaults(scenes);
-        return;
-      }
-
-      const data = (await res.json()) as {
-        candidates?: Array<{
-          content?: { parts?: Array<{ text?: string }> };
-        }>;
-        usageMetadata?: {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-        };
-      };
-
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      const inputTokens = data.usageMetadata?.promptTokenCount ?? 0;
-      const outputTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
+For each scene pair, recommend the ideal visual transition considering:
+- Content continuity: similar topics should use soft transitions (crossfade, dissolve)
+- Topic shifts: major changes should use stronger transitions (fade_to_black, wipe)
+- Pacing: fast sections need quick cuts, slow sections need gentle dissolves
+- The FFmpeg xfade filter supports these transitions: fade, fadeblack, fadewhite, dissolve, wipeleft, wiperight, wipeup, wipedown, slideleft, slideright, slideup, slidedown, smoothleft, smoothright, smoothup, smoothdown, circlecrop, circleopen, circleclose, vertopen, vertclose, horzopen, horzclose`,
+        userMessage: userPrompt,
+        generationConfig: { maxOutputTokens: 2000 },
+      });
 
       // Track LLM cost
-      if (inputTokens > 0 || outputTokens > 0) {
-        const cost = calculateLLMCost(model, inputTokens, outputTokens);
+      if (response.inputTokens > 0 || response.outputTokens > 0) {
         await trackLLMCost({
           projectId,
           stage: "transition_planning",
           vendor: "gemini",
-          model,
-          inputTokens,
-          outputTokens,
-          totalCostUsd: cost,
+          model: response.model,
+          inputTokens: response.inputTokens,
+          outputTokens: response.outputTokens,
+          totalCostUsd: response.costUsd,
         });
         console.log(
-          `[transition-plan] LLM cost: $${cost.toFixed(6)} (${inputTokens}in/${outputTokens}out)`,
+          `[transition-plan] LLM cost: $${response.costUsd.toFixed(6)} (${response.inputTokens}in/${response.outputTokens}out)`,
         );
       }
 
+      const text = response.content.trim();
       if (!text) {
-        console.warn("[transition-plan] Empty response from Gemini, using defaults");
+        console.warn("[transition-plan] Empty response, using defaults");
         await this.applyDefaults(scenes);
         return;
       }

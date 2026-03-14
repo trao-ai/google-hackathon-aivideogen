@@ -156,20 +156,37 @@ Be specific and constructive in issues and recommendations.`;
 
   private parseValidationResponse(response: string): FrameValidationResult {
     try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      // Strip markdown code fences if present
+      const fenced = response.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const raw = fenced ? fenced[1].trim() : response.trim();
+
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          qualityScore: Math.min(100, Math.max(0, parsed.qualityScore || 0)),
-          styleMatchScore: Math.min(
-            100,
-            Math.max(0, parsed.styleMatchScore || 0)
-          ),
-          issues: Array.isArray(parsed.issues) ? parsed.issues : [],
-          recommendations: Array.isArray(parsed.recommendations)
-            ? parsed.recommendations
-            : [],
-        };
+        let parsed: Record<string, unknown> | null = null;
+        // Try full greedy match first
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          // Greedy match grabbed too much — find first balanced JSON object
+          const str = jsonMatch[0];
+          let depth = 0;
+          let end = -1;
+          for (let i = 0; i < str.length; i++) {
+            if (str[i] === '{') depth++;
+            else if (str[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+          }
+          if (end > 0) {
+            parsed = JSON.parse(str.slice(0, end + 1));
+          }
+        }
+        if (parsed) {
+          return {
+            qualityScore: Math.min(100, Math.max(0, (parsed.qualityScore as number) || 0)),
+            styleMatchScore: Math.min(100, Math.max(0, (parsed.styleMatchScore as number) || 0)),
+            issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+            recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+          };
+        }
       }
 
       return {

@@ -46,13 +46,15 @@ interface ReplicateModelConfig {
 const MODEL_CONFIGS: Record<string, ReplicateModelConfig> = {
   "google/veo-3.1": {
     imageInputKey: "image",
-    endImageInputKey: null,
+    endImageInputKey: "last_frame",
     durationKey: "duration",
-    minDuration: 5,
+    minDuration: 4,
     maxDuration: 8,
+    allowedDurations: [4, 6, 8],
     defaultDuration: 8,
-    supportsNegativePrompt: false,
+    supportsNegativePrompt: true,
     supportsAspectRatio: true,
+    extraInput: { resolution: "1080p", generate_audio: false },
   },
   "kwaivgi/kling-v2.1": {
     imageInputKey: "start_image",
@@ -149,9 +151,17 @@ export class ReplicateVideoProvider implements VideoProvider {
       );
     }
 
+    // Truncate prompt — Veo and some models have prompt length limits.
+    // The images are already provided separately, so the prompt just needs
+    // the motion direction and key constraints, not full frame descriptions.
+    const maxPromptLen = 1500;
+    const truncatedPrompt = prompt.length > maxPromptLen
+      ? prompt.slice(0, maxPromptLen).replace(/\s+\S*$/, "") + "..."
+      : prompt;
+
     // Build input payload
     const input: Record<string, unknown> = {
-      prompt,
+      prompt: truncatedPrompt,
       [this.config.durationKey]: duration,
       ...this.config.extraInput,
     };

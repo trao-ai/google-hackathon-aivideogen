@@ -10,34 +10,64 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        /* ── Brand palette (use these directly: bg-brand-green, text-brand-red, etc.) ── */
+        brand: {
+          black: "var(--color-black)",
+          beige: "var(--color-warm-beige)",
+          "off-white": "var(--color-off-white)",
+          green: "var(--color-green)",
+          "dark-green": "var(--color-dark-green)",
+          red: "var(--color-red)",
+          blue: "var(--color-blue)",
+          orange: "var(--color-warm-orange)",
+          yellow: "var(--color-golden-yellow)",
+        },
+
+        /* ── Semantic tokens (use these for consistent UI: bg-background, text-muted-foreground, etc.) ── */
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
+        },
+        info: {
+          DEFAULT: "var(--info)",
+          foreground: "var(--info-foreground)",
+        },
+        warning: {
+          DEFAULT: "var(--warning)",
+          foreground: "var(--warning-foreground)",
+        },
+        success: {
+          DEFAULT: "var(--success)",
+          foreground: "var(--success-foreground)",
+        },
+        highlight: {
+          DEFAULT: "var(--highlight)",
+          foreground: "var(--highlight-foreground)",
         },
       },
       borderRadius: {

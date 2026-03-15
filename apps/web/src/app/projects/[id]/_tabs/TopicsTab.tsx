@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { ProjectDetail, Topic } from "@/lib/api";
 import { useDiscoverTopics, useApproveTopic } from "@/hooks/use-topics";
-import { useUpdateProject } from "@/hooks/use-projects";
 import { TopicCard } from "@/components/project/TopicCard";
 import type { ScoreBarProps } from "@/types/components";
 
@@ -87,7 +86,6 @@ export function TopicsTab({ project }: Props) {
   const [error, setError] = useState("");
   const discoverTopics = useDiscoverTopics(project.id);
   const approveTopic = useApproveTopic(project.id);
-  const updateProject = useUpdateProject(project.id);
 
   const apiTopics: Topic[] = project.topics ?? [];
   const topics = apiTopics.length > 0 ? apiTopics : MOCK_TOPICS;
@@ -103,16 +101,7 @@ export function TopicsTab({ project }: Props) {
   };
 
   const handleSelect = (topicId: string) => {
-    // Find the topic to auto-set the project title
-    const selectedTopic = topics.find((t) => t.id === topicId);
-
     approveTopic.mutate(topicId, {
-      onSuccess: () => {
-        // Auto-update project title from the selected topic
-        if (selectedTopic) {
-          updateProject.mutate({ title: selectedTopic.title });
-        }
-      },
       onError: (err) => setError(err.message),
     });
   };
@@ -142,7 +131,7 @@ export function TopicsTab({ project }: Props) {
     <div className="flex flex-col gap-5">
       {error && <p className="text-sm text-brand-red">{error}</p>}
 
-      <div className="flex items-start gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {topics.map((topic) => (
           <TopicCard
             key={topic.id}

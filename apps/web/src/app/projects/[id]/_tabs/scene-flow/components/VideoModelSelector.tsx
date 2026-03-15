@@ -12,39 +12,39 @@ import {
 
 const VIDEO_MODELS = [
   {
-    value: "veo",
-    label: "Veo 3.1 (Direct)",
-    description: "2 frames \u00b7 8s clip \u00b7 $0.40/s",
+    value: "replicate-veo",
+    label: "Veo 3.1",
+    frames: 1,
+    duration: "8s",
+    cost: "$0.065/s",
   },
   {
     value: "kling",
-    label: "Kling (fal.ai)",
-    description: "2 frames \u00b7 5s clip \u00b7 $0.07/s",
-  },
-  {
-    value: "seedance",
-    label: "SeDance (fal.ai)",
-    description: "1 frame \u00b7 5s clip \u00b7 $0.052/s",
-  },
-  {
-    value: "replicate-veo",
-    label: "Veo 3.1 (Replicate)",
-    description: "1 frame \u00b7 8s clip \u00b7 ~$0.10/s",
+    label: "Kling 2.1",
+    frames: 2,
+    duration: "5s",
+    cost: "$0.07/s",
   },
   {
     value: "replicate-kling",
-    label: "Kling 2.1 (Replicate)",
-    description: "2 frames \u00b7 5-10s clip \u00b7 ~$0.05/s",
+    label: "Kling 2.1",
+    frames: 2,
+    duration: "5-10s",
+    cost: "$0.06/s",
   },
   {
     value: "replicate-seedance",
-    label: "Seedance 1.5 Pro (Replicate)",
-    description: "2 frames \u00b7 5-10s clip \u00b7 ~$0.25/s",
+    label: "Seedance Pro",
+    frames: 1,
+    duration: "5-10s",
+    cost: "$0.05/s",
   },
   {
     value: "replicate-seedance-lite",
-    label: "Seedance Lite (Replicate)",
-    description: "1 frame \u00b7 5-10s clip \u00b7 ~$0.02/s",
+    label: "Seedance Lite",
+    frames: 1,
+    duration: "5-10s",
+    cost: "$0.02/s",
   },
 ] as const;
 
@@ -57,38 +57,42 @@ export function VideoModelSelector({ projectId, disabled }: Props) {
   const { videoProvider, setVideoProvider } = useProjectStore();
   const updateProject = useUpdateProject(projectId);
 
+  // Set default to replicate-veo if not set
+  const currentValue = videoProvider || "replicate-veo";
+
   const handleChange = (newValue: string) => {
-    if (newValue === videoProvider) return;
+    if (newValue === currentValue) return;
     setVideoProvider(newValue);
     updateProject.mutate({ videoProvider: newValue });
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm text-muted-foreground whitespace-nowrap">
-        Video Model:
-      </span>
-      <Select
-        value={videoProvider}
-        onValueChange={handleChange}
-        disabled={disabled || updateProject.isPending}
-      >
-        <SelectTrigger className="w-[220px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {VIDEO_MODELS.map((model) => (
-            <SelectItem key={model.value} value={model.value}>
-              <div className="flex flex-col">
-                <span>{model.label}</span>
-                <span className="text-xs text-muted-foreground">
-                  {model.description}
-                </span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select
+      value={currentValue}
+      onValueChange={handleChange}
+      disabled={disabled || updateProject.isPending}
+    >
+      <SelectTrigger className="w-[300px] px-4 py-2.5 bg-brand-surface rounded-md border border-brand-border-light text-sm text-foreground hover:bg-[#F0EEE7] transition-colors focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0">
+        <SelectValue placeholder="Select Video Model" />
+      </SelectTrigger>
+      <SelectContent className="bg-[#FAF9F5] rounded-xl shadow-lg border border-brand-border-light p-2 min-w-[380px] focus:outline-none focus-visible:outline-none">
+        {VIDEO_MODELS.map((model, index) => (
+          <SelectItem
+            key={model.value}
+            value={model.value}
+            className={`px-4 py-2.5 rounded-lg text-sm text-foreground hover:bg-[#F0EEE7] data-[highlighted]:bg-[#F0EEE7] data-[highlighted]:text-foreground data-[state=checked]:bg-[#F0EEE7] data-[state=checked]:font-medium cursor-pointer transition-colors duration-200 focus:outline-none focus-visible:outline-none ${index < VIDEO_MODELS.length - 1 ? "mb-1" : ""}`}
+          >
+            <div className="flex items-center gap-1.5 w-full">
+              <span className="font-medium whitespace-nowrap">
+                {model.label}
+              </span>
+              <span className="text-foreground/60 whitespace-nowrap">
+                ({model.frames} frames • {model.duration} clip • {model.cost})
+              </span>
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

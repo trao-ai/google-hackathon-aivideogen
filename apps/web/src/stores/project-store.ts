@@ -13,11 +13,11 @@ interface ProjectUIState {
 
 export const useProjectStore = create<ProjectUIState>((set) => ({
   activeStep: "topic",
-  videoProvider: "kling",
+  videoProvider: "replicate-veo",
   autoNavigated: false,
   setActiveStep: (step) => set({ activeStep: step }),
   setVideoProvider: (provider) => set({ videoProvider: provider }),
   setAutoNavigated: (value) => set({ autoNavigated: value }),
   reset: () =>
-    set({ activeStep: "topic", videoProvider: "kling", autoNavigated: false }),
+    set({ activeStep: "topic", videoProvider: "replicate-veo", autoNavigated: false }),
 }));

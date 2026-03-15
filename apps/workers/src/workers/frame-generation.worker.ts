@@ -200,6 +200,9 @@ Negative prompts: ${negativesStr}
 
 Generate END FRAME showing the scene's visual conclusion.`.trim();
 
+    // Derive aspect ratio from platform (youtube=16:9, everything else=9:16)
+    const platformAspectRatio = project.platform && project.platform !== "youtube" ? "9:16" : "16:9";
+
     // Determine if this project uses SeDance (start frame only, no end frame)
     const isSeDance = (project as Record<string, unknown>).videoProvider === "seedance";
 
@@ -218,7 +221,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
     }
 
     // Generate start frame (with previous scene's reference frame as style reference)
-    const startResult = await imageProvider.generate(startPrompt, prevRefFrameBuffer);
+    const startResult = await imageProvider.generate(startPrompt, prevRefFrameBuffer, undefined, platformAspectRatio);
 
     const validator = new FrameValidator();
 
@@ -284,7 +287,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
 
       // Generate end frame (with THIS scene's start frame as style reference)
       // This guarantees within-scene consistency — the end frame SEES the start frame
-      const endResult = await imageProvider.generate(endPrompt, startResult.imageBuffer);
+      const endResult = await imageProvider.generate(endPrompt, startResult.imageBuffer, undefined, platformAspectRatio);
 
       // Validate frames for quality and style consistency
       const [startValidation, endValidation] = await Promise.all([
@@ -420,10 +423,13 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
     });
     if (!frame) throw new Error(`Frame ${frameId} not found`);
 
+    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { platform: true } });
+    const platformAspectRatio = project?.platform && project.platform !== "youtube" ? "9:16" : "16:9";
+
     const imageProvider = createImageProvider();
     const storage = createStorageProvider();
 
-    const result = await imageProvider.generate(prompt);
+    const result = await imageProvider.generate(prompt, undefined, undefined, platformAspectRatio);
 
     const key = `projects/${projectId}/scenes/${sceneId}/frame-${frame.frameType}-${Date.now()}.png`;
     const imageUrl = await storage.upload(key, result.imageBuffer, "image/png");

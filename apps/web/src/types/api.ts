@@ -4,6 +4,10 @@ export type Project = {
   niche: string;
   status: string;
   totalCostUsd: number;
+  platform?: string;
+  videoType?: string;
+  videoStyle?: string;
+  toneKeywords?: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -168,6 +172,12 @@ export type CostAnalytics = {
   _sum: { totalCostUsd: number };
   _count: { id: number };
   _avg: { totalCostUsd: number };
+};
+
+export type VoicePreset = {
+  key: string;
+  name: string;
+  accent: string;
 };
 
 export type CostEstimate = {

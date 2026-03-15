@@ -1,3 +1,4 @@
+import { apiClient } from "./axios";
 import type {
   Project,
   ProjectDetail,
@@ -5,6 +6,7 @@ import type {
   ResearchBrief,
   Script,
   Voiceover,
+  VoicePreset,
   SceneFrame,
   Scene,
   Render,
@@ -13,91 +15,75 @@ import type {
   CostEstimate,
 } from "@/types/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options,
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(error.message ?? `Request failed: ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-// Projects
 export const api = {
   projects: {
-    list: () => request<Project[]>("/api/projects"),
+    list: () =>
+      apiClient.get<Project[]>("/api/projects").then((r) => r.data),
     create: (data: {
       title: string;
       niche: string;
-      targetAudience?: string;
+      platform?: string;
+      videoType?: string;
+      videoStyle?: string;
       toneKeywords?: string[];
     }) =>
-      request<Project>("/api/projects", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    get: (id: string) => request<ProjectDetail>(`/api/projects/${id}`),
+      apiClient.post<Project>("/api/projects", data).then((r) => r.data),
+    get: (id: string) =>
+      apiClient.get<ProjectDetail>(`/api/projects/${id}`).then((r) => r.data),
     update: (
       id: string,
-      data: Partial<{ title: string; niche: string; targetAudience: string; videoProvider: string }>,
+      data: Partial<{
+        title: string;
+        niche: string;
+        videoProvider: string;
+        platform: string;
+        videoType: string;
+        videoStyle: string;
+        toneKeywords: string[];
+      }>,
     ) =>
-      request<Project>(`/api/projects/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
+      apiClient.patch<Project>(`/api/projects/${id}`, data).then((r) => r.data),
     delete: (id: string) =>
-      request<{ message: string }>(`/api/projects/${id}`, { method: "DELETE" }),
+      apiClient.delete<{ message: string }>(`/api/projects/${id}`).then((r) => r.data),
   },
 
   topics: {
     discover: (projectId: string, data: { count?: number }) =>
-      request<{ message: string; jobId: string }>(
-        `/api/projects/${projectId}/discover-topics`,
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        },
-      ),
+      apiClient
+        .post<{ message: string; jobId: string }>(`/api/projects/${projectId}/discover-topics`, data)
+        .then((r) => r.data),
     list: (projectId: string) =>
-      request<Topic[]>(`/api/projects/${projectId}/topics`),
+      apiClient.get<Topic[]>(`/api/projects/${projectId}/topics`).then((r) => r.data),
     approve: (projectId: string, topicId: string) =>
-      request<{ message: string }>(
-        `/api/projects/${projectId}/topics/${topicId}/approve`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string }>(`/api/projects/${projectId}/topics/${topicId}/approve`)
+        .then((r) => r.data),
     reject: (projectId: string, topicId: string) =>
-      request<{ message: string }>(
-        `/api/projects/${projectId}/topics/${topicId}/reject`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string }>(`/api/projects/${projectId}/topics/${topicId}/reject`)
+        .then((r) => r.data),
     analyzeChannel: (
       projectId: string,
       data: { channelUrl: string; channelName: string },
     ) =>
-      request<{ message: string; jobId: string }>(
-        `/api/projects/${projectId}/channels`,
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        },
-      ),
+      apiClient
+        .post<{ message: string; jobId: string }>(`/api/projects/${projectId}/channels`, data)
+        .then((r) => r.data),
   },
 
   research: {
     start: (projectId: string) =>
-      request<ResearchBrief>(
-        `/api/projects/${projectId}/research`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<ResearchBrief>(`/api/projects/${projectId}/research`)
+        .then((r) => r.data),
     get: (projectId: string) =>
-      request<ResearchBrief | null>(`/api/projects/${projectId}/research`),
+      apiClient
+        .get<ResearchBrief | null>(`/api/projects/${projectId}/research`)
+        .then((r) => r.data),
     delete: (projectId: string, briefId: string) =>
-      request<void>(`/api/projects/${projectId}/research/${briefId}`, { method: "DELETE" }),
+      apiClient
+        .delete(`/api/projects/${projectId}/research/${briefId}`)
+        .then((r) => r.data),
   },
 
   scripts: {
@@ -105,143 +91,148 @@ export const api = {
       projectId: string,
       data: { tone?: string; targetWordCount?: number; variants?: number; duration?: "short" | "long" },
     ) =>
-      request<Script>(
-        `/api/projects/${projectId}/generate-scripts`,
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        },
-      ),
+      apiClient
+        .post<Script>(`/api/projects/${projectId}/generate-scripts`, data)
+        .then((r) => r.data),
     list: (projectId: string) =>
-      request<Script[]>(`/api/projects/${projectId}/scripts`),
+      apiClient.get<Script[]>(`/api/projects/${projectId}/scripts`).then((r) => r.data),
     approve: (projectId: string, scriptId: string) =>
-      request<{ message: string }>(
-        `/api/projects/${projectId}/scripts/${scriptId}/approve`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string }>(`/api/projects/${projectId}/scripts/${scriptId}/approve`)
+        .then((r) => r.data),
     delete: (projectId: string, scriptId: string) =>
-      request<void>(`/api/projects/${projectId}/scripts/${scriptId}`, { method: "DELETE" }),
+      apiClient
+        .delete(`/api/projects/${projectId}/scripts/${scriptId}`)
+        .then((r) => r.data),
     rewriteSection: (
       projectId: string,
       scriptId: string,
       data: { sectionId: string; instructions: string },
     ) =>
-      request<{ message: string }>(
-        `/api/projects/${projectId}/scripts/${scriptId}/rewrite-section`,
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        },
-      ),
+      apiClient
+        .post<{ message: string }>(`/api/projects/${projectId}/scripts/${scriptId}/rewrite-section`, data)
+        .then((r) => r.data),
   },
 
   voice: {
     generate: (projectId: string, voice?: string) =>
-      request<Voiceover>(
-        `/api/projects/${projectId}/generate-voice`,
-        { method: "POST", body: JSON.stringify(voice ? { voice } : {}) },
-      ),
+      apiClient
+        .post<Voiceover>(`/api/projects/${projectId}/generate-voice`, voice ? { voice } : {})
+        .then((r) => r.data),
     presets: () =>
-      request<VoicePreset[]>("/api/projects/voice-presets"),
+      apiClient.get<VoicePreset[]>("/api/projects/voice-presets").then((r) => r.data),
     get: (projectId: string) =>
-      request<Voiceover | null>(`/api/projects/${projectId}/voiceover`),
+      apiClient
+        .get<Voiceover | null>(`/api/projects/${projectId}/voiceover`)
+        .then((r) => r.data),
     delete: (projectId: string, voiceoverId: string) =>
-      request<void>(`/api/projects/${projectId}/voiceovers/${voiceoverId}`, { method: "DELETE" }),
+      apiClient
+        .delete(`/api/projects/${projectId}/voiceovers/${voiceoverId}`)
+        .then((r) => r.data),
   },
 
   scenes: {
     plan: (projectId: string) =>
-      request<{ message: string; jobId: string }>(
-        `/api/projects/${projectId}/plan-scenes`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string; jobId: string }>(`/api/projects/${projectId}/plan-scenes`)
+        .then((r) => r.data),
     list: (projectId: string) =>
-      request<Scene[]>(`/api/projects/${projectId}/scenes`),
+      apiClient.get<Scene[]>(`/api/projects/${projectId}/scenes`).then((r) => r.data),
     regenerate: (projectId: string, sceneId: string) =>
-      request<{ message: string }>(
-        `/api/projects/${projectId}/scenes/${sceneId}/regenerate`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string }>(`/api/projects/${projectId}/scenes/${sceneId}/regenerate`)
+        .then((r) => r.data),
     generateVideo: (projectId: string, sceneId: string) =>
-      request<{ message: string; jobId: string }>(
-        `/api/projects/${projectId}/scenes/${sceneId}/generate-video`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string; jobId: string }>(`/api/projects/${projectId}/scenes/${sceneId}/generate-video`)
+        .then((r) => r.data),
     generateAllVideos: (projectId: string) =>
-      request<{ message: string; jobCount: number }>(
-        `/api/projects/${projectId}/generate-videos`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string; jobCount: number }>(`/api/projects/${projectId}/generate-videos`)
+        .then((r) => r.data),
     planTransitions: (projectId: string) =>
-      request<{ message: string; jobId: string }>(
-        `/api/projects/${projectId}/plan-transitions`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string; jobId: string }>(`/api/projects/${projectId}/plan-transitions`)
+        .then((r) => r.data),
     updateMotion: (
       projectId: string,
       sceneId: string,
       data: { motionNotes: string },
     ) =>
-      request<Scene>(
-        `/api/projects/${projectId}/scenes/${sceneId}/motion`,
-        { method: "PATCH", body: JSON.stringify(data) },
-      ),
+      apiClient
+        .patch<Scene>(`/api/projects/${projectId}/scenes/${sceneId}/motion`, data)
+        .then((r) => r.data),
   },
 
   frames: {
     generate: (projectId: string) =>
-      request<{ message: string; jobCount: number }>(
-        `/api/projects/${projectId}/generate-frames`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string; jobCount: number }>(`/api/projects/${projectId}/generate-frames`)
+        .then((r) => r.data),
     list: (projectId: string, sceneId: string) =>
-      request<SceneFrame[]>(
-        `/api/projects/${projectId}/scenes/${sceneId}/frames`,
-      ),
+      apiClient
+        .get<SceneFrame[]>(`/api/projects/${projectId}/scenes/${sceneId}/frames`)
+        .then((r) => r.data),
     regenerateOne: (
       projectId: string,
       sceneId: string,
       frameId: string,
       prompt?: string,
     ) =>
-      request<{ message: string; jobId: string }>(
-        `/api/projects/${projectId}/scenes/${sceneId}/frames/${frameId}/regenerate`,
-        {
-          method: "POST",
-          body: JSON.stringify(prompt ? { prompt } : {}),
-        },
-      ),
+      apiClient
+        .post<{ message: string; jobId: string }>(
+          `/api/projects/${projectId}/scenes/${sceneId}/frames/${frameId}/regenerate`,
+          prompt ? { prompt } : {},
+        )
+        .then((r) => r.data),
     generateForScene: (projectId: string, sceneId: string) =>
-      request<{ message: string; jobCount: number }>(
-        `/api/projects/${projectId}/scenes/${sceneId}/generate-frames`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ message: string; jobCount: number }>(`/api/projects/${projectId}/scenes/${sceneId}/generate-frames`)
+        .then((r) => r.data),
   },
 
   renders: {
     start: (projectId: string) =>
-      request<{ renderId: string; jobId: string; message: string }>(
-        `/api/projects/${projectId}/render`,
-        { method: "POST" },
-      ),
+      apiClient
+        .post<{ renderId: string; jobId: string; message: string }>(`/api/projects/${projectId}/render`)
+        .then((r) => r.data),
     list: (projectId: string) =>
-      request<Render[]>(`/api/projects/${projectId}/renders`),
+      apiClient.get<Render[]>(`/api/projects/${projectId}/renders`).then((r) => r.data),
     get: (projectId: string, renderId: string) =>
-      request<Render>(`/api/projects/${projectId}/renders/${renderId}`),
+      apiClient
+        .get<Render>(`/api/projects/${projectId}/renders/${renderId}`)
+        .then((r) => r.data),
   },
 
   costs: {
     get: (projectId: string) =>
-      request<CostSummary>(`/api/projects/${projectId}/costs`),
+      apiClient.get<CostSummary>(`/api/projects/${projectId}/costs`).then((r) => r.data),
     analytics: () =>
-      request<CostAnalytics[]>("/api/projects/analytics/cost-summary"),
+      apiClient.get<CostAnalytics[]>("/api/projects/analytics/cost-summary").then((r) => r.data),
     estimate: (projectId: string, provider?: "kling" | "veo" | "seedance") =>
-      request<CostEstimate>(`/api/projects/${projectId}/estimate-costs`, {
-        method: "POST",
-        body: JSON.stringify({ provider: provider || "kling" }),
-      }),
+      apiClient
+        .post<CostEstimate>(`/api/projects/${projectId}/estimate-costs`, {
+          provider: provider || "kling",
+        })
+        .then((r) => r.data),
+  },
+
+  discover: {
+    start: () =>
+      apiClient.post<{ topics: DiscoveredTopic[]; signalCount: number }>("/api/discover").then((r) => r.data),
+    select: (topic: DiscoveredTopic) =>
+      apiClient.post<{ projectId: string }>("/api/discover/select", topic).then((r) => r.data),
   },
 };
 
-// Re-export all API types from the centralized types directory
+export type DiscoveredTopic = {
+  title: string;
+  hook: string;
+  category: string;
+  viralityScore: number;
+  educationalScore: number;
+  visualScore: number;
+  thumbnailAngle: string;
+};
+
 export type * from "@/types/api";

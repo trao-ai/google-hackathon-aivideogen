@@ -29,7 +29,14 @@ export class TopicDiscoveryWorker {
     if (!project) throw new Error(`Project ${projectId} not found`);
 
     try {
-      const prompt = buildTopicScoutPrompt(project.niche, 10);
+      const prompt = buildTopicScoutPrompt({
+        niche: project.niche,
+        count: 10,
+        platform: project.platform,
+        videoType: project.videoType,
+        videoStyle: project.videoStyle,
+        toneKeywords: project.toneKeywords ?? [],
+      });
 
       const response = await runAgent({
         agentName: "topic-scout",

@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { api, type ProjectDetail, type Topic } from "@/lib/api";
+import type { ProjectDetail, Topic } from "@/lib/api";
+import { useDiscoverTopics, useApproveTopic } from "@/hooks/use-topics";
+import { useUpdateProject } from "@/hooks/use-projects";
 import { TopicCard } from "@/components/project/TopicCard";
 import type { ScoreBarProps } from "@/types/components";
 
 type Props = {
   project: ProjectDetail;
-  onRefresh: () => Promise<void>;
 };
 
 const MOCK_TOPICS: Topic[] = [
@@ -82,40 +83,41 @@ function getTopicScores(topic: Topic): ScoreBarProps[] {
   return scores;
 }
 
-export function TopicsTab({ project, onRefresh }: Props) {
-  const [loading, setLoading] = useState(false);
+export function TopicsTab({ project }: Props) {
   const [error, setError] = useState("");
+  const discoverTopics = useDiscoverTopics(project.id);
+  const approveTopic = useApproveTopic(project.id);
+  const updateProject = useUpdateProject(project.id);
 
   const apiTopics: Topic[] = project.topics ?? [];
   const topics = apiTopics.length > 0 ? apiTopics : MOCK_TOPICS;
-  const isDiscovering = ["discovering_topics"].includes(project.status);
+  const isDiscovering = ["discovering_topics", "topic_discovery"].includes(project.status);
+  const loading = discoverTopics.isPending || approveTopic.isPending;
 
-  const handleDiscover = async () => {
+  const handleDiscover = () => {
     setError("");
-    setLoading(true);
-    try {
-      await api.topics.discover(project.id, { count: 10 });
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    discoverTopics.mutate(
+      { count: 10 },
+      { onError: (err) => setError(err.message) },
+    );
   };
 
-  const handleSelect = async (topicId: string) => {
-    setLoading(true);
-    try {
-      await api.topics.approve(project.id, topicId);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+  const handleSelect = (topicId: string) => {
+    // Find the topic to auto-set the project title
+    const selectedTopic = topics.find((t) => t.id === topicId);
+
+    approveTopic.mutate(topicId, {
+      onSuccess: () => {
+        // Auto-update project title from the selected topic
+        if (selectedTopic) {
+          updateProject.mutate({ title: selectedTopic.title });
+        }
+      },
+      onError: (err) => setError(err.message),
+    });
   };
 
-  if (apiTopics.length === 0 && project.status !== "draft") {
+  if (apiTopics.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-brand-border-light py-16 text-center">
         <p className="mb-3 text-foreground/70">No topics discovered yet.</p>

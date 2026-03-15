@@ -2,18 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
-interface Topic {
-  title: string;
-  hook: string;
-  category: string;
-  viralityScore: number;
-  educationalScore: number;
-  visualScore: number;
-  thumbnailAngle: string;
-}
+import { useDiscoverViralTopics, useSelectDiscoveredTopic } from "@/hooks/use-topics";
+import type { DiscoveredTopic } from "@/lib/api";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Science: "bg-blue-100 text-blue-700",
@@ -46,8 +36,8 @@ function TopicCard({
   onSelect,
   selecting,
 }: {
-  topic: Topic;
-  onSelect: (t: Topic) => void;
+  topic: DiscoveredTopic;
+  onSelect: (t: DiscoveredTopic) => void;
   selecting: boolean;
 }) {
   const colorClass =
@@ -62,34 +52,28 @@ function TopicCard({
       disabled={selecting}
       className="group relative w-full rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all hover:border-indigo-400 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      {/* Score badge */}
       <div className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-sm font-bold text-indigo-600">
         {avg}
       </div>
 
-      {/* Category pill */}
       <span
         className={`mb-3 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`}
       >
         {topic.category}
       </span>
 
-      {/* Title */}
       <h3 className="mb-2 pr-10 text-sm font-semibold leading-snug text-gray-900 group-hover:text-indigo-700">
         {topic.title}
       </h3>
 
-      {/* Hook */}
       <p className="mb-4 text-xs leading-relaxed text-gray-500">{topic.hook}</p>
 
-      {/* Scores */}
       <div className="space-y-1.5">
         <ScoreBar label="Viral" value={topic.viralityScore} />
         <ScoreBar label="Edu" value={topic.educationalScore} />
         <ScoreBar label="Visual" value={topic.visualScore} />
       </div>
 
-      {/* Thumbnail angle */}
       <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
         🖼 {topic.thumbnailAngle}
       </div>
@@ -111,65 +95,53 @@ const SCAN_MESSAGES = [
 export function TopicDiscovery({ onDone }: { onDone?: () => void }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
-  const [topics, setTopics] = useState<Topic[]>([]);
+  const [topics, setTopics] = useState<DiscoveredTopic[]>([]);
   const [signalCount, setSignalCount] = useState(0);
   const [scanMsg, setScanMsg] = useState(SCAN_MESSAGES[0]);
   const [error, setError] = useState("");
-  const [selecting, setSelecting] = useState(false);
 
-  const startDiscovery = async () => {
+  const discoverTopics = useDiscoverViralTopics();
+  const selectTopic = useSelectDiscoveredTopic();
+
+  const startDiscovery = () => {
     setPhase("scanning");
     setError("");
 
-    // Cycle through scan messages while waiting
     let idx = 0;
     const msgTimer = setInterval(() => {
       idx = (idx + 1) % SCAN_MESSAGES.length;
       setScanMsg(SCAN_MESSAGES[idx]);
     }, 1800);
 
-    try {
-      const res = await fetch(`${API}/api/discover`, { method: "POST" });
-      clearInterval(msgTimer);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: res.statusText }));
-        throw new Error(err.message ?? "Discovery failed");
-      }
-      const data = await res.json();
-      setTopics(data.topics ?? []);
-      setSignalCount(data.signalCount ?? 0);
-      setPhase("topics");
-    } catch (err) {
-      clearInterval(msgTimer);
-      setError((err as Error).message);
-      setPhase("idle");
-    }
+    discoverTopics.mutate(undefined, {
+      onSuccess: (data) => {
+        clearInterval(msgTimer);
+        setTopics(data.topics ?? []);
+        setSignalCount(data.signalCount ?? 0);
+        setPhase("topics");
+      },
+      onError: (err) => {
+        clearInterval(msgTimer);
+        setError(err.message);
+        setPhase("idle");
+      },
+    });
   };
 
-  const selectTopic = async (topic: Topic) => {
-    setSelecting(true);
+  const handleSelectTopic = (topic: DiscoveredTopic) => {
     setPhase("creating");
-    try {
-      const res = await fetch(`${API}/api/discover/select`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(topic),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: res.statusText }));
-        throw new Error(err.message ?? "Failed to create project");
-      }
-      const { projectId } = await res.json();
-      onDone?.();
-      router.push(`/projects/${projectId}`);
-    } catch (err) {
-      setError((err as Error).message);
-      setSelecting(false);
-      setPhase("topics");
-    }
+    selectTopic.mutate(topic, {
+      onSuccess: (data) => {
+        onDone?.();
+        router.push(`/projects/${data.projectId}`);
+      },
+      onError: (err) => {
+        setError(err.message);
+        setPhase("topics");
+      },
+    });
   };
 
-  // ── IDLE ──
   if (phase === "idle") {
     return (
       <div className="text-center">
@@ -188,12 +160,10 @@ export function TopicDiscovery({ onDone }: { onDone?: () => void }) {
     );
   }
 
-  // ── SCANNING ──
   if (phase === "scanning") {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm">
         <div className="mb-8 flex flex-col items-center gap-6">
-          {/* Animated pulse rings */}
           <div className="relative flex h-24 w-24 items-center justify-center">
             <div className="absolute h-24 w-24 animate-ping rounded-full bg-indigo-200 opacity-60" />
             <div className="absolute h-16 w-16 animate-ping rounded-full bg-indigo-300 opacity-60 [animation-delay:0.3s]" />
@@ -219,7 +189,6 @@ export function TopicDiscovery({ onDone }: { onDone?: () => void }) {
     );
   }
 
-  // ── CREATING PROJECT ──
   if (phase === "creating") {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm">
@@ -229,10 +198,8 @@ export function TopicDiscovery({ onDone }: { onDone?: () => void }) {
     );
   }
 
-  // ── TOPICS ──
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-50">
-      {/* Header */}
       <div className="sticky top-0 z-10 border-b bg-white/95 px-6 py-4 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div>
@@ -260,7 +227,6 @@ export function TopicDiscovery({ onDone }: { onDone?: () => void }) {
         </div>
       </div>
 
-      {/* Topic grid */}
       <div className="mx-auto max-w-6xl px-6 py-8">
         {error && (
           <div className="mb-6 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
@@ -272,8 +238,8 @@ export function TopicDiscovery({ onDone }: { onDone?: () => void }) {
             <TopicCard
               key={i}
               topic={topic}
-              onSelect={selectTopic}
-              selecting={selecting}
+              onSelect={handleSelectTopic}
+              selecting={selectTopic.isPending}
             />
           ))}
         </div>

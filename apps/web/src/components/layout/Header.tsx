@@ -6,7 +6,11 @@ import { CurrencyDollar } from "@phosphor-icons/react";
 import { formatCost } from "@/lib/utils";
 import type { HeaderProps } from "@/types/components";
 
-export function Header({ totalSpend = 0, showSpend = true, userInitials = "PT" }: HeaderProps) {
+export function Header({
+  totalSpend = 0,
+  showSpend = true,
+  userInitials = "PT",
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full px-6 py-3.5 bg-brand-off-white border-b border-brand-border-light flex items-center justify-between">
       <Link href="/" aria-label="Project Atlas home" className="block">

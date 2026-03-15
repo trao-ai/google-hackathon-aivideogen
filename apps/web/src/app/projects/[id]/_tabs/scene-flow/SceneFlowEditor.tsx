@@ -9,7 +9,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { api, type Scene } from "@/lib/api";
+import type { Scene } from "@/lib/api";
+import { useRegenerateFrame, useGenerateVideo, useGenerateSceneFrames } from "@/hooks/use-scenes";
 import { ImageFrameNode } from "./nodes/ImageFrameNode";
 import { AnimationNode } from "./nodes/AnimationNode";
 import { FrameEditPanel } from "./panels/FrameEditPanel";
@@ -26,14 +27,15 @@ const nodeTypes: Record<string, any> = {
 interface Props {
   projectId: string;
   scenes: Scene[];
-  onRefresh: () => Promise<void>;
   videoProvider?: string;
 }
 
-export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = "kling" }: Props) {
+export function SceneFlowEditor({ projectId, scenes, videoProvider = "kling" }: Props) {
   const { nodes, edges } = useSceneFlowLayout(scenes, projectId, videoProvider);
+  const regenerateFrame = useRegenerateFrame(projectId);
+  const generateVideo = useGenerateVideo(projectId);
+  const generateSceneFrames = useGenerateSceneFrames(projectId);
 
-  // Panel state
   const [editingFrame, setEditingFrame] = useState<{
     sceneId: string;
     frameId: string;
@@ -41,8 +43,6 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = 
     imageUrl?: string;
   } | null>(null);
   const [editingAnimation, setEditingAnimation] = useState<string | null>(null);
-
-  // Track regenerating items
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(
     new Set(),
   );
@@ -63,17 +63,13 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = 
     async (sceneId: string, frameId: string) => {
       addRegenerating(frameId);
       try {
-        await api.frames.regenerateOne(projectId, sceneId, frameId);
-        // Wait a moment then refresh to pick up changes
-        setTimeout(async () => {
-          await onRefresh();
-          removeRegenerating(frameId);
-        }, 3000);
+        await regenerateFrame.mutateAsync({ sceneId, frameId });
+        setTimeout(() => removeRegenerating(frameId), 3000);
       } catch {
         removeRegenerating(frameId);
       }
     },
-    [projectId, onRefresh, addRegenerating, removeRegenerating],
+    [regenerateFrame, addRegenerating, removeRegenerating],
   );
 
   const onEditFrame = useCallback(
@@ -98,32 +94,26 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = 
     async (sceneId: string) => {
       addRegenerating(`video-${sceneId}`);
       try {
-        await api.scenes.generateVideo(projectId, sceneId);
-        setTimeout(async () => {
-          await onRefresh();
-          removeRegenerating(`video-${sceneId}`);
-        }, 5000);
+        await generateVideo.mutateAsync(sceneId);
+        setTimeout(() => removeRegenerating(`video-${sceneId}`), 5000);
       } catch {
         removeRegenerating(`video-${sceneId}`);
       }
     },
-    [projectId, onRefresh, addRegenerating, removeRegenerating],
+    [generateVideo, addRegenerating, removeRegenerating],
   );
 
   const onGenerateSceneFrames = useCallback(
     async (sceneId: string) => {
       addRegenerating(`frames-${sceneId}`);
       try {
-        await api.frames.generateForScene(projectId, sceneId);
-        setTimeout(async () => {
-          await onRefresh();
-          removeRegenerating(`frames-${sceneId}`);
-        }, 3000);
+        await generateSceneFrames.mutateAsync(sceneId);
+        setTimeout(() => removeRegenerating(`frames-${sceneId}`), 3000);
       } catch {
         removeRegenerating(`frames-${sceneId}`);
       }
     },
-    [projectId, onRefresh, addRegenerating, removeRegenerating],
+    [generateSceneFrames, addRegenerating, removeRegenerating],
   );
 
   const contextValue = useMemo(
@@ -179,7 +169,6 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = 
         </ReactFlow>
       </div>
 
-      {/* Frame edit panel */}
       {editingFrame && (
         <FrameEditPanel
           projectId={projectId}
@@ -188,17 +177,14 @@ export function SceneFlowEditor({ projectId, scenes, onRefresh, videoProvider = 
           currentPrompt={editingFrame.prompt}
           imageUrl={editingFrame.imageUrl}
           onClose={() => setEditingFrame(null)}
-          onRefresh={onRefresh}
         />
       )}
 
-      {/* Animation edit panel */}
       {editingScene && (
         <AnimationEditPanel
           projectId={projectId}
           scene={editingScene}
           onClose={() => setEditingAnimation(null)}
-          onRefresh={onRefresh}
         />
       )}
     </SceneFlowContext.Provider>

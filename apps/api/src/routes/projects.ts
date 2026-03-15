@@ -5,10 +5,20 @@ import { ApiError } from "../middleware/error-handler";
 
 export const projectRouter = Router();
 
+const VIDEO_TYPE_RUNTIME: Record<string, number> = {
+  short: 60,
+  medium: 240,
+  long: 600,
+};
+
 const createSchema = z.object({
   title: z.string().min(1).max(200),
   niche: z.string().min(1).max(200),
-  targetRuntimeSec: z.number().int().min(300).max(3600).optional(),
+  targetRuntimeSec: z.number().int().min(30).max(3600).optional(),
+  platform: z.enum(["youtube", "instagram", "tiktok", "linkedin"]).optional(),
+  videoType: z.enum(["short", "medium", "long"]).optional(),
+  videoStyle: z.string().max(100).optional(),
+  toneKeywords: z.array(z.string().max(50)).optional(),
 });
 
 const updateSchema = z.object({
@@ -22,6 +32,10 @@ const updateSchema = z.object({
     "replicate-veo", "replicate-kling",
     "replicate-seedance", "replicate-seedance-lite",
   ]).optional(),
+  platform: z.enum(["youtube", "instagram", "tiktok", "linkedin"]).optional(),
+  videoType: z.enum(["short", "medium", "long"]).optional(),
+  videoStyle: z.string().max(100).optional(),
+  toneKeywords: z.array(z.string().max(50)).optional(),
 });
 
 // GET /projects
@@ -52,11 +66,18 @@ projectRouter.post("/", async (req, res, next) => {
       select: { id: true },
     });
 
+    const targetRuntime = body.targetRuntimeSec
+      ?? (body.videoType ? VIDEO_TYPE_RUNTIME[body.videoType] : 60);
+
     const project = await prisma.project.create({
       data: {
         title: body.title,
         niche: body.niche,
-        targetRuntimeSec: body.targetRuntimeSec ?? 60,
+        targetRuntimeSec: targetRuntime,
+        platform: body.platform,
+        videoType: body.videoType,
+        videoStyle: body.videoStyle,
+        toneKeywords: body.toneKeywords ?? [],
         ...(defaultBible ? { styleBibleId: defaultBible.id } : {}),
       },
     });

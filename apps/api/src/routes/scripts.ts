@@ -150,8 +150,17 @@ scriptRouter.post("/:id/generate-scripts", async (req, res, next) => {
     });
     if (!brief) throw new ApiError(400, "No research brief found. Run research first.");
 
-    // Duration preset: "short" (~1 min) or "long" (4-5 min)
-    const duration: "short" | "long" = req.body.duration === "short" ? "short" : "long";
+    // Duration preset: derive from request body or project's videoType
+    const explicitDuration = req.body.duration as string | undefined;
+    const projectVideoType = project.videoType as string | undefined;
+    let duration: "short" | "long";
+    if (explicitDuration) {
+      duration = explicitDuration === "short" ? "short" : "long";
+    } else if (projectVideoType === "short") {
+      duration = "short";
+    } else {
+      duration = "long";
+    }
     const sectionStructure = duration === "short" ? SECTION_STRUCTURE_SHORT : SECTION_STRUCTURE_LONG;
     const systemPrompt = SCRIPT_WRITER_PROMPT.replace("{{SECTION_STRUCTURE}}", sectionStructure);
 
@@ -187,6 +196,9 @@ scriptRouter.post("/:id/generate-scripts", async (req, res, next) => {
 DURATION: ${durationLabel} (${targetWords} words)
 TOPIC: "${topic?.title}"
 CATEGORY: ${project.niche}
+${project.videoStyle ? `VIDEO STYLE: ${project.videoStyle}` : ""}
+${(project.toneKeywords as string[])?.length ? `TONE: ${(project.toneKeywords as string[]).join(", ")}` : ""}
+${project.platform ? `TARGET PLATFORM: ${project.platform}` : ""}
 
 ═══ RESEARCH MATERIAL ═══
 ${researchContext}
@@ -331,5 +343,76 @@ scriptRouter.delete("/:projectId/scripts/:scriptId", async (req, res, next) => {
     }
 
     res.status(204).send();
+  } catch (err) { next(err); }
+});
+
+// ─── Rewrite a single script section ─────────────────────────────────────────
+
+scriptRouter.post("/:projectId/scripts/:scriptId/rewrite-section", async (req, res, next) => {
+  try {
+    const { projectId, scriptId } = req.params;
+    const { sectionId, instructions } = req.body as { sectionId: string; instructions: string };
+
+    if (!sectionId || !instructions) {
+      throw new ApiError(400, "sectionId and instructions are required");
+    }
+
+    const section = await prisma.scriptSection.findUnique({ where: { id: sectionId } });
+    if (!section) throw new ApiError(404, "Script section not found");
+
+    const script = await prisma.script.findUnique({ where: { id: scriptId } });
+    if (!script || script.projectId !== projectId) throw new ApiError(404, "Script not found");
+
+    console.log(`[script] Rewriting section ${sectionId}: "${instructions}"`);
+
+    const llmResponse = await runAgent({
+      agentName: "script-rewriter",
+      instruction: `You are a script editor for high-energy edutainment voiceover scripts.
+Rewrite the given script section based on the instructions.
+Keep the same section type, narrative voice, and prosody style (use "...", "—", CAPS for emphasis).
+Return ONLY the rewritten text. No JSON, no markdown, no explanation — just the script text.`,
+      userMessage: `Section type: ${section.sectionType}
+Original text:
+${section.text}
+
+Instructions: ${instructions}`,
+    });
+
+    await trackLLMCost({
+      projectId,
+      stage: "script",
+      vendor: "gemini",
+      model: llmResponse.model,
+      inputTokens: llmResponse.inputTokens,
+      outputTokens: llmResponse.outputTokens,
+      totalCostUsd: llmResponse.costUsd,
+      metadata: { rewriteSectionId: sectionId, instructions },
+    });
+
+    const newText = llmResponse.content.trim();
+    const newWordCount = newText.split(/\s+/).length;
+    const newDurationSec = Math.round((newWordCount / 150) * 60);
+
+    const updated = await prisma.scriptSection.update({
+      where: { id: sectionId },
+      data: { text: newText, estimatedDurationSec: newDurationSec },
+    });
+
+    // Update the script's fullText and duration
+    const allSections = await prisma.scriptSection.findMany({
+      where: { scriptId },
+      orderBy: { orderIndex: "asc" },
+    });
+    const fullText = allSections.map((s) => s.text).join("\n\n");
+    const totalWords = fullText.split(/\s+/).filter(Boolean).length;
+    const estimatedDurationSec = Math.round((totalWords / 150) * 60);
+
+    await prisma.script.update({
+      where: { id: scriptId },
+      data: { fullText, estimatedDurationSec },
+    });
+
+    console.log(`[script] Section ${sectionId} rewritten — ${newWordCount} words`);
+    res.json(updated);
   } catch (err) { next(err); }
 });

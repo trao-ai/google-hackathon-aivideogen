@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, type CostSummary } from "@/lib/api";
+import { useCosts } from "@/hooks/use-costs";
 import { formatCost } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -10,20 +9,10 @@ interface Props {
 }
 
 export function CostsTab({ projectId }: Props) {
-  const [summary, setSummary] = useState<CostSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data: summary, isLoading, error } = useCosts(projectId);
 
-  useEffect(() => {
-    api.costs
-      .get(projectId)
-      .then(setSummary)
-      .catch((err) => setError((err as Error).message))
-      .finally(() => setLoading(false));
-  }, [projectId]);
-
-  if (loading) return <p className="text-sm text-gray-500">Loading costs…</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  if (isLoading) return <p className="text-sm text-gray-500">Loading costs…</p>;
+  if (error) return <p className="text-sm text-red-600">{(error as Error).message}</p>;
   if (!summary) return null;
 
   return (

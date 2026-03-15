@@ -246,11 +246,15 @@ export class VideoGenerationWorker {
       `[video-gen] Submitting to ${videoProviderName} provider (${clipDurationSec}s clip)...`,
     );
     const genStartTime = Date.now();
+    // Derive aspect ratio from platform
+    const platformAspectRatio = project?.platform && project.platform !== "youtube" ? "9:16" : "16:9";
+
     const result = await videoProvider.generate({
       prompt: videoPrompt,
       startFrameBase64: startBase64,
       endFrameBase64: endBase64,
       durationSec: clipDurationSec,
+      aspectRatio: platformAspectRatio,
     });
     const genElapsed = ((Date.now() - genStartTime) / 1000).toFixed(1);
     console.log(

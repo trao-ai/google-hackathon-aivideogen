@@ -52,11 +52,19 @@ BAD:  Scene 1 endPrompt: "The character stands in a field waving goodbye."
       Scene 2 startPrompt: "A close-up of a neuron firing in the brain."
       (No visual connection. Jarring spatial jump. No bridge element.)`;
 
+export type ScenePlannerOptions = {
+  platform?: string | null;
+  videoStyle?: string | null;
+  toneKeywords?: string[];
+  aspectRatio?: string;
+};
+
 export function buildScenePlannerPrompt(
   scriptSections: string,
   voiceoverTimestamps: string,
   styleBibleSummary: string,
   audioDurationSec?: number,
+  options?: ScenePlannerOptions,
 ): string {
   const minScenes = audioDurationSec ? Math.max(Math.round(audioDurationSec / 10), 2) : 2;
   const maxScenes = audioDurationSec ? Math.max(Math.round(audioDurationSec / 6), 3) : 10;
@@ -64,9 +72,32 @@ export function buildScenePlannerPrompt(
     ? `\nTotal audio duration: ${audioDurationSec.toFixed(1)} seconds. You MUST create ${minScenes}-${maxScenes} scenes covering the ENTIRE duration from 0.0s to ${audioDurationSec.toFixed(1)}s. Each scene should be 5-14 seconds. Do NOT create fewer than ${minScenes} scenes. The FIRST scene's narrationStartSec MUST be 0. The LAST scene's narrationEndSec MUST equal ${audioDurationSec.toFixed(1)}. Scenes must cover every second of the audio with no gaps between scenes.\n`
     : "";
 
+  const aspectRatio = options?.aspectRatio ?? "16:9";
+  const isVertical = aspectRatio === "9:16";
+
+  const platformContext: string[] = [];
+  if (options?.platform) {
+    platformContext.push(`Target platform: ${options.platform}`);
+  }
+  if (isVertical) {
+    platformContext.push(`Frame aspect ratio: 9:16 (VERTICAL). All scene compositions must be designed for VERTICAL framing — stack elements vertically, use tall compositions, keep subjects centered, avoid wide horizontal layouts.`);
+  } else {
+    platformContext.push(`Frame aspect ratio: 16:9 (landscape).`);
+  }
+  if (options?.videoStyle) {
+    platformContext.push(`Video style: ${options.videoStyle}`);
+  }
+  if (options?.toneKeywords?.length) {
+    platformContext.push(`Tone: ${options.toneKeywords.join(", ")}`);
+  }
+
+  const platformSection = platformContext.length > 0
+    ? `\n${platformContext.join("\n")}\n`
+    : "";
+
   return `Style bible summary:
 ${styleBibleSummary}
-${expectedScenes}
+${expectedScenes}${platformSection}
 Voiceover transcript with timestamps:
 ${voiceoverTimestamps}
 

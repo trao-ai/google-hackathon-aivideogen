@@ -20,6 +20,10 @@ model Project {
   targetRuntimeSec Int           @default(750)
   totalCostUsd     Float         @default(0)
   videoProvider    String        @default("kling")
+  platform         String?       // "youtube" | "instagram" | "tiktok" | "linkedin"
+  videoType        String?       // "short" | "medium" | "long"
+  videoStyle       String?       // "Educational" | "Storytelling" | etc.
+  toneKeywords     String[]      @default([])
   styleBibleId     String?
   selectedTopicId  String?
   selectedScriptId String?

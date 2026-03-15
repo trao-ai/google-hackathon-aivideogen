@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { api, type Scene } from "@/lib/api";
+import type { Scene } from "@/lib/api";
+import { useUpdateMotion, useGenerateVideo } from "@/hooks/use-scenes";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,52 +14,41 @@ interface Props {
   projectId: string;
   scene: Scene;
   onClose: () => void;
-  onRefresh: () => Promise<void>;
 }
 
 export function AnimationEditPanel({
   projectId,
   scene,
   onClose,
-  onRefresh,
 }: Props) {
   const [motionNotes, setMotionNotes] = useState(
     scene.motionNotes ?? scene.animationNotes ?? "",
   );
   const { videoProvider } = useSceneFlow();
-  const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const updateMotion = useUpdateMotion(projectId);
+  const generateVideo = useGenerateVideo(projectId);
 
-  const handleSave = async () => {
+  const saving = updateMotion.isPending;
+  const generating = generateVideo.isPending;
+
+  const handleSave = () => {
     setError("");
-    setSaving(true);
-    try {
-      await api.scenes.updateMotion(projectId, scene.id, { motionNotes });
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
+    updateMotion.mutate(
+      { sceneId: scene.id, motionNotes },
+      { onError: (err) => setError(err.message) },
+    );
   };
 
   const handleGenerate = async () => {
     setError("");
-    // Save motion notes first if changed
     if (motionNotes !== (scene.motionNotes ?? scene.animationNotes ?? "")) {
-      await handleSave();
+      await updateMotion.mutateAsync({ sceneId: scene.id, motionNotes });
     }
-    setGenerating(true);
-    try {
-      await api.scenes.generateVideo(projectId, scene.id);
-      await onRefresh();
-      onClose();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setGenerating(false);
-    }
+    generateVideo.mutate(scene.id, {
+      onSuccess: () => onClose(),
+      onError: (err) => setError(err.message),
+    });
   };
 
   const isSeDance = videoProvider === "seedance";
@@ -82,7 +72,6 @@ export function AnimationEditPanel({
           </button>
         </div>
 
-        {/* Current video preview */}
         {scene.clip && (
           <div className="relative aspect-video w-full rounded overflow-hidden bg-black mb-4">
             <video
@@ -94,7 +83,6 @@ export function AnimationEditPanel({
           </div>
         )}
 
-        {/* Motion notes editor */}
         <div className="space-y-2 mb-4">
           <Label htmlFor="motion-notes">
             Motion Description (what should happen in the animation)

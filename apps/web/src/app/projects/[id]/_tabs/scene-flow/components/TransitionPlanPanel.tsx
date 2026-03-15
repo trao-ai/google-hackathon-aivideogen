@@ -1,37 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { api, type Scene } from "@/lib/api";
+import type { Scene } from "@/lib/api";
+import { usePlanTransitions } from "@/hooks/use-scenes";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowRight } from "lucide-react";
 
 interface Props {
   projectId: string;
   scenes: Scene[];
-  onRefresh: () => Promise<void>;
 }
 
-export function TransitionPlanPanel({ projectId, scenes, onRefresh }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+export function TransitionPlanPanel({ projectId, scenes }: Props) {
+  const planTransitions = usePlanTransitions(projectId);
 
-  const handlePlanTransitions = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      await api.scenes.planTransitions(projectId);
-      // Poll for completion
-      setTimeout(async () => {
-        await onRefresh();
-        setLoading(false);
-      }, 5000);
-    } catch (err) {
-      setError((err as Error).message);
-      setLoading(false);
-    }
+  const handlePlanTransitions = () => {
+    planTransitions.mutate();
   };
 
-  // Build scene pairs (scene[i] -> scene[i+1])
   const pairs = scenes.slice(0, -1).map((scene, i) => ({
     from: scene,
     to: scenes[i + 1],
@@ -50,9 +35,9 @@ export function TransitionPlanPanel({ projectId, scenes, onRefresh }: Props) {
           variant="outline"
           size="sm"
           onClick={handlePlanTransitions}
-          disabled={loading}
+          disabled={planTransitions.isPending}
         >
-          {loading ? (
+          {planTransitions.isPending ? (
             <>
               <Loader2 className="w-3 h-3 animate-spin mr-1" />
               Planning...
@@ -65,7 +50,9 @@ export function TransitionPlanPanel({ projectId, scenes, onRefresh }: Props) {
         </Button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {planTransitions.error && (
+        <p className="text-sm text-red-600">{planTransitions.error.message}</p>
+      )}
 
       <div className="space-y-2">
         {pairs.map(({ from, to, plan }) => (

@@ -111,7 +111,6 @@ export type TopicCardProps = {
 };
 
 export type CreateProjectFormData = {
-  title: string;
   category: ContentCategory | null;
   platform: TargetPlatform | null;
   videoType: VideoType | null;

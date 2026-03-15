@@ -107,12 +107,19 @@ Distinguish ESTABLISHED consensus from EMERGING or CONTESTED findings.
 Return ONLY valid JSON. No markdown. No preamble.`,
       userMessage: `Topic: "${topic.title}"
 Hook: "${topic.summary}"
+Category: ${project.niche}
+${project.platform ? `Target Platform: ${project.platform}` : ""}
+${project.videoType ? `Video Type: ${project.videoType === "short" ? "short-form (30-60s)" : project.videoType === "medium" ? "medium-form (3-5 min)" : "long-form (8-12 min)"}` : ""}
+${project.videoStyle ? `Video Style: ${project.videoStyle}` : ""}
+${(project.toneKeywords as string[])?.length ? `Tone: ${(project.toneKeywords as string[]).join(", ")}` : ""}
 
 ${allSources.length} sources collected from Wikipedia, OpenAlex, Semantic Scholar, CrossRef:
 
 ${sourceText}
 
-Synthesize into a research brief for a 10-15 minute educational video.
+Synthesize into a research brief for ${project.videoType === "short" ? "a 30-60 second" : project.videoType === "medium" ? "a 3-5 minute" : "a 10-15 minute"} ${project.videoStyle ? project.videoStyle.toLowerCase() : "educational"} video${project.platform ? ` targeting ${project.platform}` : ""}.
+${project.videoType === "short" ? "Focus on the single most compelling angle — one killer fact and one emotional hook. Keep it tight." : ""}
+${project.toneKeywords?.length ? `The tone should be ${(project.toneKeywords as string[]).join(", ").toLowerCase()}.` : ""}
 
 Return this JSON:
 {

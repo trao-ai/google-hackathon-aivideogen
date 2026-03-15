@@ -14,7 +14,7 @@ export interface ImageGenerationResult {
 }
 
 export interface ImageProvider {
-  generate(prompt: string, referenceImage?: Buffer, seed?: string): Promise<ImageGenerationResult>;
+  generate(prompt: string, referenceImage?: Buffer, seed?: string, aspectRatio?: string): Promise<ImageGenerationResult>;
 }
 
 // ─── Nano Banana Pro (Gemini 3 Pro Image) provider ──────────────────────────
@@ -40,7 +40,7 @@ class NanoBananaProProvider implements ImageProvider {
     if (!this.apiKey) throw new Error("GEMINI_API_KEY is not set");
   }
 
-  async generate(prompt: string, referenceImage?: Buffer, seed?: string): Promise<ImageGenerationResult> {
+  async generate(prompt: string, referenceImage?: Buffer, seed?: string, aspectRatio?: string): Promise<ImageGenerationResult> {
     // Generate a deterministic seed if not provided (for versioning)
     const generationSeed = seed || this.generateSeed(prompt);
 
@@ -76,7 +76,7 @@ class NanoBananaProProvider implements ImageProvider {
             generationConfig: {
               responseModalities: ["IMAGE"],
               imageConfig: {
-                aspectRatio: "16:9",
+                aspectRatio: aspectRatio ?? "16:9",
                 imageSize: "1K",
               },
             },

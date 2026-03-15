@@ -248,7 +248,7 @@ Make these genuinely excellent. These will become real videos watched by million
 
 discoverRouter.post("/select", async (req, res, next) => {
   try {
-    const { title, hook, category, viralityScore, educationalScore, visualScore, thumbnailAngle, discoverCostUsd, discoverInputTokens, discoverOutputTokens } =
+    const { title, hook, category, viralityScore, educationalScore, visualScore, thumbnailAngle, discoverCostUsd, discoverInputTokens, discoverOutputTokens, platform, videoType, videoStyle, toneKeywords } =
       req.body as {
         title: string;
         hook: string;
@@ -260,6 +260,10 @@ discoverRouter.post("/select", async (req, res, next) => {
         discoverCostUsd?: number;
         discoverInputTokens?: number;
         discoverOutputTokens?: number;
+        platform?: string;
+        videoType?: string;
+        videoStyle?: string;
+        toneKeywords?: string[];
       };
 
     if (!title || !category) {
@@ -267,12 +271,17 @@ discoverRouter.post("/select", async (req, res, next) => {
     }
 
     const project = await prisma.$transaction(async (tx) => {
+      const VIDEO_TYPE_RUNTIME: Record<string, number> = { short: 60, medium: 240, long: 600 };
       const proj = await tx.project.create({
         data: {
           title,
           niche: category,
-          targetRuntimeSec: 60,
+          targetRuntimeSec: videoType ? VIDEO_TYPE_RUNTIME[videoType] ?? 60 : 60,
           status: "topic_selected",
+          platform: platform ?? null,
+          videoType: videoType ?? null,
+          videoStyle: videoStyle ?? null,
+          toneKeywords: toneKeywords ?? [],
         },
       });
 

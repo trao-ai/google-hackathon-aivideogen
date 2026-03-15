@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { api } from "@/lib/api";
+import { useRegenerateFrame } from "@/hooks/use-scenes";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +16,6 @@ interface Props {
   currentPrompt: string;
   imageUrl?: string;
   onClose: () => void;
-  onRefresh: () => Promise<void>;
 }
 
 export function FrameEditPanel({
@@ -26,29 +25,24 @@ export function FrameEditPanel({
   currentPrompt,
   imageUrl,
   onClose,
-  onRefresh,
 }: Props) {
   const [prompt, setPrompt] = useState(currentPrompt);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const regenerateFrame = useRegenerateFrame(projectId);
 
-  const handleRegenerate = async (useNewPrompt: boolean) => {
+  const handleRegenerate = (useNewPrompt: boolean) => {
     setError("");
-    setLoading(true);
-    try {
-      await api.frames.regenerateOne(
-        projectId,
+    regenerateFrame.mutate(
+      {
         sceneId,
         frameId,
-        useNewPrompt ? prompt : undefined,
-      );
-      await onRefresh();
-      onClose();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+        prompt: useNewPrompt ? prompt : undefined,
+      },
+      {
+        onSuccess: () => onClose(),
+        onError: (err) => setError(err.message),
+      },
+    );
   };
 
   return (
@@ -64,7 +58,6 @@ export function FrameEditPanel({
           </button>
         </div>
 
-        {/* Current image preview */}
         {imageUrl && (
           <div className="relative aspect-video w-full rounded overflow-hidden bg-gray-100 mb-4">
             <Image
@@ -77,7 +70,6 @@ export function FrameEditPanel({
           </div>
         )}
 
-        {/* Prompt editor */}
         <div className="space-y-2 mb-4">
           <Label htmlFor="frame-prompt">Image Prompt</Label>
           <Textarea
@@ -92,24 +84,24 @@ export function FrameEditPanel({
         {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="outline" onClick={onClose} disabled={regenerateFrame.isPending}>
             Cancel
           </Button>
           <Button
             variant="outline"
             onClick={() => handleRegenerate(false)}
-            disabled={loading}
+            disabled={regenerateFrame.isPending}
           >
-            {loading ? (
+            {regenerateFrame.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin mr-1" />
             ) : null}
             Regen (Keep Prompt)
           </Button>
           <Button
             onClick={() => handleRegenerate(true)}
-            disabled={loading || prompt === currentPrompt}
+            disabled={regenerateFrame.isPending || prompt === currentPrompt}
           >
-            {loading ? (
+            {regenerateFrame.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin mr-1" />
             ) : null}
             Regen with New Prompt

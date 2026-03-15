@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { api, type ProjectDetail, type Render } from "@/lib/api";
+import { useState } from "react";
+import type { ProjectDetail } from "@/lib/api";
+import { useRenders, useStartRender } from "@/hooks/use-renders";
 import { Button } from "@/components/ui/button";
 import { formatDuration, formatCost } from "@/lib/utils";
 
 interface Props {
   project: ProjectDetail;
-  onRefresh: () => Promise<void>;
 }
 
-export function RenderTab({ project, onRefresh }: Props) {
-  const [loading, setLoading] = useState(false);
+export function RenderTab({ project }: Props) {
   const [error, setError] = useState("");
-  const [renders, setRenders] = useState<Render[]>([]);
+  const { data: renders = [] } = useRenders(project.id);
+  const startRender = useStartRender(project.id);
 
   const isComposing = project.status === "composition";
   const scenes = project.scenes ?? [];
@@ -21,31 +21,11 @@ export function RenderTab({ project, onRefresh }: Props) {
   const hasAnyClips = clipCount > 0;
   const hasVoiceover = (project.voiceovers ?? []).length > 0;
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await api.renders.list(project.id);
-        setRenders(data);
-      } catch {
-        // silently fail on poll
-      }
-    };
-    void load();
-    const interval = setInterval(() => void load(), 5_000);
-    return () => clearInterval(interval);
-  }, [project.id]);
-
-  const handleRender = async () => {
+  const handleRender = () => {
     setError("");
-    setLoading(true);
-    try {
-      await api.renders.start(project.id);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    startRender.mutate(undefined, {
+      onError: (err) => setError(err.message),
+    });
   };
 
   const canRender = hasAnyClips && hasVoiceover && !isComposing;
@@ -56,7 +36,7 @@ export function RenderTab({ project, onRefresh }: Props) {
         <h2 className="text-lg font-semibold">Final Video</h2>
         <Button
           onClick={handleRender}
-          disabled={loading || !canRender}
+          disabled={startRender.isPending || !canRender}
           title={
             !hasAnyClips
               ? "Generate at least one scene video first"
@@ -67,7 +47,7 @@ export function RenderTab({ project, onRefresh }: Props) {
         >
           {isComposing
             ? "Rendering..."
-            : loading
+            : startRender.isPending
               ? "Working..."
               : "Render Video"}
         </Button>

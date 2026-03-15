@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   MonitorPlayIcon,
   GitBranchIcon,
@@ -10,7 +10,6 @@ import {
   CaretDownIcon,
   SparkleIcon,
 } from "@phosphor-icons/react";
-import { api, type Project } from "@/lib/api";
 import { formatCost } from "@/lib/utils";
 import {
   getProjectStep,
@@ -20,35 +19,15 @@ import {
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { useProjects } from "@/hooks/use-projects";
 import { EmptyStateHero } from "@/components/dashboard/EmptyStateHero";
 
 export default function DashboardPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading } = useProjects();
   const [search, setSearch] = useState("");
-  const [hasProjects, setHasProjects] = useState(false);
   const [category, setCategory] = useState("All Categories");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const categoryRef = useRef<HTMLDivElement>(null);
-
-  const loadProjects = useCallback(async () => {
-    try {
-      const data = await api.projects.list();
-      setProjects(data);
-      setHasProjects(data.length > 0);
-    } catch {
-      setProjects([]);
-      setHasProjects(false);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadProjects();
-    const interval = setInterval(() => void loadProjects(), 10_000);
-    return () => clearInterval(interval);
-  }, [loadProjects]);
 
   useEffect(() => {
     if (!categoryOpen) return;
@@ -89,7 +68,7 @@ export default function DashboardPage() {
   });
 
   /* ── Empty state: no projects at all ── */
-  if (!loading && !hasProjects) {
+  if (!isLoading && projects.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <Header showSpend={false} />
@@ -105,7 +84,6 @@ export default function DashboardPage() {
       <Header showSpend={false} />
 
       <main className="mx-auto max-w-full px-6 py-8 flex flex-col gap-5">
-        {/* Welcome + Create */}
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-2">
             <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
@@ -122,7 +100,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Stats Row */}
         <div className="flex">
           <StatCard
             label="Total Projects"
@@ -162,7 +139,6 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Recent Projects Header */}
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-semibold text-foreground">
             Recent Projects
@@ -173,7 +149,6 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Search + Filter */}
         <div className="flex items-center gap-3">
           <div className="flex-1 px-4 py-2.5 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2">
             <MagnifyingGlassIcon size={20} className="text-foreground" />
@@ -216,13 +191,19 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Project Grid */}
-        {loading && (
+        {isLoading && (
           <p className="text-muted-foreground py-16 text-center">
             Loading projects...
           </p>
         )}
-        {!loading && filteredProjects.length === 0 && <EmptyStateHero />}
+        {!isLoading && filteredProjects.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-brand-beige py-16 text-center">
+            <p className="mb-2 text-foreground/70">No projects yet.</p>
+            <p className="text-sm text-foreground/50">
+              Click <strong>Create New Project</strong> to get started.
+            </p>
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProjects.map((project) => (
             <ProjectCard

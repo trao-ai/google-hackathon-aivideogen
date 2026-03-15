@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { api, type ProjectDetail, type Scene } from "@/lib/api";
+import type { ProjectDetail, Scene } from "@/lib/api";
+import { usePlanScenes, useGenerateFrames, useGenerateAllVideos } from "@/hooks/use-scenes";
+import { useProjectStore } from "@/stores/project-store";
 import { Button } from "@/components/ui/button";
 import { SceneFlowEditor } from "./scene-flow/SceneFlowEditor";
 import { VideoModelSelector } from "./scene-flow/components/VideoModelSelector";
@@ -9,15 +11,14 @@ import { TransitionPlanPanel } from "./scene-flow/components/TransitionPlanPanel
 
 interface Props {
   project: ProjectDetail;
-  onRefresh: () => Promise<void>;
 }
 
-export function ScenesTab({ project, onRefresh }: Props) {
-  const [loading, setLoading] = useState(false);
+export function ScenesTab({ project }: Props) {
   const [error, setError] = useState("");
-  const [videoProvider, setVideoProvider] = useState(
-    project.videoProvider ?? "kling",
-  );
+  const { videoProvider } = useProjectStore();
+  const planScenes = usePlanScenes(project.id);
+  const generateFrames = useGenerateFrames(project.id);
+  const generateAllVideos = useGenerateAllVideos(project.id);
 
   const scenes: Scene[] = project.scenes ?? [];
   const isPlanning = project.status === "planning_scenes";
@@ -25,7 +26,6 @@ export function ScenesTab({ project, onRefresh }: Props) {
   const hasFrames = scenes.some((s) => (s.frames ?? []).length > 0);
   const isGeneratingVideos = project.status === "video_generation";
 
-  // Progress tracking
   const totalScenes = scenes.length;
   const framesDone = scenes.filter((s) => s.frameStatus === "done").length;
   const framesGenerating = scenes.filter((s) => s.frameStatus === "generating").length;
@@ -35,43 +35,27 @@ export function ScenesTab({ project, onRefresh }: Props) {
   const isGeneratingFrames = project.status === "frame_generation" || framesGenerating > 0;
   const showVideoProgress = isGeneratingVideos || clipsGenerating > 0;
 
-  const handlePlanScenes = async () => {
+  const loading = planScenes.isPending || generateFrames.isPending || generateAllVideos.isPending;
+
+  const handlePlanScenes = () => {
     setError("");
-    setLoading(true);
-    try {
-      await api.scenes.plan(project.id);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    planScenes.mutate(undefined, {
+      onError: (err) => setError(err.message),
+    });
   };
 
-  const handleGenerateFrames = async () => {
+  const handleGenerateFrames = () => {
     setError("");
-    setLoading(true);
-    try {
-      await api.frames.generate(project.id);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    generateFrames.mutate(undefined, {
+      onError: (err) => setError(err.message),
+    });
   };
 
-  const handleGenerateAllVideos = async () => {
+  const handleGenerateAllVideos = () => {
     setError("");
-    setLoading(true);
-    try {
-      await api.scenes.generateAllVideos(project.id);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    generateAllVideos.mutate(undefined, {
+      onError: (err) => setError(err.message),
+    });
   };
 
   return (
@@ -83,8 +67,6 @@ export function ScenesTab({ project, onRefresh }: Props) {
         <div className="flex items-center gap-2">
           <VideoModelSelector
             projectId={project.id}
-            value={videoProvider}
-            onChange={setVideoProvider}
             disabled={loading || isGeneratingFrames || isGeneratingVideos}
           />
           <Button
@@ -172,7 +154,6 @@ export function ScenesTab({ project, onRefresh }: Props) {
         <SceneFlowEditor
           projectId={project.id}
           scenes={scenes}
-          onRefresh={onRefresh}
           videoProvider={videoProvider}
         />
       )}
@@ -181,7 +162,6 @@ export function ScenesTab({ project, onRefresh }: Props) {
         <TransitionPlanPanel
           projectId={project.id}
           scenes={scenes}
-          onRefresh={onRefresh}
         />
       )}
     </div>

@@ -73,6 +73,8 @@ export class ScenePlannerWorker {
       ? styleBibleToPromptSummary(project.styleBible as unknown as StyleBible)
       : "Kurzgesagt-style cinematic illustration, vibrant colorful backgrounds that match scene mood, glowing highlights, sophisticated simplified characters with expressive eyes and no mouth, atmospheric depth";
 
+    const platformAspectRatio = project.platform && project.platform !== "youtube" ? "9:16" : "16:9";
+
     const llmResponse = await runAgent({
       agentName: "scene-planner",
       instruction: SCENE_PLANNER_SYSTEM_PROMPT,
@@ -81,6 +83,12 @@ export class ScenePlannerWorker {
         JSON.stringify(segments, null, 2),
         styleSummary,
         voiceover.durationSec,
+        {
+          platform: project.platform,
+          videoStyle: project.videoStyle,
+          toneKeywords: project.toneKeywords ?? [],
+          aspectRatio: platformAspectRatio,
+        },
       ),
       model: "gemini-3.1-pro-preview",
     });

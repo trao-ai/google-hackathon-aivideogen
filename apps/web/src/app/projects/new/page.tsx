@@ -8,7 +8,7 @@ import {
   FilmStripIcon,
   DeviceMobileIcon,
 } from "@phosphor-icons/react";
-import { api } from "@/lib/api";
+import { useCreateProject } from "@/hooks/use-projects";
 import { Header } from "@/components/layout/Header";
 import type {
   ContentCategory,
@@ -156,9 +156,8 @@ function ChipSelect<T extends string>({
 
 export default function CreateProjectPage() {
   const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
+  const createProject = useCreateProject();
   const [form, setForm] = useState<CreateProjectFormData>({
-    title: "",
     category: null,
     platform: null,
     videoType: null,
@@ -171,24 +170,24 @@ export default function CreateProjectPage() {
     value: CreateProjectFormData[K],
   ) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSubmit = async () => {
-    if (!form.title.trim() || !form.category) return;
+  const handleSubmit = () => {
+    if (!form.category) return;
 
-    setSubmitting(true);
-    try {
-      const project = await api.projects.create({
-        title: form.title.trim(),
+    createProject.mutate(
+      {
+        title: `${form.category} Project`,
         niche: form.category,
+        platform: form.platform ?? undefined,
+        videoType: form.videoType ?? undefined,
+        videoStyle: form.videoStyle ?? undefined,
         toneKeywords: form.tone ? [form.tone] : undefined,
-      });
-      router.push(`/projects/${project.id}`);
-    } catch {
-      // API unavailable — navigate with mock project
-      const mockId = crypto.randomUUID();
-      router.push(
-        `/projects/${mockId}?title=${encodeURIComponent(form.title.trim())}&niche=${encodeURIComponent(form.category)}`,
-      );
-    }
+      },
+      {
+        onSuccess: (project) => {
+          router.push(`/projects/${project.id}`);
+        },
+      },
+    );
   };
 
   return (
@@ -197,7 +196,6 @@ export default function CreateProjectPage() {
 
       <main className="flex-1 overflow-y-auto px-4 pt-4 pb-0">
         <div className="bg-brand-off-white rounded-2xl border border-brand-border-light p-5 flex flex-col gap-6">
-          {/* Page Title */}
           <div className="flex flex-col gap-2">
             <h1 className="text-3xl font-medium text-foreground">
               Create New Project
@@ -208,21 +206,6 @@ export default function CreateProjectPage() {
             </p>
           </div>
 
-          {/* Project Name */}
-          <div className="flex flex-col gap-2">
-            <label className="text-base font-normal text-foreground">
-              Project Name
-            </label>
-            <input
-              type="text"
-              placeholder="e.g., AI in 2026 Explained"
-              value={form.title}
-              onChange={(e) => updateForm("title", e.target.value)}
-              className="px-4 py-3 bg-[#FAF9F580] rounded-xl border border-brand-border-light text-sm text-foreground placeholder:text-muted-foreground outline-none"
-            />
-          </div>
-
-          {/* Content Category */}
           <div className="flex flex-col gap-2">
             <label className="text-base font-normal text-foreground">
               Content Category
@@ -234,7 +217,6 @@ export default function CreateProjectPage() {
             />
           </div>
 
-          {/* Target Platform */}
           <div className="flex flex-col gap-2">
             <label className="text-base font-normal text-foreground">
               Target Platform
@@ -265,7 +247,6 @@ export default function CreateProjectPage() {
             </div>
           </div>
 
-          {/* Configure Your Video */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <h2 className="text-xl font-medium text-foreground capitalize">
@@ -276,7 +257,6 @@ export default function CreateProjectPage() {
               </p>
             </div>
 
-            {/* Video Type */}
             <div className="flex flex-col gap-2">
               <label className="text-base font-normal text-foreground">
                 Video Type
@@ -315,7 +295,6 @@ export default function CreateProjectPage() {
             </div>
           </div>
 
-          {/* Video Style */}
           <div className="flex flex-col gap-2">
             <label className="text-base font-normal text-foreground">
               Video Style
@@ -327,7 +306,6 @@ export default function CreateProjectPage() {
             />
           </div>
 
-          {/* Tone */}
           <div className="flex flex-col gap-2">
             <label className="text-base font-normal text-foreground">
               Tone
@@ -341,7 +319,6 @@ export default function CreateProjectPage() {
         </div>
       </main>
 
-      {/* Sticky Bottom Actions */}
       <div className="shrink-0 bg-brand-off-white border-t border-brand-border-light shadow-[0px_-4px_16px_rgba(225,218,205,0.2)] px-5 py-4 flex items-center justify-end gap-5">
         <button
           type="button"
@@ -353,10 +330,10 @@ export default function CreateProjectPage() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={submitting || !form.title.trim() || !form.category}
+          disabled={createProject.isPending || !form.category}
           className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
         >
-          {submitting ? "Creating..." : "Continue"}
+          {createProject.isPending ? "Creating..." : "Continue"}
         </button>
       </div>
     </div>

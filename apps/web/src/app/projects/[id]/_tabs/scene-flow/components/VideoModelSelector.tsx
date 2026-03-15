@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { api } from "@/lib/api";
+import { useUpdateProject } from "@/hooks/use-projects";
+import { useProjectStore } from "@/stores/project-store";
 import {
   Select,
   SelectContent,
@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/select";
 
 const VIDEO_MODELS = [
-  // Direct providers (Google API / fal.ai)
   {
     value: "veo",
     label: "Veo 3.1 (Direct)",
@@ -27,7 +26,6 @@ const VIDEO_MODELS = [
     label: "SeDance (fal.ai)",
     description: "1 frame \u00b7 5s clip \u00b7 $0.052/s",
   },
-  // Replicate providers
   {
     value: "replicate-veo",
     label: "Veo 3.1 (Replicate)",
@@ -52,30 +50,17 @@ const VIDEO_MODELS = [
 
 interface Props {
   projectId: string;
-  value: string;
-  onChange: (value: string) => void;
   disabled?: boolean;
 }
 
-export function VideoModelSelector({
-  projectId,
-  value,
-  onChange,
-  disabled,
-}: Props) {
-  const [saving, setSaving] = useState(false);
+export function VideoModelSelector({ projectId, disabled }: Props) {
+  const { videoProvider, setVideoProvider } = useProjectStore();
+  const updateProject = useUpdateProject(projectId);
 
-  const handleChange = async (newValue: string) => {
-    if (newValue === value) return;
-    setSaving(true);
-    try {
-      await api.projects.update(projectId, { videoProvider: newValue });
-      onChange(newValue);
-    } catch (err) {
-      console.error("Failed to update video provider:", err);
-    } finally {
-      setSaving(false);
-    }
+  const handleChange = (newValue: string) => {
+    if (newValue === videoProvider) return;
+    setVideoProvider(newValue);
+    updateProject.mutate({ videoProvider: newValue });
   };
 
   return (
@@ -84,9 +69,9 @@ export function VideoModelSelector({
         Video Model:
       </span>
       <Select
-        value={value}
+        value={videoProvider}
         onValueChange={handleChange}
-        disabled={disabled || saving}
+        disabled={disabled || updateProject.isPending}
       >
         <SelectTrigger className="w-[220px]">
           <SelectValue />

@@ -93,7 +93,7 @@ projectRouter.get("/:id", async (req, res, next) => {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
       include: {
-        topics: true,
+        topics: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
         researchBriefs: { orderBy: { createdAt: "desc" }, take: 1 },
         scripts: { include: { sections: { orderBy: { orderIndex: "asc" } } }, orderBy: { createdAt: "desc" } },
         voiceovers: { orderBy: { createdAt: "desc" } },

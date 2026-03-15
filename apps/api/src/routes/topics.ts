@@ -36,7 +36,7 @@ topicRouter.get("/:id/topics", async (req, res, next) => {
   try {
     const topics = await prisma.topic.findMany({
       where: { projectId: req.params.id },
-      orderBy: { opportunityScore: "desc" },
+      orderBy: [{ opportunityScore: "desc" }, { id: "asc" }],
     });
     res.json(topics);
   } catch (err) {
@@ -50,16 +50,18 @@ topicRouter.post(
   async (req, res, next) => {
     try {
       const { projectId, topicId } = req.params;
-      const [topic] = await prisma.$transaction([
-        prisma.topic.update({
-          where: { id: topicId },
-          data: { status: "approved" },
-        }),
-        prisma.project.update({
-          where: { id: projectId },
-          data: { selectedTopicId: topicId, status: "topic_selected" },
-        }),
-      ]);
+      const topic = await prisma.topic.update({
+        where: { id: topicId },
+        data: { status: "approved" },
+      });
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          selectedTopicId: topicId,
+          status: "topic_selected",
+          title: topic.title,
+        },
+      });
       res.json(topic);
     } catch (err) {
       next(err);

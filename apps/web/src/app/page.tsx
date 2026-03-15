@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   MonitorPlayIcon,
   GitBranchIcon,
@@ -20,58 +20,25 @@ import {
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
-
-const MOCK_PROJECTS: Project[] = [
-  {
-    id: "mock-1",
-    title: "AI Replacing Jobs in 2026",
-    niche: "Technology & Future",
-    status: "researching",
-    totalCostUsd: 0,
-    createdAt: "2026-03-11T00:00:00Z",
-    updatedAt: "2026-03-11T00:00:00Z",
-  },
-  {
-    id: "mock-2",
-    title: "AI Replacing Jobs in 2026",
-    niche: "Motivation & Lifestyle",
-    status: "complete",
-    totalCostUsd: 3.42,
-    createdAt: "2026-03-11T00:00:00Z",
-    updatedAt: "2026-03-11T00:00:00Z",
-  },
-  {
-    id: "mock-3",
-    title: "AI Replacing Jobs in 2026",
-    niche: "Motivation & Lifestyle",
-    status: "complete",
-    totalCostUsd: 3.42,
-    createdAt: "2026-03-11T00:00:00Z",
-    updatedAt: "2026-03-11T00:00:00Z",
-  },
-  {
-    id: "mock-4",
-    title: "AI Replacing Jobs in 2026",
-    niche: "Technology",
-    status: "complete",
-    totalCostUsd: 4.12,
-    createdAt: "2026-03-11T00:00:00Z",
-    updatedAt: "2026-03-11T00:00:00Z",
-  },
-];
+import { EmptyStateHero } from "@/components/dashboard/EmptyStateHero";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [hasProjects, setHasProjects] = useState(false);
+  const [category, setCategory] = useState("All Categories");
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const categoryRef = useRef<HTMLDivElement>(null);
 
   const loadProjects = useCallback(async () => {
     try {
       const data = await api.projects.list();
-      setProjects(data.length > 0 ? data : MOCK_PROJECTS);
+      setProjects(data);
+      setHasProjects(data.length > 0);
     } catch {
-      // API unavailable — use mock data for development
-      setProjects(MOCK_PROJECTS);
+      setProjects([]);
+      setHasProjects(false);
     } finally {
       setLoading(false);
     }
@@ -83,19 +50,59 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [loadProjects]);
 
+  useEffect(() => {
+    if (!categoryOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        categoryRef.current &&
+        !categoryRef.current.contains(e.target as Node)
+      ) {
+        setCategoryOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [categoryOpen]);
+
   const totalCost = projects.reduce((acc, p) => acc + (p.totalCostUsd ?? 0), 0);
   const inProgressCount = projects.filter(
     (p) =>
       !["draft", "complete"].includes(p.status) && !p.status.includes("failed"),
   ).length;
 
-  const filteredProjects = projects.filter((p) =>
-    p.title.toLowerCase().includes(search.toLowerCase()),
-  );
+  const CATEGORIES = [
+    "All Categories",
+    "Technology",
+    "Lifestyle",
+    "Business",
+    "Education",
+    "Entertainment",
+    "Health & Wellness",
+    "Finance",
+  ];
+
+  const filteredProjects = projects.filter((p) => {
+    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory =
+      category === "All Categories" || p.niche === category;
+    return matchesSearch && matchesCategory;
+  });
+
+  /* ── Empty state: no projects at all ── */
+  if (!loading && !hasProjects) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header showSpend={false} />
+        <main className="mx-auto max-w-full px-6 py-8">
+          <EmptyStateHero />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header totalSpend={totalCost} />
+      <Header showSpend={false} />
 
       <main className="mx-auto max-w-full px-6 py-8 flex flex-col gap-5">
         {/* Welcome + Create */}
@@ -178,10 +185,35 @@ export default function DashboardPage() {
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
           </div>
-          <button className="px-4 py-2.5 bg-brand-surface rounded-full border border-brand-border-light flex items-center justify-between gap-2 min-w-44">
-            <span className="text-sm text-foreground">All Categories</span>
-            <CaretDownIcon size={20} className="text-foreground" />
-          </button>
+          <div className="relative" ref={categoryRef}>
+            <button
+              onClick={() => setCategoryOpen((v) => !v)}
+              className="px-4 py-2.5 bg-brand-surface rounded-full border border-brand-border-light flex items-center justify-between gap-2 min-w-44"
+            >
+              <span className="text-sm text-foreground">{category}</span>
+              <CaretDownIcon size={20} className="text-foreground" />
+            </button>
+            {categoryOpen && (
+              <div className="absolute top-full right-0 mt-2 w-56 bg-[#FAF9F5] rounded-xl shadow-lg border border-brand-border-light p-2 z-30 flex flex-col gap-1">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setCategory(cat);
+                      setCategoryOpen(false);
+                    }}
+                    className={`w-full px-4 py-2.5 text-left text-sm transition-colors duration-200 rounded-lg ${
+                      category === cat
+                        ? "bg-[#F0EEE7] font-medium text-foreground"
+                        : "text-foreground hover:bg-[#F0EEE7]"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Project Grid */}
@@ -190,14 +222,7 @@ export default function DashboardPage() {
             Loading projects...
           </p>
         )}
-        {!loading && filteredProjects.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-brand-beige py-16 text-center">
-            <p className="mb-2 text-foreground/70">No projects yet.</p>
-            <p className="text-sm text-foreground/50">
-              Click <strong>Create New Project</strong> to get started.
-            </p>
-          </div>
-        )}
+        {!loading && filteredProjects.length === 0 && <EmptyStateHero />}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProjects.map((project) => (
             <ProjectCard

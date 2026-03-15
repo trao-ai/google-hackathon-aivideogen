@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowClockwiseIcon,
   LinkIcon,
@@ -58,7 +58,7 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
   },
   voice: {
     title: "Voice Generation",
-    subtitle: "Generate voiceover for your script.",
+    subtitle: "Select voice settings and generate AI narration",
   },
   scenes: {
     title: "Scene Generation",
@@ -77,10 +77,24 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { data: project, isLoading, refetch } = useProject(id);
+  const searchParams = useSearchParams();
+  const { data: apiProject, isLoading, refetch } = useProject(id);
   const { activeStep, setActiveStep, autoNavigated, setAutoNavigated } =
     useProjectStore();
   const [footerError, setFooterError] = useState("");
+
+  const project =
+    apiProject ??
+    ({
+      id,
+      title: searchParams.get("title") ?? "Untitled Project",
+      niche: searchParams.get("niche") ?? "Technology",
+      status: "draft",
+      totalCostUsd: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      topics: [],
+    } satisfies import("@/types/api").ProjectDetail);
 
   const discoverTopics = useDiscoverTopics(id);
   const startResearch = useStartResearch(id);
@@ -106,22 +120,13 @@ export default function ProjectPage() {
   const currentStepIndex = STEPS.findIndex((s) => s.id === activeStep);
   const tabInfo = TAB_TITLES[activeStep];
 
-  if (isLoading) {
+  if (isLoading && !apiProject) {
     return (
       <div className="min-h-screen bg-secondary">
         <Header />
         <p className="text-muted-foreground py-16 text-center">
           Loading project...
         </p>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="min-h-screen bg-secondary">
-        <Header />
-        <p className="text-brand-red py-16 text-center">Project not found</p>
       </div>
     );
   }
@@ -238,7 +243,12 @@ export default function ProjectPage() {
                     { onError: (err) => setFooterError(err.message) },
                   );
                 }}
-                disabled={discoverTopics.isPending || ["discovering_topics", "topic_discovery"].includes(project.status)}
+                disabled={
+                  discoverTopics.isPending ||
+                  ["discovering_topics", "topic_discovery"].includes(
+                    project.status,
+                  )
+                }
                 className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity disabled:opacity-50 shrink-0"
               >
                 <ArrowClockwiseIcon
@@ -246,7 +256,9 @@ export default function ProjectPage() {
                   weight="regular"
                   className={discoverTopics.isPending ? "animate-spin" : ""}
                 />
-                <span>{discoverTopics.isPending ? "Discovering..." : "Refresh"}</span>
+                <span>
+                  {discoverTopics.isPending ? "Discovering..." : "Refresh"}
+                </span>
               </button>
             </div>
           )}

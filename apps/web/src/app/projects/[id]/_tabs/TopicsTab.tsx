@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProjectDetail, Topic } from "@/lib/api";
 import { useDiscoverTopics, useApproveTopic } from "@/hooks/use-topics";
 import { TopicCard } from "@/components/project/TopicCard";
@@ -90,15 +90,20 @@ export function TopicsTab({ project }: Props) {
   const apiTopics: Topic[] = project.topics ?? [];
   const topics = apiTopics.length > 0 ? apiTopics : MOCK_TOPICS;
   const isDiscovering = ["discovering_topics", "topic_discovery"].includes(project.status);
-  const loading = discoverTopics.isPending || approveTopic.isPending;
+  const discovering = discoverTopics.isPending;
+  const loading = approveTopic.isPending;
+  const autoTriggered = useRef(false);
 
-  const handleDiscover = () => {
-    setError("");
-    discoverTopics.mutate(
-      { count: 10 },
-      { onError: (err) => setError(err.message) },
-    );
-  };
+  // Auto-discover topics on mount if none exist and not already discovering
+  useEffect(() => {
+    if (apiTopics.length === 0 && !isDiscovering && !autoTriggered.current) {
+      autoTriggered.current = true;
+      discoverTopics.mutate(
+        { count: 10 },
+        { onError: (err) => setError(err.message) },
+      );
+    }
+  }, [apiTopics.length, isDiscovering]);
 
   const handleSelect = (topicId: string) => {
     approveTopic.mutate(topicId, {
@@ -109,19 +114,30 @@ export function TopicsTab({ project }: Props) {
   if (apiTopics.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-brand-border-light py-16 text-center">
-        <p className="mb-3 text-foreground/70">No topics discovered yet.</p>
-        <button
-          type="button"
-          onClick={handleDiscover}
-          disabled={loading || isDiscovering}
-          className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
-        >
-          {isDiscovering
-            ? "Discovering..."
-            : loading
-              ? "Working..."
-              : "Discover Topics"}
-        </button>
+        {isDiscovering || discoverTopics.isPending ? (
+          <>
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-brand-border-light border-t-brand-black" />
+            <p className="text-foreground/70">Discovering viral topics...</p>
+          </>
+        ) : (
+          <>
+            <p className="mb-3 text-foreground/70">No topics discovered yet.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                discoverTopics.mutate(
+                  { count: 10 },
+                  { onError: (err) => setError(err.message) },
+                );
+              }}
+              disabled={discovering}
+              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              Discover Topics
+            </button>
+          </>
+        )}
         {error && <p className="mt-3 text-sm text-brand-red">{error}</p>}
       </div>
     );

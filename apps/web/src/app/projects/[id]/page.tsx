@@ -26,6 +26,7 @@ import { VideoModelSelector } from "./_tabs/scene-flow/components/VideoModelSele
 import { TopicsTab } from "./_tabs/TopicsTab";
 import { ResearchTab } from "./_tabs/ResearchTab";
 import { ScriptsTab } from "./_tabs/ScriptsTab";
+import { CharacterTab } from "./_tabs/CharacterTab";
 import { VoiceTab } from "./_tabs/VoiceTab";
 import { ScenesTab } from "./_tabs/ScenesTab";
 import { RenderTab } from "./_tabs/RenderTab";
@@ -35,9 +36,11 @@ import type { StepNavItem } from "@/types/components";
 const STEPS: StepNavItem[] = [
   { id: "topic", label: "Topic" },
   { id: "research", label: "Research" },
+  { id: "character", label: "Character" },
   { id: "script", label: "Script" },
   { id: "voice", label: "Voice" },
   { id: "scenes", label: "Scenes" },
+  { id: "captions", label: "Captions" },
   { id: "cost", label: "Cost" },
   { id: "export", label: "Export" },
 ];
@@ -52,6 +55,11 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
     title: "Research Stage",
     subtitle: "Review AI-generated research and add your insights.",
   },
+  character: {
+    title: "Character Creation",
+    subtitle:
+      "Create or generate an AI character to appear in your video scenes.",
+  },
   script: {
     title: "Script Generation",
     subtitle: "Review and edit your AI-generated script",
@@ -63,6 +71,10 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
   scenes: {
     title: "Scene Generation",
     subtitle: "Review and customize visual scenes for your video",
+  },
+  captions: {
+    title: "Captions",
+    subtitle: "Review and customize captions for your video.",
   },
   cost: {
     title: "Cost Breakdown",
@@ -373,6 +385,9 @@ export default function ProjectPage() {
 
           {activeStep === "topic" && <TopicsTab project={project} />}
           {activeStep === "research" && <ResearchTab project={project} />}
+          {activeStep === "character" && (
+            <CharacterTab project={project} onRefresh={async () => { await refetch(); }} />
+          )}
           {activeStep === "script" && <ScriptsTab project={project} />}
           {activeStep === "voice" && <VoiceTab project={project} />}
           {activeStep === "scenes" && <ScenesTab project={project} />}
@@ -410,8 +425,19 @@ export default function ProjectPage() {
             </button>
           )}
 
-          {/* Research → Script: Generate script */}
+          {/* Research → Character: Approve & Continue */}
           {activeStep === "research" && hasResearch && (
+            <button
+              type="button"
+              onClick={() => setActiveStep("character")}
+              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+            >
+              Approve &amp; Continue
+            </button>
+          )}
+
+          {/* Character → Script: Approve Character & Continue */}
+          {activeStep === "character" && (
             <button
               type="button"
               onClick={handleGenerateScript}
@@ -420,7 +446,7 @@ export default function ProjectPage() {
             >
               {isScripting || generateScript.isPending
                 ? "Generating Script..."
-                : "Generate Script"}
+                : "Approve Character & Continue"}
             </button>
           )}
 

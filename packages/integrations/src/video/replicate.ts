@@ -200,6 +200,7 @@ export class ReplicateVideoProvider implements VideoProvider {
         mode: input.mode ?? "standard",
         hasStartImage: true,
         hasEndImage: !!endFrameBase64 && !!this.config.endImageInputKey,
+        aspect_ratio: input.aspect_ratio ?? "(not set)",
         promptLength: prompt.length,
         prompt: prompt.slice(0, 500),
         negative_prompt: input.negative_prompt ?? "(none)",

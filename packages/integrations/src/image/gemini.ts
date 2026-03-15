@@ -45,6 +45,15 @@ class NanoBananaProProvider implements ImageProvider {
     const generationSeed = seed || this.generateSeed(prompt);
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      // Prepare aspect ratio instruction
+      const requestedAspectRatio = aspectRatio ?? "16:9";
+      const isPortrait = requestedAspectRatio === "9:16";
+      const aspectRatioInstruction = isPortrait
+        ? "\n\nIMPORTANT: Generate this image in VERTICAL/PORTRAIT format (9:16 aspect ratio). The composition must be tall and narrow, NOT wide. Stack elements vertically."
+        : "\n\nIMPORTANT: Generate this image in HORIZONTAL/LANDSCAPE format (16:9 aspect ratio). The composition must be wide, NOT tall.";
+
+      console.log(`[nano-banana-pro] Generating image with aspect ratio: ${requestedAspectRatio} (${isPortrait ? 'PORTRAIT' : 'LANDSCAPE'})`);
+
       // Build parts: include reference image if provided for style consistency
       const parts: Array<
         { text: string } | { inlineData: { mimeType: string; data: string } }
@@ -58,11 +67,11 @@ class NanoBananaProProvider implements ImageProvider {
           },
         });
         parts.push({
-          text: `Use the reference image above as a STRICT style guide. You MUST match its exact art style, color palette, line weight, character proportions, shading technique, and background treatment. Generate a NEW image (not an edit) based on this description.\n\nCRITICAL RULE: Do NOT include ANY text, words, letters, numbers, labels, captions, titles, watermarks, writing, or typography ANYWHERE in the image. The image must contain ZERO text. This is non-negotiable.\n\n${prompt}`,
+          text: `Use the reference image above as a STRICT style guide. You MUST match its exact art style, color palette, line weight, character proportions, shading technique, and background treatment. Generate a NEW image (not an edit) based on this description.\n\nCRITICAL RULE: Do NOT include ANY text, words, letters, numbers, labels, captions, titles, watermarks, writing, or typography ANYWHERE in the image. The image must contain ZERO text. This is non-negotiable.${aspectRatioInstruction}\n\n${prompt}`,
         });
       } else {
         parts.push({
-          text: `Generate an image based on this description.\n\nCRITICAL RULE: Do NOT include ANY text, words, letters, numbers, labels, captions, titles, watermarks, writing, or typography ANYWHERE in the image. The image must contain ZERO text. This is non-negotiable.\n\n${prompt}`,
+          text: `Generate an image based on this description.\n\nCRITICAL RULE: Do NOT include ANY text, words, letters, numbers, labels, captions, titles, watermarks, writing, or typography ANYWHERE in the image. The image must contain ZERO text. This is non-negotiable.${aspectRatioInstruction}\n\n${prompt}`,
         });
       }
 
@@ -76,7 +85,7 @@ class NanoBananaProProvider implements ImageProvider {
             generationConfig: {
               responseModalities: ["IMAGE"],
               imageConfig: {
-                aspectRatio: aspectRatio ?? "16:9",
+                aspectRatio: requestedAspectRatio,
                 imageSize: "1K",
               },
             },

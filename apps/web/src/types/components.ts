@@ -22,11 +22,13 @@ export type StatCardProps = {
 
 export type PipelineStep =
   | "topic"
-  | "cost"
   | "research"
+  | "character"
   | "script"
   | "voice"
   | "scenes"
+  | "captions"
+  | "cost"
   | "export";
 
 export type StepStatus = "completed" | "active" | "pending";

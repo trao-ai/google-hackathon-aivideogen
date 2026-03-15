@@ -4,11 +4,20 @@ export type HeaderProps = {
   userInitials?: string;
 };
 
+export type StatBarEntry = {
+  label: string;
+  value: number;
+};
+
 export type StatCardProps = {
   label: string;
   value: string | number;
-  icon: React.ReactNode;
-  position?: "first" | "middle" | "last";
+  change?: string;
+  changeSuffix?: string;
+  bars: StatBarEntry[];
+  chartType?: "bars" | "area";
+  gradientDirection?: "horizontal" | "vertical";
+  accentColor?: "teal" | "coral" | "gold";
 };
 
 export type PipelineStep =

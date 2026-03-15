@@ -3,14 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import {
-  MonitorPlayIcon,
-  GitBranchIcon,
-  CurrencyDollarIcon,
   MagnifyingGlassIcon,
   CaretDownIcon,
   SparkleIcon,
 } from "@phosphor-icons/react";
-import { formatCost } from "@/lib/utils";
+import type { Project } from "@/types/api";
 import {
   getProjectStep,
   getCompletedSteps,
@@ -48,6 +45,68 @@ export default function DashboardPage() {
     (p) =>
       !["draft", "complete"].includes(p.status) && !p.status.includes("failed"),
   ).length;
+  // Build daily bars
+  const buildBars = (filterFn: (p: Project) => boolean, days: number) => {
+    const now = new Date();
+    return Array.from({ length: days }, (_, i) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (days - 1 - i));
+      const dayStr = d.toDateString();
+      const count = projects.filter((p) => {
+        return filterFn(p) && new Date(p.createdAt).toDateString() === dayStr;
+      }).length;
+      const isToday = i === days - 1;
+      const isYesterday = i === days - 2;
+      return {
+        label: isToday
+          ? "Today"
+          : isYesterday
+            ? "Yesterday"
+            : d.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              }),
+        value: count,
+      };
+    });
+  };
+
+  const totalBars = buildBars(() => true, 14);
+  const inProgressBars = buildBars(
+    (p) =>
+      !["draft", "complete"].includes(p.status) && !p.status.includes("failed"),
+    7
+  );
+
+  // Build daily spend bars for the last 7 days
+  const spendBars = (() => {
+    const now = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (6 - i));
+      const dayStr = d.toDateString();
+      const spend = projects
+        .filter((p) => new Date(p.createdAt).toDateString() === dayStr)
+        .reduce((acc, p) => acc + (p.totalCostUsd ?? 0), 0);
+      const isToday = i === 6;
+      const isYesterday = i === 5;
+      return {
+        label: isToday
+          ? "Today"
+          : isYesterday
+            ? "Yesterday"
+            : d.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              }),
+        value: Math.round(spend * 100) / 100,
+      };
+    });
+  })();
+
+  const todaySpend = spendBars[spendBars.length - 1]?.value ?? 0;
 
   const CATEGORIES = [
     "All Categories",
@@ -100,42 +159,35 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <div className="flex">
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-4">
           <StatCard
             label="Total Projects"
             value={projects.length}
-            icon={
-              <MonitorPlayIcon
-                size={42}
-                weight="regular"
-                className="text-foreground"
-              />
-            }
-            position="first"
+            change="+18.5%"
+            changeSuffix={`+${projects.length} this week`}
+            bars={totalBars}
+            accentColor="teal"
           />
           <StatCard
-            label="In Progress"
+            label="Active Projects"
             value={inProgressCount}
-            icon={
-              <GitBranchIcon
-                size={42}
-                weight="regular"
-                className="text-foreground"
-              />
-            }
-            position="middle"
+            change="+2 new today"
+            changeSuffix="3 currently rendering"
+            bars={inProgressBars}
+            chartType="area"
+            gradientDirection="horizontal"
+            accentColor="teal"
           />
           <StatCard
             label="Total Spend"
-            value={formatCost(totalCost)}
-            icon={
-              <CurrencyDollarIcon
-                size={42}
-                weight="regular"
-                className="text-foreground"
-              />
-            }
-            position="last"
+            value={`$${Math.round(totalCost)}`}
+            change={`${todaySpend.toFixed(0)} today`}
+            changeSuffix={`+$${Math.round(totalCost)} this week`}
+            bars={spendBars}
+            chartType="area"
+            gradientDirection="vertical"
+            accentColor="teal"
           />
         </div>
 

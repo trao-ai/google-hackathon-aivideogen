@@ -8,26 +8,31 @@ import { resolveMediaUrl } from "../types";
 import { useSceneFlow } from "../SceneFlowContext";
 
 function AnimationNodeComponent({ data }: { data: AnimationNodeData }) {
-  const { scene, clip, motionNotes } = data;
+  const { scene, clip, motionNotes, platform } = data;
   const { onGenerateVideo, onEditAnimation, regeneratingIds } = useSceneFlow();
 
   const isGenerating = regeneratingIds.has(`video-${scene.id}`) || scene.clipStatus === "generating";
   const isFailed = scene.clipStatus === "failed";
 
+  // Determine aspect ratio based on platform
+  const aspectRatio = platform === "instagram" || platform === "tiktok"
+    ? "aspect-[9/16]"
+    : "aspect-video";
+
   return (
-    <div className="rounded-lg border border-indigo-200 bg-indigo-50 w-[160px] overflow-hidden">
-      <Handle type="target" position={Position.Left} className="!w-2 !h-2" />
+    <div className="rounded-lg border border-brand-teal/30 bg-brand-teal/10 w-[180px] overflow-hidden">
+      <Handle type="target" position={Position.Top} className="!w-2 !h-2" />
 
       {/* Header */}
-      <div className="px-3 py-1.5 border-b border-indigo-200 flex items-center justify-center gap-1.5">
-        <Film className="w-3.5 h-3.5 text-indigo-500" />
-        <span className="text-xs font-medium text-indigo-700">Animation</span>
+      <div className="px-2.5 py-1.5 border-b border-brand-teal/20 flex items-center justify-center gap-1">
+        <Film className="w-3.5 h-3.5 text-brand-teal" />
+        <span className="text-[11px] font-medium text-foreground">Animation</span>
       </div>
 
       {/* Video preview or generate button */}
       <div className="p-2">
         {clip ? (
-          <div className="relative aspect-video w-full rounded overflow-hidden bg-black">
+          <div className={`relative ${aspectRatio} w-full rounded overflow-hidden bg-black`}>
             <video
               src={resolveMediaUrl(clip.videoUrl)}
               className="w-full h-full object-cover"
@@ -41,7 +46,7 @@ function AnimationNodeComponent({ data }: { data: AnimationNodeData }) {
               }}
             />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <Play className="w-6 h-6 text-white/70" />
+              <Play className="w-5 h-5 text-white/70" />
             </div>
           </div>
         ) : (
@@ -51,30 +56,30 @@ function AnimationNodeComponent({ data }: { data: AnimationNodeData }) {
               onGenerateVideo(scene.id);
             }}
             disabled={isGenerating}
-            className={`w-full aspect-video rounded border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 ${
+            className={`w-full ${aspectRatio} rounded border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 ${
               isFailed
                 ? "border-red-300 bg-red-50 hover:bg-red-100"
-                : "border-indigo-300 hover:bg-indigo-100"
+                : "border-brand-teal/40 hover:bg-brand-teal/20"
             }`}
           >
             {isGenerating ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
-                <span className="text-[10px] text-indigo-500 font-medium">
+                <Loader2 className="w-4 h-4 animate-spin text-brand-teal" />
+                <span className="text-[10px] text-foreground font-medium">
                   Generating...
                 </span>
               </>
             ) : isFailed ? (
               <>
-                <Play className="w-5 h-5 text-red-400" />
+                <Play className="w-4 h-4 text-red-400" />
                 <span className="text-[10px] text-red-600 font-medium">
                   Failed — Retry
                 </span>
               </>
             ) : (
               <>
-                <Play className="w-5 h-5 text-indigo-400" />
-                <span className="text-[10px] text-indigo-500 font-medium">
+                <Play className="w-4 h-4 text-brand-teal/60" />
+                <span className="text-[10px] text-foreground/70 font-medium">
                   Generate
                 </span>
               </>
@@ -85,19 +90,19 @@ function AnimationNodeComponent({ data }: { data: AnimationNodeData }) {
 
       {/* Motion notes */}
       <div className="px-2 pb-1.5">
-        <p className="text-[10px] text-gray-500 line-clamp-2 leading-tight">
+        <p className="text-[10px] text-foreground/60 line-clamp-2 leading-snug">
           {motionNotes || "No motion notes"}
         </p>
       </div>
 
       {/* Edit button */}
-      <div className="px-2 pb-1.5 flex gap-1">
+      <div className="px-2 pb-2 flex gap-1">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onEditAnimation(scene.id);
           }}
-          className="text-[10px] text-indigo-600 hover:bg-indigo-100 rounded px-1.5 py-0.5 flex items-center gap-0.5"
+          className="px-2 py-1 bg-brand-black text-brand-off-white rounded-full text-[10px] font-medium hover:opacity-90 flex items-center gap-0.5"
         >
           <Pencil className="w-2.5 h-2.5" /> Edit
         </button>
@@ -108,7 +113,7 @@ function AnimationNodeComponent({ data }: { data: AnimationNodeData }) {
               onGenerateVideo(scene.id);
             }}
             disabled={isGenerating}
-            className="text-[10px] text-indigo-600 hover:bg-indigo-100 rounded px-1.5 py-0.5 flex items-center gap-0.5 disabled:opacity-50"
+            className="text-[10px] text-foreground hover:bg-brand-teal/20 rounded-full px-2 py-1 flex items-center gap-0.5 disabled:opacity-50"
           >
             {isGenerating ? (
               <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -120,7 +125,7 @@ function AnimationNodeComponent({ data }: { data: AnimationNodeData }) {
         )}
       </div>
 
-      <Handle type="source" position={Position.Right} className="!w-2 !h-2" />
+      <Handle type="source" position={Position.Top} className="!w-2 !h-2" />
     </div>
   );
 }

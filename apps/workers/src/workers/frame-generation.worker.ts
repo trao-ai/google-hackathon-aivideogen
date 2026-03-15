@@ -202,6 +202,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
 
     // Derive aspect ratio from platform (youtube=16:9, everything else=9:16)
     const platformAspectRatio = project.platform && project.platform !== "youtube" ? "9:16" : "16:9";
+    console.log(`[frame-gen] Project platform: "${project.platform}", using aspect ratio: ${platformAspectRatio}`);
 
     // Determine if this project uses SeDance (start frame only, no end frame)
     const isSeDance = (project as Record<string, unknown>).videoProvider === "seedance";
@@ -425,6 +426,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
 
     const project = await prisma.project.findUnique({ where: { id: projectId }, select: { platform: true } });
     const platformAspectRatio = project?.platform && project.platform !== "youtube" ? "9:16" : "16:9";
+    console.log(`[frame-gen] Regenerating frame - platform: "${project?.platform}", aspect ratio: ${platformAspectRatio}`);
 
     const imageProvider = createImageProvider();
     const storage = createStorageProvider();

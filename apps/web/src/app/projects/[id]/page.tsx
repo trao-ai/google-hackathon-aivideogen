@@ -13,10 +13,16 @@ import { useDiscoverTopics } from "@/hooks/use-topics";
 import { useStartResearch } from "@/hooks/use-research";
 import { useGenerateScript } from "@/hooks/use-scripts";
 import { useGenerateVoice } from "@/hooks/use-voice";
-import { usePlanScenes } from "@/hooks/use-scenes";
+import {
+  usePlanScenes,
+  useGenerateFrames,
+  useGenerateAllVideos,
+} from "@/hooks/use-scenes";
 import { getProjectStep } from "@/lib/pipeline";
 import { Header } from "@/components/layout/Header";
 import { StepNav } from "@/components/project/StepNav";
+import { Button } from "@/components/ui/button";
+import { VideoModelSelector } from "./_tabs/scene-flow/components/VideoModelSelector";
 import { TopicsTab } from "./_tabs/TopicsTab";
 import { ResearchTab } from "./_tabs/ResearchTab";
 import { ScriptsTab } from "./_tabs/ScriptsTab";
@@ -55,8 +61,8 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Generate voiceover for your script.",
   },
   scenes: {
-    title: "Scene Planning",
-    subtitle: "Plan and generate scenes for your video.",
+    title: "Scene Generation",
+    subtitle: "Review and customize visual scenes for your video",
   },
   cost: {
     title: "Cost Breakdown",
@@ -81,6 +87,8 @@ export default function ProjectPage() {
   const generateScript = useGenerateScript(id);
   const generateVoice = useGenerateVoice(id);
   const planScenes = usePlanScenes(id);
+  const generateFrames = useGenerateFrames(id);
+  const generateAllVideos = useGenerateAllVideos(id);
 
   useEffect(() => {
     if (!project || autoNavigated) return;
@@ -132,7 +140,8 @@ export default function ProjectPage() {
 
   const isResearching = project.status === "researching";
   const isScripting = project.status === "scripting";
-  const isVoicing = project.status === "voicing" || project.status === "voice_generating";
+  const isVoicing =
+    project.status === "voicing" || project.status === "voice_generating";
   const isPlanning = project.status === "planning_scenes";
 
   const footerLoading =
@@ -197,14 +206,16 @@ export default function ProjectPage() {
                   </p>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => void refetch()}
-                className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
-              >
-                <ArrowClockwiseIcon size={20} weight="regular" />
-                <span>Refresh</span>
-              </button>
+              {activeStep !== "scenes" && (
+                <button
+                  type="button"
+                  onClick={() => void refetch()}
+                  className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
+                >
+                  <ArrowClockwiseIcon size={20} weight="regular" />
+                  <span>Refresh</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -268,6 +279,81 @@ export default function ProjectPage() {
                     <ChartBarIcon size={14} weight="bold" />
                     Confidence: {confidenceScore}%
                   </span>
+                </div>
+              )}
+              {activeStep === "scenes" && (
+                <div className="flex items-center gap-3">
+                  <VideoModelSelector
+                    projectId={id}
+                    disabled={
+                      generateFrames.isPending ||
+                      generateAllVideos.isPending ||
+                      project.status === "video_generation"
+                    }
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => planScenes.mutate()}
+                    disabled={
+                      planScenes.isPending ||
+                      project.status === "planning_scenes" ||
+                      !hasVoiceover
+                    }
+                    title={
+                      !hasVoiceover ? "Generate voiceover first" : undefined
+                    }
+                    className="px-4 py-2.5 rounded-full border border-brand-border-light bg-transparent hover:bg-brand-surface hover:text-blac text-sm"
+                  >
+                    {project.status === "planning_scenes"
+                      ? "Planning..."
+                      : "Plan Scene"}
+                  </Button>
+                  {hasScenes &&
+                    !(project.scenes ?? []).some(
+                      (s) => (s.frames ?? []).length > 0,
+                    ) && (
+                      <Button
+                        onClick={() => generateFrames.mutate()}
+                        disabled={
+                          generateFrames.isPending ||
+                          project.status === "frame_generation"
+                        }
+                        className="px-4 py-2.5 bg-brand-black text-brand-off-white rounded-full hover:opacity-90 text-sm font-medium"
+                      >
+                        {project.status === "frame_generation"
+                          ? "Generating..."
+                          : "Generate Frames"}
+                      </Button>
+                    )}
+                  {(project.scenes ?? []).some(
+                    (s) => (s.frames ?? []).length > 0,
+                  ) && (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => generateFrames.mutate()}
+                        disabled={
+                          generateFrames.isPending ||
+                          project.status === "frame_generation"
+                        }
+                        className="px-4 py-2.5 rounded-full border border-brand-border-light bg-transparent hover:bg-brand-surface text-sm text-foreground hover:text-foreground"
+                      >
+                        Regenerate Frames
+                      </Button>
+                      <Button
+                        onClick={() => generateAllVideos.mutate()}
+                        disabled={
+                          generateAllVideos.isPending ||
+                          project.status === "video_generation"
+                        }
+                        className="px-4 py-2.5 bg-brand-black text-brand-off-white rounded-full hover:opacity-90 text-sm font-medium"
+                      >
+                        {project.status === "video_generation"
+                          ? "Generating..."
+                          : "Generate all videos"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

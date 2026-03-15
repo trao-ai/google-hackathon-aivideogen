@@ -1,16 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-} from "@xyflow/react";
+import { ReactFlow, Background, Controls, MiniMap } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import type { Scene } from "@/lib/api";
-import { useRegenerateFrame, useGenerateVideo, useGenerateSceneFrames } from "@/hooks/use-scenes";
+import {
+  useRegenerateFrame,
+  useGenerateVideo,
+  useGenerateSceneFrames,
+} from "@/hooks/use-scenes";
 import { ImageFrameNode } from "./nodes/ImageFrameNode";
 import { AnimationNode } from "./nodes/AnimationNode";
 import { FrameEditPanel } from "./panels/FrameEditPanel";
@@ -28,10 +27,16 @@ interface Props {
   projectId: string;
   scenes: Scene[];
   videoProvider?: string;
+  platform?: string;
 }
 
-export function SceneFlowEditor({ projectId, scenes, videoProvider = "kling" }: Props) {
-  const { nodes, edges } = useSceneFlowLayout(scenes, projectId, videoProvider);
+export function SceneFlowEditor({
+  projectId,
+  scenes,
+  videoProvider = "kling",
+  platform,
+}: Props) {
+  const { nodes, edges } = useSceneFlowLayout(scenes, projectId, videoProvider, platform);
   const regenerateFrame = useRegenerateFrame(projectId);
   const generateVideo = useGenerateVideo(projectId);
   const generateSceneFrames = useGenerateSceneFrames(projectId);
@@ -143,21 +148,20 @@ export function SceneFlowEditor({ projectId, scenes, videoProvider = "kling" }: 
 
   return (
     <SceneFlowContext.Provider value={contextValue}>
-      <div className="h-[500px] w-full rounded-lg border bg-gray-50 relative">
+      <div className="h-[600px] w-full rounded-lg border border-brand-border-light bg-brand-off-white relative">
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.3 }}
           panOnScroll
-          zoomOnScroll={false}
+          zoomOnScroll={true}
           nodesDraggable={false}
           nodesConnectable={false}
-          minZoom={0.2}
-          maxZoom={1.5}
+          minZoom={0.5}
+          maxZoom={2.5}
+          defaultViewport={{ x: 50, y: 100, zoom: 1.2 }}
         >
-          <Background color="#e2e8f0" gap={20} />
+          <Background color="#D4CFC1" gap={20} />
           <Controls showInteractive={false} />
           <MiniMap
             pannable

@@ -17,7 +17,7 @@ const MODEL_ID_MAP: Record<VideoProviderType, string> = {
   kling: "fal-ai/kling-video/o3/standard/image-to-video",
   veo: "veo-3.1-generate-preview",
   seedance: "fal-ai/bytedance/seedance/v1.5/pro/image-to-video",
-  "replicate-veo": "google/veo-2",
+  "replicate-veo": "google/veo-3.1",
   "replicate-kling": "kwaivgi/kling-v2.1",
   "replicate-seedance": "bytedance/seedance-1-pro",
   "replicate-seedance-lite": "bytedance/seedance-1-lite",

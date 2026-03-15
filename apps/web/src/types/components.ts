@@ -1,5 +1,6 @@
 export type HeaderProps = {
   totalSpend?: number;
+  showSpend?: boolean;
   userInitials?: string;
 };
 

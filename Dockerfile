@@ -1,5 +1,5 @@
 # ── Base: install all deps for the monorepo ──────────────────────────────────
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 WORKDIR /app
 
 # Copy root package files + all workspace package.jsons for caching
@@ -20,7 +20,7 @@ COPY apps/web/package.json apps/web/
 RUN npm ci
 
 # ── Production deps only (for smaller final images) ─────────────────────────
-FROM node:20-alpine AS prod-deps
+FROM node:22-alpine AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/db/package.json packages/db/
@@ -34,7 +34,8 @@ COPY packages/motion-fallback/package.json packages/motion-fallback/
 COPY apps/api/package.json apps/api/
 COPY apps/workers/package.json apps/workers/
 COPY apps/web/package.json apps/web/
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && \
+    mkdir -p apps/api/node_modules apps/workers/node_modules
 
 # ── Build: compile everything ────────────────────────────────────────────────
 FROM base AS build
@@ -60,12 +61,13 @@ RUN npx tsc -p packages/shared/tsconfig.json && \
 RUN cd apps/web && npm run build
 
 # ── API target ───────────────────────────────────────────────────────────────
-FROM node:20-alpine AS api
+FROM node:22-alpine AS api
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Production-only node_modules (much smaller — no TS, Next.js, React, etc.)
+# Production-only node_modules (root + workspace-specific for non-hoisted deps)
 COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
@@ -91,15 +93,16 @@ EXPOSE 3001
 CMD ["node", "apps/api/dist/index.js"]
 
 # ── Workers target ───────────────────────────────────────────────────────────
-FROM node:20-alpine AS workers
+FROM node:22-alpine AS workers
 WORKDIR /app
 ENV NODE_ENV=production
 
 # Workers need ffmpeg with full codec/filter support for video/audio processing
 RUN apk add --no-cache ffmpeg libass fontconfig ttf-dejavu
 
-# Production-only node_modules (much smaller)
+# Production-only node_modules (root + workspace-specific for non-hoisted deps)
 COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/apps/workers/node_modules ./apps/workers/node_modules
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
@@ -124,7 +127,7 @@ COPY --from=build /app/apps/workers/dist ./apps/workers/dist
 CMD ["node", "apps/workers/dist/index.js"]
 
 # ── Web target ───────────────────────────────────────────────────────────────
-FROM node:20-alpine AS web
+FROM node:22-alpine AS web
 WORKDIR /app
 ENV NODE_ENV=production
 

@@ -48,7 +48,15 @@ export class FrameValidator {
       const result = await model.generateContent([prompt, ...imageParts]);
       const response = result.response.text();
 
-      return this.parseValidationResponse(response);
+      // Extract token usage from response metadata
+      const usageMetadata = result.response.usageMetadata;
+      const inputTokens = usageMetadata?.promptTokenCount ?? 0;
+      const outputTokens = usageMetadata?.candidatesTokenCount ?? 0;
+
+      const parsed = this.parseValidationResponse(response);
+      parsed.inputTokens = inputTokens;
+      parsed.outputTokens = outputTokens;
+      return parsed;
     } catch (error) {
       console.error("[FrameValidator] Validation failed:", error);
       return {

@@ -34,7 +34,7 @@ services:
   # ── API ──────────────────────────────────────────────────────────────────────
   api:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile
       target: api
     container_name: atlas_api
@@ -61,13 +61,22 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION:-us-east-1}
+      STORAGE_PREFIX: ${STORAGE_PREFIX:-hackathon}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      VIDEO_PROVIDER: ${VIDEO_PROVIDER:-replicate-kling}
+      USE_MOCK_LLM: ${USE_MOCK_LLM:-false}
+      USE_MOCK_TTS: ${USE_MOCK_TTS:-false}
+      USE_MOCK_IMAGE: ${USE_MOCK_IMAGE:-false}
+      USE_MOCK_SEARCH: ${USE_MOCK_SEARCH:-true}
+      USE_MOCK_YOUTUBE: ${USE_MOCK_YOUTUBE:-true}
+      USE_MOCK_STORAGE: ${USE_MOCK_STORAGE:-false}
     expose:
       - "3001"
 
   # ── Workers ──────────────────────────────────────────────────────────────────
   workers:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile
       target: workers
     container_name: atlas_workers
@@ -92,11 +101,20 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION:-us-east-1}
+      STORAGE_PREFIX: ${STORAGE_PREFIX:-hackathon}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      VIDEO_PROVIDER: ${VIDEO_PROVIDER:-replicate-kling}
+      USE_MOCK_LLM: ${USE_MOCK_LLM:-false}
+      USE_MOCK_TTS: ${USE_MOCK_TTS:-false}
+      USE_MOCK_IMAGE: ${USE_MOCK_IMAGE:-false}
+      USE_MOCK_SEARCH: ${USE_MOCK_SEARCH:-true}
+      USE_MOCK_YOUTUBE: ${USE_MOCK_YOUTUBE:-true}
+      USE_MOCK_STORAGE: ${USE_MOCK_STORAGE:-false}
 
   # ── Web (Next.js) ───────────────────────────────────────────────────────────
   web:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile
       target: web
     container_name: atlas_web
@@ -120,13 +138,15 @@ services:
       - web
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
   # ── Run Prisma migrations on startup ─────────────────────────────────────────
   migrate:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile
       target: api
     container_name: atlas_migrate

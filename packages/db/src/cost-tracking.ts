@@ -50,6 +50,15 @@ export interface TrackVideoCostParams {
   metadata?: Record<string, unknown>;
 }
 
+export interface TrackSFXCostParams {
+  projectId: string;
+  vendor: string;
+  model: string;
+  generationCount: number;
+  totalCostUsd: number;
+  metadata?: Record<string, unknown>;
+}
+
 /**
  * Creates a CostEvent and atomically increments Project.totalCostUsd.
  */
@@ -151,6 +160,28 @@ export async function trackVideoCost(params: TrackVideoCostParams) {
     metadata: {
       model: params.model,
       durationSec: params.durationSec,
+      ...params.metadata,
+    },
+  });
+}
+
+/**
+ * Track SFX generation. units = generation count, stage = "sfx".
+ */
+export async function trackSFXCost(params: TrackSFXCostParams) {
+  return trackCost({
+    projectId: params.projectId,
+    stage: "sfx",
+    vendor: params.vendor,
+    units: params.generationCount,
+    unitCost:
+      params.generationCount > 0
+        ? params.totalCostUsd / params.generationCount
+        : 0,
+    totalCostUsd: params.totalCostUsd,
+    metadata: {
+      model: params.model,
+      generationCount: params.generationCount,
       ...params.metadata,
     },
   });

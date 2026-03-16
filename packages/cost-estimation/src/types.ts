@@ -12,6 +12,8 @@ export interface CostEstimate {
   videos: number;
   motionEnrichment: number;
   validation: number;
+  tts: number;
+  sfx: number;
   total: number;
   perScene?: number;
   sceneBreakdown?: SceneEstimate[];

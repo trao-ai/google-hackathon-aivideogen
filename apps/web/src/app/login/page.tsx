@@ -52,11 +52,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-black flex items-center justify-center p-6">
+    <div className="min-h-screen flex items-center justify-center"
+      style={{ backgroundColor: "var(--color-warm-beige)" }}
+    >
       {/* Inner beige area with pattern */}
       <div
-        className="relative w-full h-[calc(100vh-48px)] rounded-2xl overflow-hidden"
-        style={{ backgroundColor: "var(--color-warm-beige)" }}
+        className="relative w-full h-screen overflow-hidden"
       >
         {/* Pattern background */}
         <div

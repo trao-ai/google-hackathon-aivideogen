@@ -20,6 +20,10 @@ export interface VideoPricing {
   perSecond: number;
 }
 
+export interface SFXPricing {
+  perGeneration: number;
+}
+
 export const LLM_PRICING: Record<string, LLMPricing> = {
   // Google Gemini — ai.google.dev/gemini-api/docs/pricing (Mar 2026)
   "gemini-2.5-flash": { inputPer1kTokens: 0.0003, outputPer1kTokens: 0.0025 },
@@ -53,6 +57,12 @@ export const VIDEO_PRICING: Record<string, VideoPricing> = {
   "kwaivgi/kling-v2.1": { perSecond: 0.05 },
   "bytedance/seedance-1.5-pro": { perSecond: 0.247 },
   "bytedance/seedance-1-lite": { perSecond: 0.02 },
+};
+
+export const SFX_PRICING: Record<string, SFXPricing> = {
+  // ElevenLabs Sound Generation — elevenlabs.io/pricing/api (Mar 2026)
+  // ~100 credits per generation, roughly $0.01–0.03 per generation depending on plan
+  elevenlabs_sfx: { perGeneration: 0.02 },
 };
 
 const DEFAULT_LLM_MODEL = "gemini-2.5-flash";
@@ -95,4 +105,14 @@ export function calculateVideoCost(
   const pricing = VIDEO_PRICING[model] ?? VIDEO_PRICING[DEFAULT_VIDEO_MODEL];
   console.log("Video pricing:", pricing);
   return durationSeconds * pricing.perSecond;
+}
+
+const DEFAULT_SFX_MODEL = "elevenlabs_sfx";
+
+export function calculateSFXCost(
+  model: string = DEFAULT_SFX_MODEL,
+  generationCount: number,
+): number {
+  const pricing = SFX_PRICING[model] ?? SFX_PRICING[DEFAULT_SFX_MODEL];
+  return generationCount * pricing.perGeneration;
 }

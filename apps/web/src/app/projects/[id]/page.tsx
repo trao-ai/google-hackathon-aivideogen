@@ -155,9 +155,7 @@ export default function ProjectPage() {
   const isResearching = project.status === "researching";
   const isScripting = project.status === "scripting";
   const footerLoading =
-    startResearch.isPending ||
-    generateScript.isPending ||
-    planScenes.isPending;
+    startResearch.isPending || generateScript.isPending || planScenes.isPending;
 
   const handleStartResearch = () => {
     setFooterError("");
@@ -265,7 +263,9 @@ export default function ProjectPage() {
                       onClick={() => planScenes.mutate()}
                       disabled={
                         planScenes.isPending ||
-                        project.status === "planning_scenes" ||
+                        ["planning_scenes", "scene_planning"].includes(
+                          project.status,
+                        ) ||
                         !hasVoiceover
                       }
                       title={
@@ -273,7 +273,10 @@ export default function ProjectPage() {
                       }
                       className="px-4 py-2.5 rounded-full border border-brand-border-light bg-brand-surface hover:bg-brand-surface hover:opacity-80 text-sm hover:text-black"
                     >
-                      {project.status === "planning_scenes"
+                      {planScenes.isPending ||
+                      ["planning_scenes", "scene_planning"].includes(
+                        project.status,
+                      )
                         ? "Planning..."
                         : "Plan Scene"}
                     </Button>
@@ -362,9 +365,8 @@ export default function ProjectPage() {
           {/* Editor view — temporarily disabled
           {activeStep === "scenes" && showEditor ? (
             <EditorView project={project} onBack={() => setShowEditor(false)} /> */}
-          {activeStep === "scenes" && showEditor ? (
-            null
-          ) : activeStep === "scenes" ? (
+          {activeStep === "scenes" && showEditor ? null : activeStep ===
+            "scenes" ? (
             <ScenesTab project={project} />
           ) : null}
           {activeStep === "captions" && <CaptionsTab project={project} />}

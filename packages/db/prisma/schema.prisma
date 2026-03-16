@@ -38,6 +38,7 @@ model Project {
   renders          Render[]
   costEvents       CostEvent[]
   channelProfiles  ChannelProfile[]
+  captionSettings  CaptionSettings?
 
   styleBible       StyleBible?   @relation(fields: [styleBibleId], references: [id])
 
@@ -251,6 +252,30 @@ model Render {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("renders")
+}
+
+//─── Captions ────────────────────────────────────────────────────────────────
+
+model CaptionSettings {
+  id             String   @id @default(uuid())
+  projectId      String   @unique
+  font           String   @default("Arial")
+  fontSize       Int      @default(7)
+  textColor      String   @default("#FFFFFF")
+  textOpacity    Int      @default(100)
+  bgColor        String   @default("#000000")
+  bgOpacity      Int      @default(80)
+  position       String   @default("bottom")
+  template       String   @default("standard")
+  highlightKeywords Boolean @default(false)
+  targetLanguage String   @default("en")
+  burnInCaptions Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("caption_settings")
 }
 
 // ─── Cost tracking ───────────────────────────────────────────────────────────

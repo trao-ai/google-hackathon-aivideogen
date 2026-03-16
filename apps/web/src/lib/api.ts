@@ -204,6 +204,13 @@ export const api = {
         .then((r) => r.data),
   },
 
+  preview: {
+    generate: (projectId: string) =>
+      apiClient
+        .post<{ videoUrl: string; subtitleUrl?: string; message: string }>(`/api/projects/${projectId}/preview`)
+        .then((r) => r.data),
+  },
+
   costs: {
     get: (projectId: string) =>
       apiClient.get<CostSummary>(`/api/projects/${projectId}/costs`).then((r) => r.data),
@@ -214,6 +221,31 @@ export const api = {
         .post<CostEstimate>(`/api/projects/${projectId}/estimate-costs`, {
           provider: provider || "kling",
         })
+        .then((r) => r.data),
+  },
+
+  captions: {
+    get: (projectId: string) =>
+      apiClient
+        .get<CaptionSettings>(`/api/projects/${projectId}/captions`)
+        .then((r) => r.data),
+    update: (projectId: string, settings: Partial<CaptionSettings>) =>
+      apiClient
+        .put<CaptionSettings>(`/api/projects/${projectId}/captions`, settings)
+        .then((r) => r.data),
+    regenerate: (projectId: string) =>
+      apiClient
+        .post<{ jobId: string; message: string }>(`/api/projects/${projectId}/captions/regenerate`)
+        .then((r) => r.data),
+    translate: (projectId: string, targetLanguage: string) =>
+      apiClient
+        .post<{ jobId: string; message: string }>(`/api/projects/${projectId}/captions/translate`, {
+          targetLanguage,
+        })
+        .then((r) => r.data),
+    apply: (projectId: string) =>
+      apiClient
+        .post<{ renderId: string; jobId: string; message: string }>(`/api/projects/${projectId}/captions/apply`)
         .then((r) => r.data),
   },
 

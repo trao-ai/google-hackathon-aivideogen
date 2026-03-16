@@ -128,6 +128,11 @@ const LANGUAGES = [
   { code: "es", label: "Spanish" },
 ];
 
+// Google Fonts that need to be loaded via CSS (excludes system fonts like Arial)
+const GOOGLE_FONT_FAMILIES = FONTS.filter(
+  (f) => !["Arial", "Arial Rounded MT Bold"].includes(f),
+);
+
 export function CaptionsTab({ project }: CaptionsTabProps) {
   const router = useRouter();
   const [selectedTemplate, setSelectedTemplate] = useState("standard");
@@ -148,6 +153,20 @@ export function CaptionsTab({ project }: CaptionsTabProps) {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [savedSuccessfully, setSavedSuccessfully] = useState(false);
+
+  // Load Google Fonts so the font picker and preview show actual fonts
+  useEffect(() => {
+    const families = GOOGLE_FONT_FAMILIES.map(
+      (f) => `family=${encodeURIComponent(f)}`,
+    ).join("&");
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, []);
 
   // Load saved caption settings on mount
   useEffect(() => {

@@ -10,8 +10,10 @@ const STEPS: PipelineStep[] = [
   "cost",
   "research",
   "script",
+  "character",
   "voice",
   "scenes",
+  "captions",
   "export",
 ];
 
@@ -20,8 +22,10 @@ const STEP_LABELS: Record<PipelineStep, string> = {
   cost: "Cost",
   research: "Research",
   script: "Script",
+  character: "Character",
   voice: "Voice",
   scenes: "Scenes",
+  captions: "Captions",
   export: "Export",
 };
 

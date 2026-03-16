@@ -40,7 +40,6 @@ const STEPS: StepNavItem[] = [
   { id: "voice", label: "Voice" },
   { id: "scenes", label: "Scenes" },
   { id: "captions", label: "Captions" },
-  { id: "captions", label: "Captions" },
   { id: "cost", label: "Cost" },
   { id: "export", label: "Export" },
 ];
@@ -357,7 +356,7 @@ export default function ProjectPage() {
             />
           )}
           {activeStep === "script" && <ScriptsTab project={project} />}
-          {activeStep === "voice" && <VoiceTab project={project} />}
+          {activeStep === "voice" && <VoiceTab project={project} onRefresh={async () => { await refetch(); }} />}
           {activeStep === "scenes" && <ScenesTab project={project} />}
           {activeStep === "captions" && <CaptionsTab project={project} />}
           {activeStep === "export" && <RenderTab project={project} />}

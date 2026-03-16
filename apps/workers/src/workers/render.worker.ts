@@ -77,6 +77,7 @@ export class RenderWorker {
       const captionSettings = await prisma.captionSettings.findUnique({
         where: { projectId },
       });
+      console.log(`[render] Caption settings from DB:`, captionSettings ? JSON.stringify({ font: captionSettings.font, fontSize: captionSettings.fontSize, textColor: captionSettings.textColor, textOpacity: captionSettings.textOpacity, bgColor: captionSettings.bgColor, bgOpacity: captionSettings.bgOpacity, position: captionSettings.position }) : 'NULL - no settings saved');
 
       // Determine output resolution based on platform
       const isPortrait = project?.platform && project.platform !== "youtube";
@@ -341,6 +342,25 @@ export class RenderWorker {
           console.warn("[render] No matching voiceover segments found, skipping subtitles");
         }
 
+        // Download font for captions (servers won't have these fonts installed)
+        let fontsDir: string | undefined;
+        if (captionSettings?.font) {
+          fontsDir = path.join(tmpDir, "fonts");
+          fs.mkdirSync(fontsDir, { recursive: true });
+          await this.downloadGoogleFont(captionSettings.font, fontsDir);
+
+          // Create a fontconfig override so libass/FFmpeg finds our downloaded fonts
+          const fontsConf = `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>${fontsDir}</dir>
+  <cachedir>/tmp/fontconfig-cache</cachedir>
+</fontconfig>`;
+          const fontsConfPath = path.join(tmpDir, "fonts.conf");
+          fs.writeFileSync(fontsConfPath, fontsConf);
+          console.log(`[render] Created fontconfig override at ${fontsConfPath} pointing to ${fontsDir}`);
+        }
+
         await this.runFFmpeg({
           clips,
           voiceoverPath,
@@ -354,6 +374,8 @@ export class RenderWorker {
           sceneDurations: sceneAudioInfos.map((s) => s.durationSec),
           outputWidth,
           outputHeight,
+          captionSettings,
+          fontsDir,
         });
 
         // Read output and upload
@@ -594,8 +616,18 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     sceneDurations?: number[];
     outputWidth?: number;
     outputHeight?: number;
+    captionSettings?: {
+      font: string;
+      fontSize: number;
+      textColor: string;
+      textOpacity: number;
+      bgColor: string;
+      bgOpacity: number;
+      position: string;
+    } | null;
+    fontsDir?: string;
   }): Promise<void> {
-    const { clips, voiceoverPath, ambientPaths, transitionSfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec, subtitlePath, sceneDurations, outputWidth = 1280, outputHeight = 720 } = params;
+    const { clips, voiceoverPath, ambientPaths, transitionSfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec, subtitlePath, sceneDurations, outputWidth = 1280, outputHeight = 720, captionSettings, fontsDir } = params;
     const args: string[] = [];
 
     console.log(`[render] FFmpeg output resolution: ${outputWidth}x${outputHeight}`);
@@ -725,10 +757,42 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     }
 
     // ─── Subtitle burn-in ───────────────────────────────────────────────────
-    // If subtitle file is provided, burn it into the video via ASS filter
     if (subtitlePath) {
+      // Escape special chars for FFmpeg filter expressions
       const escapedPath = subtitlePath.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "'\\''");
-      filterParts.push(`[vout]ass='${escapedPath}'[vfinal]`);
+      const escapedFontsDir = fontsDir ? fontsDir.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "'\\''") : '';
+
+      if (captionSettings) {
+        // Build force_style to override ASS styles directly in FFmpeg
+        const isPortrait = outputHeight > outputWidth;
+        const font = captionSettings.font;
+        const fontSize = this.mapFontSize(captionSettings.fontSize, isPortrait);
+        const textColor = this.hexToASS(captionSettings.textColor, captionSettings.textOpacity);
+        const bgColor = this.hexToASS(captionSettings.bgColor, captionSettings.bgOpacity);
+        const hasBg = captionSettings.bgOpacity > 0;
+        const borderStyle = hasBg ? 3 : 1;
+        const outline = hasBg ? 10 : 2.5;
+        const shadow = hasBg ? 0 : 1;
+        const alignment = captionSettings.position === 'top' ? 8 : 2;
+        const marginV = isPortrait ? 50 : 35;
+
+        // BorderStyle=3: OutlineColour = box color, BackColour = shadow color
+        const forceStyle = `Fontname=${font},Fontsize=${fontSize},PrimaryColour=${textColor},OutlineColour=${bgColor},BackColour=&H00000000,BorderStyle=${borderStyle},Outline=${outline},Shadow=${shadow},Alignment=${alignment},MarginV=${marginV},Bold=-1`;
+        console.log(`[render] FFmpeg force_style: ${forceStyle}`);
+
+        // Build subtitles filter — fontsdir BEFORE force_style for reliable font loading
+        if (escapedFontsDir) {
+          filterParts.push(`[vout]subtitles='${escapedPath}':fontsdir='${escapedFontsDir}':force_style='${forceStyle}'[vfinal]`);
+        } else {
+          filterParts.push(`[vout]subtitles='${escapedPath}':force_style='${forceStyle}'[vfinal]`);
+        }
+      } else {
+        if (escapedFontsDir) {
+          filterParts.push(`[vout]subtitles='${escapedPath}':fontsdir='${escapedFontsDir}'[vfinal]`);
+        } else {
+          filterParts.push(`[vout]subtitles='${escapedPath}'[vfinal]`);
+        }
+      }
     } else {
       filterParts.push(`[vout]copy[vfinal]`);
     }
@@ -836,9 +900,20 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     );
     console.log(`[render] FFmpeg filter graph:\n${filterComplex}`);
 
+    // Pass FONTCONFIG_FILE env to FFmpeg so libass finds our downloaded fonts
+    const ffmpegEnv = { ...process.env };
+    if (fontsDir) {
+      const fontsConfPath = path.join(path.dirname(fontsDir), "fonts.conf");
+      if (fs.existsSync(fontsConfPath)) {
+        ffmpegEnv.FONTCONFIG_FILE = fontsConfPath;
+        console.log(`[render] Passing FONTCONFIG_FILE=${fontsConfPath} to FFmpeg`);
+      }
+    }
+
     const { stderr } = await execFileAsync("ffmpeg", args, {
       timeout: 5 * 60 * 1000,
       maxBuffer: 10 * 1024 * 1024,
+      env: ffmpegEnv,
     });
 
     const lines = stderr.split("\n").filter(Boolean);
@@ -948,6 +1023,100 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     return lines;
   }
 
+  // Download a Google Font TTF to a local directory for FFmpeg/libass to use
+  private async downloadGoogleFont(fontName: string, destDir: string): Promise<void> {
+    try {
+      let downloaded = 0;
+
+      // Method 1: Google Fonts CSS2 API — an old Android UA makes Google serve TTF (not WOFF2)
+      try {
+        const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@400;700`;
+        console.log(`[render] Fetching font CSS from: ${cssUrl}`);
+        const cssRes = await fetch(cssUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 4.4.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.0.0 Mobile Safari/537.36' },
+        });
+        if (cssRes.ok) {
+          const css = await cssRes.text();
+          console.log(`[render] Google Fonts CSS (${css.length} chars):\n${css}`);
+
+          // Extract all font URLs from CSS @font-face rules (TTF or any format)
+          const urlMatches = [...css.matchAll(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g)];
+          console.log(`[render] Found ${urlMatches.length} font URLs in CSS`);
+
+          for (let idx = 0; idx < urlMatches.length; idx++) {
+            const fontUrl = urlMatches[idx][1];
+            console.log(`[render] Downloading font URL: ${fontUrl}`);
+            try {
+              const fontRes = await fetch(fontUrl);
+              if (fontRes.ok) {
+                const buffer = Buffer.from(await fontRes.arrayBuffer());
+                // Check file magic bytes to verify format
+                const magic = buffer.subarray(0, 4).toString('hex');
+                const isTTF = magic === '00010000' || buffer.subarray(0, 4).toString() === 'true';
+                const isWOFF2 = buffer.subarray(0, 4).toString() === 'wOF2';
+                console.log(`[render] Font file magic: ${magic} (TTF=${isTTF}, WOFF2=${isWOFF2}, size=${buffer.length})`);
+
+                if (isWOFF2) {
+                  console.warn(`[render] Got WOFF2 format (not usable by libass), skipping`);
+                  continue;
+                }
+
+                const fileName = `${fontName.replace(/\s+/g, '')}-${idx}.ttf`;
+                fs.writeFileSync(path.join(destDir, fileName), buffer);
+                downloaded++;
+                console.log(`[render] Saved font: ${fileName} (${buffer.length} bytes, TTF=${isTTF})`);
+              }
+            } catch (e) {
+              console.warn(`[render] Failed to download font URL:`, (e as Error).message);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[render] Google Fonts CSS2 API failed:`, (err as Error).message);
+      }
+
+      // Method 2 fallback: GitHub variable font (these are always real TTF)
+      if (downloaded === 0) {
+        console.log(`[render] CSS2 API didn't yield TTFs, trying GitHub variable font...`);
+        const slug = fontName.toLowerCase().replace(/\s+/g, '');
+        const fontSlug = fontName.replace(/\s+/g, '');
+        for (const license of ['ofl', 'apache']) {
+          const varUrl = `https://raw.githubusercontent.com/google/fonts/main/${license}/${slug}/${fontSlug}%5Bwght%5D.ttf`;
+          console.log(`[render] Trying GitHub: ${varUrl}`);
+          try {
+            const res = await fetch(varUrl);
+            if (res.ok) {
+              const buffer = Buffer.from(await res.arrayBuffer());
+              const magic = buffer.subarray(0, 4).toString('hex');
+              console.log(`[render] GitHub font magic: ${magic}, size=${buffer.length}`);
+              const fileName = `${fontSlug}.ttf`;
+              fs.writeFileSync(path.join(destDir, fileName), buffer);
+              downloaded++;
+              console.log(`[render] Downloaded variable font: ${fileName} (${buffer.length} bytes)`);
+              break;
+            }
+          } catch { /* try next license */ }
+        }
+      }
+
+      // Log all font files in the directory
+      const fontFiles = fs.readdirSync(destDir);
+      console.log(`[render] Font directory (${destDir}) contains: [${fontFiles.join(', ')}]`);
+      for (const f of fontFiles) {
+        const stat = fs.statSync(path.join(destDir, f));
+        console.log(`[render]   ${f}: ${stat.size} bytes`);
+      }
+
+      if (downloaded > 0) {
+        console.log(`[render] Successfully downloaded ${downloaded} font files for "${fontName}"`);
+      } else {
+        console.warn(`[render] WARNING: Could not download font "${fontName}" — captions will use fallback font`);
+      }
+    } catch (err) {
+      console.warn(`[render] Font download failed for "${fontName}":`, (err as Error).message);
+    }
+  }
+
   // Helper: Convert hex color + opacity to ASS format (&HAABBGGRR)
   private hexToASS(hexColor: string, opacity: number): string {
     const hex = hexColor.replace('#', '');
@@ -1003,6 +1172,25 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     const alignment = captionSettings?.position === 'top' ? 8 : 2; // 8=top center, 2=bottom center
     const marginV = isPortrait ? 50 : 35;
 
+    // BorderStyle 3 = opaque box: OutlineColour = BOX color, BackColour = shadow
+    // BorderStyle 1 = outline + shadow: OutlineColour = text outline, BackColour = shadow
+    const hasBg = captionSettings ? captionSettings.bgOpacity > 0 : true;
+    const borderStyle = hasBg ? 3 : 1;
+    // For BorderStyle 3: OutlineColour IS the box background color
+    const outlineColor = hasBg ? bgColor : '&H00000000';
+    const backColor = '&H00000000'; // shadow/unused
+    const outlineSize = hasBg ? 10 : 2.5; // box padding or outline width
+    const shadow = hasBg ? 0 : 1;
+
+    if (captionSettings) {
+      console.log(`[render] Using saved caption settings: font="${font}", size=${captionSettings.fontSize}→${fontSize}px, text=${captionSettings.textColor}(${captionSettings.textOpacity}%), bg=${captionSettings.bgColor}(${captionSettings.bgOpacity}%), pos=${captionSettings.position}, borderStyle=${borderStyle}`);
+    } else {
+      console.log(`[render] No saved caption settings found, using defaults`);
+    }
+
+    const styleLine = `Style: Default,${font},${fontSize},${textColor},&H000000FF,${outlineColor},${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outlineSize},${shadow},${alignment},30,30,${marginV},1`;
+    console.log(`[render] ASS style line: ${styleLine}`);
+
     const header = `[Script Info]
 Title: Atlas Subtitles
 ScriptType: v4.00+
@@ -1014,7 +1202,7 @@ PlayResY: ${outputHeight}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${font},${fontSize},${textColor},&H000000FF,&H00000000,${bgColor},-1,0,0,0,100,100,0,0,1,2.5,1,${alignment},30,30,${marginV},1
+Style: Default,${font},${fontSize},${textColor},&H000000FF,${outlineColor},${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outlineSize},${shadow},${alignment},30,30,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

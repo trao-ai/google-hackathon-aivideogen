@@ -113,7 +113,7 @@ export function TopicsTab({ project }: Props) {
 
   if (apiTopics.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-brand-border-light py-16 text-center">
+      <div className="rounded-2xl border border-dashed border-brand-border-light py-16 text-center min-h-[60vh] flex flex-col items-center justify-center">
         {isDiscovering || discoverTopics.isPending ? (
           <>
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-brand-border-light border-t-brand-black" />

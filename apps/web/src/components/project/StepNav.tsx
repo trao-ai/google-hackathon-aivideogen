@@ -3,8 +3,6 @@ import type { StepNavProps } from "@/types/components";
 export function StepNav({
   steps,
   activeStep,
-  currentStepIndex,
-  totalSteps,
   onStepClick,
 }: StepNavProps) {
   const activeIdx = steps.findIndex((s) => s.id === activeStep);
@@ -33,9 +31,6 @@ export function StepNav({
           );
         })}
       </div>
-      <span className="px-3.5 py-1.5 bg-brand-green-light rounded-full text-xs font-medium text-brand-green">
-        Step {currentStepIndex + 1} of {totalSteps}
-      </span>
     </div>
   );
 }

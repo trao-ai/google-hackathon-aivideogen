@@ -48,6 +48,8 @@ services:
       PORT: "3001"
       NODE_ENV: production
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
       FAL_KEY: ${FAL_KEY}

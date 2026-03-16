@@ -43,18 +43,18 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# Build all packages — use ; for packages so one failure doesn't block api/workers
-RUN npx tsc -p packages/shared/tsconfig.json; \
-    npx tsc -p packages/db/tsconfig.json; \
-    npx tsc -p packages/integrations/tsconfig.json; \
-    npx tsc -p packages/prompts/tsconfig.json; \
-    npx tsc -p packages/style-system/tsconfig.json; \
-    npx tsc -p packages/cost-estimation/tsconfig.json; \
-    npx tsc -p packages/validation/tsconfig.json; \
-    npx tsc -p packages/motion-fallback/tsconfig.json; \
+# Build all packages and apps — fail fast if any compilation errors
+RUN npx tsc -p packages/shared/tsconfig.json && \
+    npx tsc -p packages/db/tsconfig.json && \
+    npx tsc -p packages/integrations/tsconfig.json && \
+    npx tsc -p packages/prompts/tsconfig.json && \
+    npx tsc -p packages/style-system/tsconfig.json && \
+    npx tsc -p packages/cost-estimation/tsconfig.json && \
+    npx tsc -p packages/validation/tsconfig.json && \
+    npx tsc -p packages/motion-fallback/tsconfig.json && \
     npx tsc -p apps/api/tsconfig.json && \
     npx tsc -p apps/workers/tsconfig.json && \
-    echo "API and Workers compiled successfully"
+    echo "All packages compiled successfully"
 
 # Build Next.js web app
 RUN cd apps/web && npm run build

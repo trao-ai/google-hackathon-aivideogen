@@ -13,6 +13,7 @@ import type {
   CostSummary,
   CostAnalytics,
   CostEstimate,
+  CaptionSettings,
 } from "@/types/api";
 
 export const api = {

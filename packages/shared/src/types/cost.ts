@@ -23,7 +23,8 @@ export type CostStage =
   | "render"
   | "sfx"
   | "storage"
-  | "channel_analysis";
+  | "channel_analysis"
+  | "character_generation";
 
 export interface CostEvent {
   id: string;

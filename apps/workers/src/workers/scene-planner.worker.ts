@@ -39,6 +39,14 @@ export class ScenePlannerWorker {
     if (!voiceover) throw new Error(`Voiceover ${voiceoverId} not found`);
     if (!project.selectedScriptId) throw new Error("No selected script");
 
+    // Load selected character for injection into scene prompts
+    const selectedCharacter = project.selectedCharacterId
+      ? await prisma.character.findUnique({ where: { id: project.selectedCharacterId } })
+      : null;
+    if (selectedCharacter?.description) {
+      console.log(`[scene-planner] Using character "${selectedCharacter.name}": ${selectedCharacter.description.slice(0, 100)}...`);
+    }
+
     const script = await prisma.script.findUnique({
       where: { id: project.selectedScriptId },
       include: { sections: { orderBy: { orderIndex: "asc" } } },
@@ -75,13 +83,18 @@ export class ScenePlannerWorker {
 
     const platformAspectRatio = project.platform && project.platform !== "youtube" ? "9:16" : "16:9";
 
+    // Inject selected character description into style context so the LLM uses it
+    const characterContext = selectedCharacter?.description
+      ? `\n\nMAIN CHARACTER (use this EXACT description in every scene where the character appears):\nName: ${selectedCharacter.name}\nAppearance: ${selectedCharacter.description}\nGender: ${selectedCharacter.gender}, Age style: ${selectedCharacter.ageStyle}, Emotion: ${selectedCharacter.emotion}\nIMPORTANT: You MUST use this character description verbatim in the "characterDescriptions" field and embed it into startPrompt/endPrompt for every scene featuring this character.`
+      : "";
+
     const llmResponse = await runAgent({
       agentName: "scene-planner",
       instruction: SCENE_PLANNER_SYSTEM_PROMPT,
       userMessage: buildScenePlannerPrompt(
         JSON.stringify(sectionSummaries, null, 2),
         JSON.stringify(segments, null, 2),
-        styleSummary,
+        styleSummary + characterContext,
         voiceover.durationSec,
         {
           platform: project.platform,

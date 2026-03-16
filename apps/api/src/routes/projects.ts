@@ -100,6 +100,7 @@ projectRouter.get("/:id", async (req, res, next) => {
         scenes: { include: { frames: true, clip: true }, orderBy: { orderIndex: "asc" } },
         renders: true,
         costEvents: true,
+        characters: { orderBy: { createdAt: "desc" } },
       },
     });
     if (!project) throw new ApiError(404, "Project not found");

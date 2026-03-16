@@ -83,9 +83,12 @@ export class ScenePlannerWorker {
 
     const platformAspectRatio = project.platform && project.platform !== "youtube" ? "9:16" : "16:9";
 
-    // Inject selected character description into style context so the LLM uses it
-    const characterContext = selectedCharacter?.description
-      ? `\n\nMAIN CHARACTER (use this EXACT description in every scene where the character appears):\nName: ${selectedCharacter.name}\nAppearance: ${selectedCharacter.description}\nGender: ${selectedCharacter.gender}, Age style: ${selectedCharacter.ageStyle}, Emotion: ${selectedCharacter.emotion}\nIMPORTANT: You MUST use this character description verbatim in the "characterDescriptions" field and embed it into startPrompt/endPrompt for every scene featuring this character.`
+    // Build a dedicated character block — separate from style so the LLM treats it as a first-class constraint
+    const canonicalCharacterDescription = selectedCharacter?.description
+      ? `${selectedCharacter.name}: ${selectedCharacter.description}`
+      : null;
+    const characterContext = canonicalCharacterDescription
+      ? `\n\n=== MAIN CHARACTER (MANDATORY — USE IN EVERY SCENE) ===\nName: ${selectedCharacter!.name}\nCanonical Appearance: ${selectedCharacter!.description}\nGender: ${selectedCharacter!.gender}, Age style: ${selectedCharacter!.ageStyle}, Expression: ${selectedCharacter!.emotion}\n\nYou MUST copy the "Canonical Appearance" text VERBATIM into the "characterDescriptions" field of EVERY scene. You MUST also embed this exact character description into EVERY scene's startPrompt and endPrompt where the character appears. Do NOT paraphrase, summarize, or alter the character description — use it word-for-word.\n=== END CHARACTER ===`
       : "";
 
     const llmResponse = await runAgent({
@@ -138,21 +141,35 @@ export class ScenePlannerWorker {
       console.warn("[scene-planner] Could not parse scene JSON");
     }
 
-    // Enforce character consistency: extract character descriptions from scene 0
-    // and inject into all subsequent scenes' prompts
-    if (scenes.length > 0 && scenes[0].characterDescriptions) {
-      const canonical = scenes[0].characterDescriptions;
-      console.log(`[scene-planner] Character descriptions from scene 0: "${canonical.slice(0, 100)}..."`);
-      for (let i = 1; i < scenes.length; i++) {
-        if (!scenes[i].characterDescriptions) {
-          scenes[i].characterDescriptions = canonical;
-        }
-        // Prepend character descriptions to prompts if not already present
-        const charPrefix = `Characters: ${canonical}\n`;
-        if (!scenes[i].startPrompt.includes(canonical.slice(0, 50))) {
+    // Enforce character consistency using the CANONICAL description from the database
+    // (not from what the LLM generated in scene 0 — which may have paraphrased or altered it)
+    if (scenes.length > 0 && canonicalCharacterDescription) {
+      console.log(`[scene-planner] Enforcing canonical character across ${scenes.length} scenes: "${canonicalCharacterDescription.slice(0, 100)}..."`);
+      const charPrefix = `[Main Character: ${canonicalCharacterDescription}]\n`;
+      for (let i = 0; i < scenes.length; i++) {
+        // Override characterDescriptions with the canonical version for ALL scenes
+        scenes[i].characterDescriptions = canonicalCharacterDescription;
+        // Ensure the canonical description is in startPrompt and endPrompt
+        if (!scenes[i].startPrompt.includes(canonicalCharacterDescription.slice(0, 50))) {
           scenes[i].startPrompt = charPrefix + scenes[i].startPrompt;
         }
-        if (!scenes[i].endPrompt.includes(canonical.slice(0, 50))) {
+        if (!scenes[i].endPrompt.includes(canonicalCharacterDescription.slice(0, 50))) {
+          scenes[i].endPrompt = charPrefix + scenes[i].endPrompt;
+        }
+      }
+    } else if (scenes.length > 0 && scenes[0].characterDescriptions) {
+      // Fallback: if no canonical character from DB, use scene 0's description
+      const fallbackDesc = scenes[0].characterDescriptions;
+      console.log(`[scene-planner] No canonical character — using scene 0 fallback: "${fallbackDesc.slice(0, 100)}..."`);
+      const charPrefix = `[Main Character: ${fallbackDesc}]\n`;
+      for (let i = 1; i < scenes.length; i++) {
+        if (!scenes[i].characterDescriptions) {
+          scenes[i].characterDescriptions = fallbackDesc;
+        }
+        if (!scenes[i].startPrompt.includes(fallbackDesc.slice(0, 50))) {
+          scenes[i].startPrompt = charPrefix + scenes[i].startPrompt;
+        }
+        if (!scenes[i].endPrompt.includes(fallbackDesc.slice(0, 50))) {
           scenes[i].endPrompt = charPrefix + scenes[i].endPrompt;
         }
       }

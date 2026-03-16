@@ -79,7 +79,11 @@ export function ScenesTab({ project }: Props) {
       )}
 
       {scenes.length === 0 && !isPlanning && (
-        <p className="text-sm text-gray-500">No scenes yet.</p>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+          <p className="text-sm text-brand-foreground-70">
+            No scenes planned yet. Click &quot;Plan Scene&quot; above to get started.
+          </p>
+        </div>
       )}
 
       {scenes.length > 0 && (

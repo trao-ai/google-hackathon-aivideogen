@@ -36,6 +36,8 @@ export interface ADKRunOptions {
   tools?: FunctionTool[];
   /** Optional generation config overrides */
   generationConfig?: { maxOutputTokens?: number; temperature?: number };
+  /** Optional inline image data to include in the user message (for multimodal analysis) */
+  imageData?: Array<{ inlineData: { mimeType: string; data: string } }>;
 }
 
 export interface ADKRunResult {
@@ -63,6 +65,7 @@ export async function runAgent(options: ADKRunOptions): Promise<ADKRunResult> {
     model = "gemini-2.5-flash",
     tools,
     generationConfig,
+    imageData,
   } = options;
 
   // Build agent config
@@ -98,10 +101,16 @@ export async function runAgent(options: ADKRunOptions): Promise<ADKRunResult> {
     userId: "worker",
   });
 
-  // Build the user message as a Content object
+  // Build the user message as a Content object (supports multimodal with images)
+  const messageParts: Content["parts"] = [];
+  if (imageData?.length) {
+    messageParts.push(...imageData);
+  }
+  messageParts.push({ text: userMessage });
+
   const newMessage: Content = {
     role: "user",
-    parts: [{ text: userMessage }],
+    parts: messageParts,
   };
 
   // Iterate events and collect final response + usage

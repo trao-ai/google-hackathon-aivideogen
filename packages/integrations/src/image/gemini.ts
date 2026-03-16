@@ -14,7 +14,16 @@ export interface ImageGenerationResult {
 }
 
 export interface ImageProvider {
-  generate(prompt: string, referenceImage?: Buffer, seed?: string, aspectRatio?: string): Promise<ImageGenerationResult>;
+  generate(prompt: string, referenceImage?: Buffer, seed?: string, aspectRatio?: string, options?: ImageGenerationOptions): Promise<ImageGenerationResult>;
+}
+
+export interface ImageGenerationOptions {
+  /** When true, the referenceImage is treated as a CHARACTER identity reference (reproduce this character),
+   *  not just a style guide. Changes the prompt instruction accordingly. */
+  isCharacterReference?: boolean;
+  /** Additional reference image for scene continuity (previous scene's end frame).
+   *  Used alongside the primary referenceImage so both character identity AND scene flow are maintained. */
+  continuityReference?: Buffer;
 }
 
 // ─── Nano Banana Pro (Gemini 3 Pro Image) provider ──────────────────────────
@@ -40,7 +49,7 @@ class NanoBananaProProvider implements ImageProvider {
     if (!this.apiKey) throw new Error("GEMINI_API_KEY is not set");
   }
 
-  async generate(prompt: string, referenceImage?: Buffer, seed?: string, aspectRatio?: string): Promise<ImageGenerationResult> {
+  async generate(prompt: string, referenceImage?: Buffer, seed?: string, aspectRatio?: string, options?: ImageGenerationOptions): Promise<ImageGenerationResult> {
     // Generate a deterministic seed if not provided (for versioning)
     const generationSeed = seed || this.generateSeed(prompt);
 
@@ -59,15 +68,43 @@ class NanoBananaProProvider implements ImageProvider {
         { text: string } | { inlineData: { mimeType: string; data: string } }
       > = [];
 
+      const isCharRef = options?.isCharacterReference ?? false;
+
       if (referenceImage) {
+        // Primary reference image (character identity OR style guide)
         parts.push({
           inlineData: {
             mimeType: "image/png",
             data: referenceImage.toString("base64"),
           },
         });
+
+        if (isCharRef) {
+          // CHARACTER IDENTITY mode: the reference is THE character — reproduce it exactly
+          parts.push({
+            text: `[CHARACTER REFERENCE IMAGE ABOVE] This image shows the MAIN CHARACTER. You MUST reproduce this EXACT SAME character in the new image — same face, same body shape, same proportions, same skin/body color, same eye style, same hair, same clothing, same accessories, same color scheme. The character's visual identity must be IDENTICAL to this reference. Do NOT change ANY aspect of the character's appearance. Generate a NEW scene image featuring this exact character.\n`,
+          });
+        }
+
+        // Add continuity reference if available (previous scene's frame)
+        if (options?.continuityReference) {
+          parts.push({
+            inlineData: {
+              mimeType: "image/png",
+              data: options.continuityReference.toString("base64"),
+            },
+          });
+          parts.push({
+            text: `[SCENE CONTINUITY REFERENCE ABOVE] This is the previous scene's frame. Maintain the same art style, color palette, lighting, and visual language for smooth scene-to-scene flow. The new image should feel like it belongs in the same video.\n`,
+          });
+        }
+
+        const referenceInstruction = isCharRef
+          ? `Generate a NEW image featuring the EXACT character from the character reference image above. Match the character's identity precisely while placing them in the new scene described below.`
+          : `Use the reference image above as a STRICT style guide. You MUST match its exact art style, color palette, line weight, character proportions, shading technique, and background treatment. Generate a NEW image (not an edit) based on this description.`;
+
         parts.push({
-          text: `Use the reference image above as a STRICT style guide. You MUST match its exact art style, color palette, line weight, character proportions, shading technique, and background treatment. Generate a NEW image (not an edit) based on this description.\n\nCRITICAL RULE: Do NOT include ANY text, words, letters, numbers, labels, captions, titles, watermarks, writing, or typography ANYWHERE in the image. The image must contain ZERO text. This is non-negotiable.${aspectRatioInstruction}\n\n${prompt}`,
+          text: `${referenceInstruction}\n\nCRITICAL RULE: Do NOT include ANY text, words, letters, numbers, labels, captions, titles, watermarks, writing, or typography ANYWHERE in the image. The image must contain ZERO text. This is non-negotiable.${aspectRatioInstruction}\n\n${prompt}`,
         });
       } else {
         parts.push({

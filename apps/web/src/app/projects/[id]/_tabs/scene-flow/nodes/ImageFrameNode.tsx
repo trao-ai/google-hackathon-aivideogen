@@ -66,7 +66,7 @@ function ImageFrameNodeComponent({ data }: { data: ImageFrameNodeData }) {
           </>
         ) : (
           <div className={`absolute inset-0 flex flex-col items-center border-2 border-dashed border-brand-border-light rounded-md m-2 ${
-            scene.frameStatus === "generating" ? "justify-center" : "justify-end pb-3"
+            "justify-center"
           }`}>
             {scene.frameStatus === "generating" ? (
               <>

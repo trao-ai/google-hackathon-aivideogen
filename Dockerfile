@@ -64,6 +64,7 @@ RUN cd apps/web && npm run build
 FROM node:22-alpine AS api
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apk add --no-cache openssl
 
 # Production-only node_modules (root + workspace-specific for non-hoisted deps)
 COPY --from=prod-deps /app/node_modules ./node_modules

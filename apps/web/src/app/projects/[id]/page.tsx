@@ -27,6 +27,7 @@ import { ScenesTab } from "./_tabs/ScenesTab";
 import { CaptionsTab } from "./_tabs/CaptionsTab";
 import { RenderTab } from "./_tabs/RenderTab";
 import { CostsTab } from "./_tabs/CostsTab";
+import { EditorView } from "./_tabs/EditorView";
 import type { StepNavItem } from "@/types/components";
 
 const STEPS: StepNavItem[] = [
@@ -91,6 +92,7 @@ export default function ProjectPage() {
   const { activeStep, setActiveStep, autoNavigated, setAutoNavigated } =
     useProjectStore();
   const [footerError, setFooterError] = useState("");
+  const [showEditor, setShowEditor] = useState(false);
 
   const project =
     apiProject ??
@@ -206,7 +208,7 @@ export default function ProjectPage() {
 
       <main className="flex-1 overflow-y-auto px-4 pt-4 pb-0">
         <div className="bg-brand-off-white rounded-2xl border border-brand-border-light p-5 flex flex-col gap-5">
-          {activeStep !== "topic" && project.title && (
+          {activeStep !== "topic" && project.title && !(activeStep === "scenes" && showEditor) && (
             <div className="flex items-start justify-between gap-8">
               <div className="flex flex-col gap-1">
                 <h1 className="text-2xl font-semibold text-foreground">
@@ -235,15 +237,17 @@ export default function ProjectPage() {
             </div>
           )}
 
-          <StepNav
-            steps={STEPS}
-            activeStep={activeStep}
-            currentStepIndex={currentStepIndex}
-            totalSteps={STEPS.length}
-            onStepClick={setActiveStep}
-          />
+          {!(activeStep === "scenes" && showEditor) && (
+            <StepNav
+              steps={STEPS}
+              activeStep={activeStep}
+              currentStepIndex={currentStepIndex}
+              totalSteps={STEPS.length}
+              onStepClick={setActiveStep}
+            />
+          )}
 
-          {activeStep !== "topic" && (
+          {activeStep !== "topic" && !(activeStep === "scenes" && showEditor) && (
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
                 <h2 className="text-xl font-semibold text-foreground">
@@ -286,7 +290,7 @@ export default function ProjectPage() {
                     title={
                       !hasVoiceover ? "Generate voiceover first" : undefined
                     }
-                    className="px-4 py-2.5 rounded-full border border-brand-border-light bg-transparent hover:bg-brand-surface hover:text-blac text-sm"
+                    className="px-4 py-2.5 rounded-full border border-brand-border-light bg-brand-surface hover:bg-brand-surface hover:opacity-80 text-sm hover:text-black"
                   >
                     {project.status === "planning_scenes"
                       ? "Planning..."
@@ -320,7 +324,7 @@ export default function ProjectPage() {
                           generateFrames.isPending ||
                           project.status === "frame_generation"
                         }
-                        className="px-4 py-2.5 rounded-full border border-brand-border-light bg-transparent hover:bg-brand-surface text-sm text-foreground hover:text-foreground"
+                        className="px-4 py-2.5 rounded-full border border-brand-border-light bg-brand-surface hover:bg-brand-surface hover:opacity-80 text-sm hover:text-black"
                       >
                         Regenerate Frames
                       </Button>
@@ -336,6 +340,14 @@ export default function ProjectPage() {
                           ? "Generating..."
                           : "Generate all videos"}
                       </Button>
+                      {(project.scenes ?? []).some((s) => s.clip?.videoUrl) && (
+                        <Button
+                          onClick={() => setShowEditor(true)}
+                          className="px-4 py-2.5 bg-brand-black text-brand-off-white rounded-full hover:opacity-90 text-sm font-medium"
+                        >
+                          Editor &rarr;
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
@@ -362,14 +374,18 @@ export default function ProjectPage() {
               }}
             />
           )}
-          {activeStep === "scenes" && <ScenesTab project={project} />}
+          {activeStep === "scenes" && showEditor ? (
+            <EditorView project={project} onBack={() => setShowEditor(false)} />
+          ) : activeStep === "scenes" ? (
+            <ScenesTab project={project} />
+          ) : null}
           {activeStep === "captions" && <CaptionsTab project={project} />}
           {activeStep === "export" && <RenderTab />}
           {activeStep === "cost" && <CostsTab />}
         </div>
       </main>
 
-      <div className="shrink-0 bg-brand-off-white border-t border-brand-border-light shadow-[0px_-4px_16px_rgba(225,218,205,0.2)] px-5 py-3 flex items-center justify-between gap-5">
+      {!(activeStep === "scenes" && showEditor) && <div className="shrink-0 bg-brand-off-white border-t border-brand-border-light shadow-[0px_-4px_16px_rgba(225,218,205,0.2)] px-5 py-3 flex items-center justify-between gap-5">
         <div>
           {footerError && (
             <p className="text-sm text-brand-red">{footerError}</p>
@@ -484,7 +500,7 @@ export default function ProjectPage() {
             </button>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

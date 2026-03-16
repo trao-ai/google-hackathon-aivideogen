@@ -17,5 +17,6 @@ export const queryKeys = {
   },
   voicePresets: ["voice-presets"] as const,
   renders: (projectId: string) => ["renders", projectId] as const,
+  exports: (renderId: string) => ["exports", renderId] as const,
   costs: (projectId: string) => ["costs", projectId] as const,
 };

@@ -92,7 +92,10 @@ function CopyRow({ text }: { text: string }) {
   };
 
   return (
-    <div className="px-4 py-3.5 bg-brand-beige/30 rounded-xl border border-brand-border-light flex items-center justify-between gap-3 overflow-hidden">
+    <div
+      className="px-4 py-3.5 rounded-xl border border-brand-border-light flex items-center justify-between gap-3 overflow-hidden"
+      style={{ backgroundColor: "#E1DACD4D" }}
+    >
       <span className="flex-1 text-sm text-foreground">{text}</span>
       <button
         type="button"
@@ -142,13 +145,13 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex flex-col gap-1.5">
-        <h4 className="text-base font-medium text-foreground">{title}</h4>
-        <p className="text-sm text-brand-foreground-70">{subtitle}</p>
+        <h4 className="text-sm font-normal text-foreground">{title}</h4>
+        <p className="text-xs text-brand-foreground-70">{subtitle}</p>
       </div>
       <button
         type="button"
         onClick={onRegenerate}
-        className="shrink-0 px-4 py-2.5 bg-brand-black rounded-full flex items-center gap-2 text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+        className="shrink-0 px-4 py-2.5 bg-brand-black rounded-full flex items-center gap-2 text-sm font-normal text-brand-off-white hover:opacity-90 transition-opacity"
       >
         <ArrowsClockwise size={20} weight="regular" />
         {buttonLabel}
@@ -169,7 +172,7 @@ export function RenderTab() {
       {/* Top row: Video preview + Export sidebar */}
       <div className="flex gap-5 items-start">
         {/* Video Preview */}
-        <div className="flex-1 min-w-0 p-5 bg-brand-surface rounded-2xl border border-brand-border-light flex flex-col gap-4 overflow-hidden">
+        <div className="flex-1 min-w-0 p-3.5 bg-brand-surface rounded-2xl border border-brand-border-light flex flex-col gap-4 overflow-hidden">
           {/* Video player area */}
           <div className="relative w-full aspect-[13/8] bg-brand-beige rounded-2xl overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/40" />
@@ -212,23 +215,23 @@ export function RenderTab() {
 
           {/* Video info */}
           <div className="flex flex-col gap-0">
-            <h3 className="text-xl font-semibold text-foreground">
+            <h3 className="text-lg font-medium text-foreground">
               Why Churros Outperformed Disney+ in the Profit Race
             </h3>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="pr-2 border-r border-brand-border-light text-sm text-brand-foreground-70">
+                <span className="pr-2 border-r border-brand-border-light text-xs text-brand-foreground-70">
                   Duration: 2 minutes
                 </span>
-                <span className="text-sm text-brand-foreground-70">
+                <span className="text-xs text-brand-foreground-70">
                   Total Cost: $12
                 </span>
               </div>
               <div className="pl-2 border-l border-brand-border-light flex items-center gap-1.5">
-                <span className="text-sm text-brand-foreground-50">
+                <span className="text-xs text-brand-foreground-50">
                   13/03/2026,
                 </span>
-                <span className="text-sm text-brand-foreground-50">
+                <span className="text-xs text-brand-foreground-50">
                   2:45 PM
                 </span>
               </div>
@@ -237,7 +240,7 @@ export function RenderTab() {
         </div>
 
         {/* Export Sidebar */}
-        <div className="w-[400px] shrink-0 p-5 bg-brand-surface rounded-2xl border border-brand-border-light flex flex-col gap-3 overflow-hidden">
+        <div className="w-[400px] shrink-0 p-3.5 bg-brand-surface rounded-2xl border border-brand-border-light flex flex-col gap-3 overflow-hidden">
           <h3 className="text-lg font-normal text-foreground capitalize">
             Export Video
           </h3>
@@ -383,10 +386,10 @@ export function RenderTab() {
 
       {/* AI YouTube Optimization — aligned with video player width */}
       <div
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-3"
         style={{ maxWidth: "calc(100% - 400px - 1.25rem)" }}
       >
-        <h3 className="text-xl font-semibold text-foreground">
+        <h3 className="text-lg font-medium text-foreground">
           AI YouTube Optimization
         </h3>
 
@@ -398,7 +401,7 @@ export function RenderTab() {
             buttonLabel="Regenerate Titles"
             onRegenerate={() => {}}
           />
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {MOCK_TITLES.map((title) => (
               <CopyRow key={title} text={title} />
             ))}
@@ -406,14 +409,14 @@ export function RenderTab() {
         </div>
 
         {/* Suggested Description */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <SectionHeader
             title="Suggested Description"
             subtitle="AI-generated video description optimized for YouTube search and audience engagement."
             buttonLabel="Regenerate Description"
             onRegenerate={() => {}}
           />
-          <div className="px-4 py-3.5 bg-brand-beige/30 rounded-xl border border-brand-border-light flex items-start justify-between gap-3 overflow-hidden">
+          <div className="px-4 py-3.5 rounded-xl border border-brand-border-light flex items-start justify-between gap-3 overflow-hidden" style={{ backgroundColor: "#E1DACD4D" }}>
             <p className="flex-1 text-sm text-foreground whitespace-pre-line">
               {MOCK_DESCRIPTION}
             </p>
@@ -427,7 +430,7 @@ export function RenderTab() {
         </div>
 
         {/* Suggested Tags */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <SectionHeader
             title="Suggested Tags"
             subtitle="Tags help YouTube understand the topic of the video."
@@ -446,7 +449,7 @@ export function RenderTab() {
         </div>
 
         {/* Suggested Video Category */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <SectionHeader
             title="Suggested Video Category"
             subtitle="Suggested category based on your video topic to improve content classification."
@@ -466,7 +469,7 @@ export function RenderTab() {
         </div>
 
         {/* Suggested Hashtags */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <SectionHeader
             title="Suggested Hashtags"
             subtitle="Recommended hashtags to help your video appear in relevant searches and trends."

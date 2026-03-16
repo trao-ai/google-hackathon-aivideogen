@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const [category, setCategory] = useState("All Categories");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const categoryRef = useRef<HTMLDivElement>(null);
-  //
+
   useEffect(() => {
     if (!categoryOpen) return;
     function handleClick(e: MouseEvent) {

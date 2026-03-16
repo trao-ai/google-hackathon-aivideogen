@@ -60,16 +60,25 @@ export class FrameGenerationWorker {
     if (!scene) throw new Error(`Scene ${sceneId} not found`);
     if (!project) throw new Error(`Project ${projectId} not found`);
 
-    // Load selected character's image for use as reference on the first scene
+    // Load selected character for image reference AND text description for ALL scenes
     let characterRefBuffer: Buffer | undefined;
-    if (scene.orderIndex === 0 && project.selectedCharacterId) {
+    let characterDescription = "";
+    if (project.selectedCharacterId) {
       const character = await prisma.character.findUnique({
         where: { id: project.selectedCharacterId },
       });
-      if (character?.imageUrl) {
-        characterRefBuffer = await this.loadFrameBuffer(character.imageUrl);
-        if (characterRefBuffer) {
-          console.log(`[frame-gen] Using character "${character.name}" image as reference for scene 0`);
+      if (character) {
+        // Use character image as reference for EVERY scene (not just scene 0)
+        if (character.imageUrl) {
+          characterRefBuffer = await this.loadFrameBuffer(character.imageUrl);
+          if (characterRefBuffer) {
+            console.log(`[frame-gen] Using character "${character.name}" image as reference for scene ${scene.orderIndex}`);
+          }
+        }
+        // Build character description for ALL scenes
+        if (character.description) {
+          characterDescription = `\nMAIN CHARACTER (must appear exactly as described — this is the SAME character in every scene):\nName: ${character.name}\nAppearance: ${character.description}\nGender: ${character.gender}, Age: ${character.ageStyle}, Emotion: ${character.emotion}\nYou MUST depict this EXACT character consistently — same face, same body proportions, same clothing, same colors. Do NOT alter the character's appearance.\n`;
+          console.log(`[frame-gen] Injecting character "${character.name}" description into prompts for scene ${scene.orderIndex}`);
         }
       }
     }
@@ -186,7 +195,7 @@ export class FrameGenerationWorker {
       : "";
 
     const startPrompt = `${stylePrefix}
-
+${characterDescription}
 ${scene.startPrompt}
 
 Scene purpose: ${scene.purpose}${narrationContext}
@@ -202,7 +211,7 @@ Generate START FRAME only.`.trim();
       : "";
 
     const endPrompt = `${stylePrefix}
-
+${characterDescription}
 ${scene.endPrompt}
 
 Scene purpose: ${scene.purpose}
@@ -235,8 +244,9 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
       }
     }
 
-    // Generate start frame (with previous scene's reference frame OR character image as style reference)
-    const referenceBuffer = prevRefFrameBuffer ?? characterRefBuffer;
+    // Generate start frame — character image takes priority as reference (for consistency)
+    // Character image is the ground truth for how the character looks across ALL scenes
+    const referenceBuffer = characterRefBuffer ?? prevRefFrameBuffer;
     const startResult = await imageProvider.generate(startPrompt, referenceBuffer, undefined, platformAspectRatio);
 
     const validator = new FrameValidator();

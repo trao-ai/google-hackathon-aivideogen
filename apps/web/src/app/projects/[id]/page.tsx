@@ -7,7 +7,6 @@ import { useProject } from "@/hooks/use-projects";
 import { useProjectStore } from "@/stores/project-store";
 import { useStartResearch } from "@/hooks/use-research";
 import { useGenerateScript } from "@/hooks/use-scripts";
-import { useGenerateVoice } from "@/hooks/use-voice";
 import {
   usePlanScenes,
   useGenerateFrames,
@@ -27,7 +26,7 @@ import { ScenesTab } from "./_tabs/ScenesTab";
 import { CaptionsTab } from "./_tabs/CaptionsTab";
 import { RenderTab } from "./_tabs/RenderTab";
 import { CostsTab } from "./_tabs/CostsTab";
-import { EditorView } from "./_tabs/EditorView";
+// import { EditorView } from "./_tabs/EditorView";
 import type { StepNavItem } from "@/types/components";
 
 const STEPS: StepNavItem[] = [
@@ -92,7 +91,8 @@ export default function ProjectPage() {
   const { activeStep, setActiveStep, autoNavigated, setAutoNavigated } =
     useProjectStore();
   const [footerError, setFooterError] = useState("");
-  const [showEditor, setShowEditor] = useState(false);
+  // const [showEditor, setShowEditor] = useState(false);
+  const showEditor = false;
 
   const project =
     apiProject ??
@@ -109,7 +109,6 @@ export default function ProjectPage() {
 
   const startResearch = useStartResearch(id);
   const generateScript = useGenerateScript(id);
-  const generateVoice = useGenerateVoice(id);
   const planScenes = usePlanScenes(id);
   const generateFrames = useGenerateFrames(id);
   const generateAllVideos = useGenerateAllVideos(id);
@@ -155,14 +154,9 @@ export default function ProjectPage() {
 
   const isResearching = project.status === "researching";
   const isScripting = project.status === "scripting";
-  const isVoicing =
-    project.status === "voicing" || project.status === "voice_generating";
-  const isPlanning = project.status === "planning_scenes";
-
   const footerLoading =
     startResearch.isPending ||
     generateScript.isPending ||
-    generateVoice.isPending ||
     planScenes.isPending;
 
   const handleStartResearch = () => {
@@ -184,22 +178,6 @@ export default function ProjectPage() {
         onError: (err) => setFooterError(err.message),
       },
     );
-  };
-
-  const handleGenerateVoice = () => {
-    setFooterError("");
-    generateVoice.mutate(undefined, {
-      onSuccess: () => setActiveStep("voice"),
-      onError: (err) => setFooterError(err.message),
-    });
-  };
-
-  const handlePlanScenes = () => {
-    setFooterError("");
-    planScenes.mutate(undefined, {
-      onSuccess: () => setActiveStep("scenes"),
-      onError: (err) => setFooterError(err.message),
-    });
   };
 
   return (
@@ -343,6 +321,7 @@ export default function ProjectPage() {
                             ? "Generating..."
                             : "Generate all videos"}
                         </Button>
+                        {/* Editor button — temporarily disabled
                         {(project.scenes ?? []).some(
                           (s) => s.clip?.videoUrl,
                         ) && (
@@ -353,6 +332,7 @@ export default function ProjectPage() {
                             Editor &rarr;
                           </Button>
                         )}
+                        */}
                       </>
                     )}
                   </div>
@@ -379,8 +359,11 @@ export default function ProjectPage() {
               }}
             />
           )}
+          {/* Editor view — temporarily disabled
           {activeStep === "scenes" && showEditor ? (
-            <EditorView project={project} onBack={() => setShowEditor(false)} />
+            <EditorView project={project} onBack={() => setShowEditor(false)} /> */}
+          {activeStep === "scenes" && showEditor ? (
+            null
           ) : activeStep === "scenes" ? (
             <ScenesTab project={project} />
           ) : null}
@@ -451,31 +434,25 @@ export default function ProjectPage() {
               </button>
             )}
 
-            {/* Script → Voice: Generate voiceover */}
+            {/* Script → Voice: Navigate to voice tab */}
             {activeStep === "script" && hasScript && (
               <button
                 type="button"
-                onClick={handleGenerateVoice}
-                disabled={footerLoading || isVoicing}
-                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                onClick={() => setActiveStep("voice")}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
               >
-                {isVoicing || generateVoice.isPending
-                  ? "Generating Voice..."
-                  : "Generate Voiceover"}
+                Continue to Voice
               </button>
             )}
 
-            {/* Voice → Scenes: Plan scenes */}
+            {/* Voice → Scenes: Navigate to scenes tab */}
             {activeStep === "voice" && hasVoiceover && (
               <button
                 type="button"
-                onClick={handlePlanScenes}
-                disabled={footerLoading || isPlanning}
-                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                onClick={() => setActiveStep("scenes")}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
               >
-                {isPlanning || planScenes.isPending
-                  ? "Planning Scenes..."
-                  : "Plan Scenes"}
+                Continue to Scenes
               </button>
             )}
 

@@ -7,6 +7,7 @@ import {
   createImageProvider,
   createStorageProvider,
   resolveStorageDir,
+  type ImageGenerationOptions,
 } from "@atlas/integrations";
 import { getStylePrefix } from "@atlas/style-system";
 import { calculateLLMCost } from "@atlas/shared";
@@ -77,7 +78,7 @@ export class FrameGenerationWorker {
         }
         // Build character description for ALL scenes
         if (character.description) {
-          characterDescription = `\nMAIN CHARACTER (must appear exactly as described — this is the SAME character in every scene):\nName: ${character.name}\nAppearance: ${character.description}\nGender: ${character.gender}, Age: ${character.ageStyle}, Emotion: ${character.emotion}\nYou MUST depict this EXACT character consistently — same face, same body proportions, same clothing, same colors. Do NOT alter the character's appearance.\n`;
+          characterDescription = `\n=== MAIN CHARACTER IDENTITY (NON-NEGOTIABLE) ===\nThis scene features the main character. You MUST reproduce this EXACT character with NO modifications:\nName: ${character.name}\nVisual Identity: ${character.description}\nGender: ${character.gender} | Age: ${character.ageStyle} | Expression: ${character.emotion}\nRULES: Same face, same body shape, same proportions, same skin/body color, same eye style, same hair, same clothing, same accessories, same color scheme as described above. ANY deviation from this description is WRONG.\n=== END CHARACTER IDENTITY ===\n`;
           console.log(`[frame-gen] Injecting character "${character.name}" description into prompts for scene ${scene.orderIndex}`);
         }
       }
@@ -194,8 +195,9 @@ export class FrameGenerationWorker {
       ? `\nNarration during this scene: "${narrationText.slice(0, 250)}"\nThe visual MUST depict what the narrator is describing.\n`
       : "";
 
-    const startPrompt = `${stylePrefix}
-${characterDescription}
+    const startPrompt = `${characterDescription}
+${stylePrefix}
+
 ${scene.startPrompt}
 
 Scene purpose: ${scene.purpose}${narrationContext}
@@ -210,8 +212,9 @@ Generate START FRAME only.`.trim();
       ? `\nVISUAL CONTINUITY — this scene's end must naturally flow into the next scene:\n"${nextScene.startPrompt.slice(0, 300)}"\nMaintain consistent art style, colors, and visual language for a smooth transition.\n`
       : "";
 
-    const endPrompt = `${stylePrefix}
-${characterDescription}
+    const endPrompt = `${characterDescription}
+${stylePrefix}
+
 ${scene.endPrompt}
 
 Scene purpose: ${scene.purpose}
@@ -244,10 +247,14 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
       }
     }
 
-    // Generate start frame — character image takes priority as reference (for consistency)
-    // Character image is the ground truth for how the character looks across ALL scenes
-    const referenceBuffer = characterRefBuffer ?? prevRefFrameBuffer;
-    const startResult = await imageProvider.generate(startPrompt, referenceBuffer, undefined, platformAspectRatio);
+    // Generate start frame — use character image as CHARACTER IDENTITY reference (not just style)
+    // and previous scene's frame as CONTINUITY reference, so we get both consistency + flow
+    const hasCharacterRef = !!characterRefBuffer;
+    const primaryRef = characterRefBuffer ?? prevRefFrameBuffer;
+    const imageGenOptions: ImageGenerationOptions | undefined = hasCharacterRef
+      ? { isCharacterReference: true, continuityReference: prevRefFrameBuffer }
+      : undefined;
+    const startResult = await imageProvider.generate(startPrompt, primaryRef, undefined, platformAspectRatio, imageGenOptions);
 
     const validator = new FrameValidator();
 
@@ -311,9 +318,13 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
     } else {
       // Veo/Kling: generate both start and end frames
 
-      // Generate end frame (with THIS scene's start frame as style reference)
-      // This guarantees within-scene consistency — the end frame SEES the start frame
-      const endResult = await imageProvider.generate(endPrompt, startResult.imageBuffer, undefined, platformAspectRatio);
+      // Generate end frame — use character image as identity reference + start frame for within-scene continuity
+      // This guarantees both character consistency AND visual progression within the scene
+      const endGenOptions: ImageGenerationOptions | undefined = hasCharacterRef
+        ? { isCharacterReference: true, continuityReference: startResult.imageBuffer }
+        : undefined;
+      const endRef = characterRefBuffer ?? startResult.imageBuffer;
+      const endResult = await imageProvider.generate(endPrompt, endRef, undefined, platformAspectRatio, endGenOptions);
 
       // Validate frames for quality and style consistency
       const [startValidation, endValidation] = await Promise.all([

@@ -69,7 +69,9 @@ export class CharacterGenerationWorker {
     const imageUrl = await storage.upload(storageKey, result.imageBuffer, result.mimeType);
     console.log(`[character-gen] Image uploaded → ${storageKey}`);
 
-    // Generate a canonical text description for use in scene prompts
+    // Generate a canonical text description by analyzing the ACTUAL generated image
+    // This ensures the description matches what the image actually looks like,
+    // not just what was requested — critical for character consistency across scenes
     const description = await this.generateDescription({
       projectId,
       gender,
@@ -78,6 +80,7 @@ export class CharacterGenerationWorker {
       appearance,
       userPrompt: prompt,
       niche: project.niche,
+      imageBuffer: result.imageBuffer,
     });
 
     // Update the character record
@@ -148,15 +151,27 @@ export class CharacterGenerationWorker {
     appearance: string;
     userPrompt: string | null;
     niche: string;
+    imageBuffer?: Buffer;
   }): Promise<string> {
-    const { projectId, gender, ageStyle, emotion, appearance, userPrompt, niche } = params;
+    const { projectId, gender, ageStyle, emotion, appearance, userPrompt, niche, imageBuffer } = params;
 
     try {
+      // If we have the actual generated image, describe what we SEE — not what was requested.
+      // This is critical for consistency: the description must match the actual image exactly.
+      const imageData = imageBuffer
+        ? [{ inlineData: { mimeType: "image/png", data: imageBuffer.toString("base64") } }]
+        : undefined;
+
       const result = await runAgent({
         agentName: "character-describer",
-        instruction: `You write concise visual character descriptions for use in AI image generation prompts. The description should be detailed enough to reproduce the character consistently across multiple images. Include: body type, proportions, hair, clothing, color scheme, and distinguishing features. Keep it to 2-3 sentences. Do NOT include background descriptions.`,
-        userMessage: `Describe a ${ageStyle.toLowerCase()} ${gender.toLowerCase()} character with a ${emotion.toLowerCase()} expression in ${appearance.toLowerCase()} style. Context: ${userPrompt || `presenter for a video about ${niche}`}`,
-        generationConfig: { maxOutputTokens: 300, temperature: 0.7 },
+        instruction: imageBuffer
+          ? `You are a visual character analyst. You will be given an image of a character. Your job is to describe EXACTLY what you see in the image — every visual detail that would be needed to reproduce this EXACT character consistently in other images. Include: exact body shape/proportions, skin/body color, eye shape/color/style, hair style/color, clothing/accessories with exact colors, any distinguishing features or markings. Be extremely specific about colors (e.g. "deep cerulean blue" not just "blue"). Keep it to 3-4 sentences. Do NOT describe the background or pose — only the character's permanent visual identity.`
+          : `You write concise visual character descriptions for use in AI image generation prompts. The description should be detailed enough to reproduce the character consistently across multiple images. Include: body type, proportions, hair, clothing, color scheme, and distinguishing features. Keep it to 2-3 sentences. Do NOT include background descriptions.`,
+        userMessage: imageBuffer
+          ? `Analyze this character image and provide a precise visual description that can be used to reproduce this EXACT character consistently across many different scenes and poses. The character is a ${ageStyle.toLowerCase()} ${gender.toLowerCase()} in ${appearance.toLowerCase()} style.`
+          : `Describe a ${ageStyle.toLowerCase()} ${gender.toLowerCase()} character with a ${emotion.toLowerCase()} expression in ${appearance.toLowerCase()} style. Context: ${userPrompt || `presenter for a video about ${niche}`}`,
+        generationConfig: { maxOutputTokens: 400, temperature: 0.3 },
+        imageData,
       });
 
       // Track character description LLM cost

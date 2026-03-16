@@ -8,7 +8,10 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { toNodeHandler } from "better-auth/node";
 
+import { auth } from "./lib/auth";
+import { requireAuth } from "./middleware/auth";
 import { projectRouter } from "./routes/projects";
 import { topicRouter } from "./routes/topics";
 import { discoverRouter } from "./routes/discover";
@@ -34,6 +37,7 @@ app.use(helmet());
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     credentials: true,
   }),
 );
@@ -45,6 +49,10 @@ app.use(
     legacyHeaders: false,
   }),
 );
+
+// Better Auth handler — must be mounted BEFORE express.json()
+app.all("/api/auth/*", toNodeHandler(auth));
+
 app.use(express.json({ limit: "10mb" }));
 
 // Static files — allow cross-origin audio playback from the web app
@@ -65,21 +73,21 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Routes
-app.use("/api/discover", discoverRouter);
-app.use("/api/projects", voiceRouter);    // before projectRouter so /voice-presets doesn't match /:id
-app.use("/api/projects", projectRouter);
-app.use("/api/projects", topicRouter);
-app.use("/api/projects", researchRouter);
-app.use("/api/projects", scriptRouter);
-app.use("/api/projects", sceneRouter);
-app.use("/api/projects", frameRouter);
-app.use("/api/projects", costRouter);
-app.use("/api/projects", renderRouter);
-app.use("/api/projects", exportRouter);
-app.use("/api/projects", captionRouter);
-app.use("/api/projects", characterRouter);
-app.use("/api/projects", previewRouter);
+// Routes — all /api/projects routes require authentication
+app.use("/api/discover", requireAuth, discoverRouter);
+app.use("/api/projects", requireAuth, voiceRouter);    // before projectRouter so /voice-presets doesn't match /:id
+app.use("/api/projects", requireAuth, projectRouter);
+app.use("/api/projects", requireAuth, topicRouter);
+app.use("/api/projects", requireAuth, researchRouter);
+app.use("/api/projects", requireAuth, scriptRouter);
+app.use("/api/projects", requireAuth, sceneRouter);
+app.use("/api/projects", requireAuth, frameRouter);
+app.use("/api/projects", requireAuth, costRouter);
+app.use("/api/projects", requireAuth, renderRouter);
+app.use("/api/projects", requireAuth, exportRouter);
+app.use("/api/projects", requireAuth, captionRouter);
+app.use("/api/projects", requireAuth, characterRouter);
+app.use("/api/projects", requireAuth, previewRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

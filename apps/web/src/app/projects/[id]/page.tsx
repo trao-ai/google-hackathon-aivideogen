@@ -386,7 +386,7 @@ export default function ProjectPage() {
           ) : null}
           {activeStep === "captions" && <CaptionsTab project={project} />}
           {activeStep === "export" && <RenderTab project={project} />}
-          {activeStep === "cost" && <CostsTab />}
+          {activeStep === "cost" && <CostsTab projectId={id} />}
         </div>
       </main>
 

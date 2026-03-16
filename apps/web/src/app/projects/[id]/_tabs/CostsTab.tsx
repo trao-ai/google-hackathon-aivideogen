@@ -12,54 +12,101 @@ import {
   Image,
   Monitor,
 } from "@phosphor-icons/react";
+import { useCosts } from "@/hooks/use-costs";
+import { formatCost } from "@/lib/utils";
 
-const MOCK_BREAKDOWN = [
+type Props = {
+  projectId: string;
+  availableCredits?: number;
+};
+
+/* ── Stage → display config mapping ── */
+const STAGE_META: Record<
+  string,
   {
-    stage: "research",
+    label: string;
+    description: string;
+    iconBg: string;
+    iconColor: string;
+    Icon: React.ElementType;
+  }
+> = {
+  topic_discovery: {
     label: "Research AI",
     description: "Topic research and insights",
     iconBg: "bg-brand-red-light",
     iconColor: "text-brand-red",
     Icon: MagnifyingGlass,
-    cost: 5,
   },
-  {
-    stage: "script",
+  research: {
+    label: "Research AI",
+    description: "Topic research and insights",
+    iconBg: "bg-brand-red-light",
+    iconColor: "text-brand-red",
+    Icon: MagnifyingGlass,
+  },
+  script: {
     label: "Script Generation",
     description: "AI-powered script writing",
     iconBg: "bg-brand-indigo-light",
     iconColor: "text-brand-indigo",
     Icon: FileText,
-    cost: 8,
   },
-  {
-    stage: "voice",
+  tts: {
     label: "Voice Generation",
     description: "Text-to-speech narration",
     iconBg: "bg-brand-orange-light",
     iconColor: "text-brand-orange",
     Icon: Microphone,
-    cost: 12,
   },
-  {
-    stage: "scene",
+  scene_planning: {
     label: "Scene Generation",
     description: "Visual content & overlays",
     iconBg: "bg-brand-yellow-light",
     iconColor: "text-brand-yellow",
     Icon: Image,
-    cost: 20,
   },
-  {
-    stage: "render",
+  image_generation: {
+    label: "Scene Generation",
+    description: "Visual content & overlays",
+    iconBg: "bg-brand-yellow-light",
+    iconColor: "text-brand-yellow",
+    Icon: Image,
+  },
+  frame_generation: {
+    label: "Scene Generation",
+    description: "Visual content & overlays",
+    iconBg: "bg-brand-yellow-light",
+    iconColor: "text-brand-yellow",
+    Icon: Image,
+  },
+  video_generation: {
     label: "Video Rendering",
     description: "Final video compilation",
     iconBg: "bg-brand-green-light",
     iconColor: "text-brand-green",
     Icon: Monitor,
-    cost: 15,
   },
-];
+  render: {
+    label: "Video Rendering",
+    description: "Final video compilation",
+    iconBg: "bg-brand-green-light",
+    iconColor: "text-brand-green",
+    Icon: Monitor,
+  },
+};
+
+const DEFAULT_META = {
+  label: "Other",
+  description: "",
+  iconBg: "bg-brand-green-light",
+  iconColor: "text-brand-green",
+  Icon: CurrencyDollar,
+};
+
+function getStageMeta(stage: string) {
+  return STAGE_META[stage] ?? DEFAULT_META;
+}
 
 const COMPARISON_ROWS = [
   {
@@ -90,17 +137,34 @@ const COMPARISON_ROWS = [
     Icon: CurrencyDollar,
     label: "Production Cost",
     traditional: "$300\u2013$800 per video",
-    ai: "$60 per video",
+    ai: "", // filled dynamically
     tradWidth: "85%",
     aiWidth: "20%",
   },
 ];
 
-const TOTAL = 60;
-const AVAILABLE = 250;
+export function CostsTab({ projectId, availableCredits = 250 }: Props) {
+  const { data: summary, isLoading, error } = useCosts(projectId);
 
-export function CostsTab() {
-  const usagePercent = Math.min((TOTAL / AVAILABLE) * 100, 100);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-sm text-brand-foreground-70">Loading costs...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-sm text-brand-red">{(error as Error).message}</p>
+      </div>
+    );
+  }
+
+  const total = summary?.total ?? 0;
+  const breakdown = summary?.breakdown ?? [];
+  const usagePercent = Math.min((total / availableCredits) * 100, 100);
 
   return (
     <div className="flex flex-col gap-3">
@@ -116,9 +180,11 @@ export function CostsTab() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className="text-xl font-medium text-foreground">$60</span>
+            <span className="text-xl font-medium text-foreground">
+              {formatCost(total)}
+            </span>
             <span className="text-lg font-normal text-brand-foreground-70">
-              you have $250 available
+              you have {formatCost(availableCredits)} available
             </span>
           </div>
         </div>
@@ -129,7 +195,7 @@ export function CostsTab() {
               Credits Usage
             </span>
             <span className="text-sm text-brand-foreground-70">
-              {TOTAL}/{AVAILABLE}
+              {Math.round(total)}/{availableCredits}
             </span>
           </div>
           <div className="h-2.5 bg-brand-border-light rounded-xl overflow-hidden">
@@ -150,7 +216,6 @@ export function CostsTab() {
         <div className="grid grid-cols-2 gap-5">
           {COMPARISON_ROWS.map((row) => (
             <div key={row.label} className="flex flex-col gap-3">
-              {/* Metric label */}
               <div className="flex items-center gap-2">
                 <row.Icon
                   size={20}
@@ -162,9 +227,7 @@ export function CostsTab() {
                 </span>
               </div>
 
-              {/* Bars */}
               <div className="flex flex-col gap-3">
-                {/* Traditional bar */}
                 <div
                   className="pr-4 rounded-xl flex items-center overflow-hidden"
                   style={{ backgroundColor: "#E3E2DE80" }}
@@ -182,7 +245,6 @@ export function CostsTab() {
                   </span>
                 </div>
 
-                {/* AI bar */}
                 <div
                   className="pr-4 rounded-xl flex items-center overflow-hidden"
                   style={{ backgroundColor: "#E3E2DE80" }}
@@ -199,7 +261,7 @@ export function CostsTab() {
                     </span>
                   </div>
                   <span className="ml-auto text-xs font-medium text-brand-foreground-70 whitespace-nowrap pl-3">
-                    {row.ai}
+                    {row.ai || `${formatCost(total)} per video`}
                   </span>
                 </div>
               </div>
@@ -213,42 +275,56 @@ export function CostsTab() {
         <h3 className="text-xl font-medium text-foreground">Cost Breakdown</h3>
 
         <div className="flex flex-col gap-3">
-          {MOCK_BREAKDOWN.map((item) => (
-            <div
-              key={item.stage}
-              className="p-3 rounded-xl border border-brand-border-light flex items-center gap-3"
-              style={{ backgroundColor: "#F0EEE7B2" }}
-            >
-              <div
-                className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${item.iconBg}`}
-              >
-                <item.Icon
-                  size={20}
-                  weight="regular"
-                  className={item.iconColor}
-                />
-              </div>
-              <div className="flex-1 flex flex-col gap-0.5">
-                <span className="text-base font-medium text-foreground">
-                  {item.label}
-                </span>
-                <span className="text-sm text-brand-foreground-70">
-                  {item.description}
-                </span>
-              </div>
-              <span className="text-base font-medium text-foreground">
-                $ {item.cost}
-              </span>
-            </div>
-          ))}
+          {breakdown.length === 0 ? (
+            <p className="text-sm text-brand-foreground-70 py-4 text-center">
+              No cost events recorded yet. Generate content to see the
+              breakdown.
+            </p>
+          ) : (
+            breakdown.map((row) => {
+              const meta = getStageMeta(row.stage);
+              return (
+                <div
+                  key={row.stage}
+                  className="p-3 rounded-xl border border-brand-border-light flex items-center gap-3"
+                  style={{ backgroundColor: "#F0EEE7B2" }}
+                >
+                  <div
+                    className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${meta.iconBg}`}
+                  >
+                    <meta.Icon
+                      size={20}
+                      weight="regular"
+                      className={meta.iconColor}
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col gap-0.5">
+                    <span className="text-base font-medium text-foreground">
+                      {meta.label}
+                    </span>
+                    <span className="text-sm text-brand-foreground-70">
+                      {meta.description}
+                    </span>
+                  </div>
+                  <span className="text-base font-medium text-foreground">
+                    {formatCost(row.totalCostUsd)}
+                  </span>
+                </div>
+              );
+            })
+          )}
         </div>
 
-        <div className="border-t border-brand-border-light pt-4 flex items-center justify-between">
-          <span className="text-xl font-normal text-foreground">
-            Total Credits
-          </span>
-          <span className="text-lg font-medium text-foreground">$ 60</span>
-        </div>
+        {breakdown.length > 0 && (
+          <div className="border-t border-brand-border-light pt-4 flex items-center justify-between">
+            <span className="text-xl font-normal text-foreground">
+              Total Credits
+            </span>
+            <span className="text-lg font-medium text-foreground">
+              {formatCost(total)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Estimated generation time */}

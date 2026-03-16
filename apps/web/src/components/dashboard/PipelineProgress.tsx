@@ -1,21 +1,4 @@
-import { cn } from "@/lib/utils";
-import type {
-  PipelineProgressProps,
-  PipelineStep,
-  StepStatus,
-} from "@/types/components";
-
-const STEPS: PipelineStep[] = [
-  "topic",
-  "cost",
-  "research",
-  "script",
-  "character",
-  "voice",
-  "scenes",
-  "captions",
-  "export",
-];
+import type { PipelineProgressProps, PipelineStep } from "@/types/components";
 
 const STEP_LABELS: Record<PipelineStep, string> = {
   topic: "Topic",
@@ -27,30 +10,6 @@ const STEP_LABELS: Record<PipelineStep, string> = {
   scenes: "Scenes",
   captions: "Captions",
   export: "Export",
-};
-
-function getStepStatus(
-  step: PipelineStep,
-  currentStep: PipelineStep,
-): StepStatus {
-  const currentIdx = STEPS.indexOf(currentStep);
-  const stepIdx = STEPS.indexOf(step);
-
-  if (stepIdx < currentIdx) return "completed";
-  if (stepIdx === currentIdx) return "active";
-  return "pending";
-}
-
-const barStyles: Record<StepStatus, string> = {
-  completed: "bg-brand-green",
-  active: "bg-gradient-to-r from-brand-blue to-[#6455D9]",
-  pending: "bg-brand-beige",
-};
-
-const labelStyles: Record<StepStatus, string> = {
-  completed: "text-foreground/70",
-  active: "text-foreground font-medium",
-  pending: "text-foreground/50",
 };
 
 export function PipelineProgress({
@@ -66,18 +25,11 @@ export function PipelineProgress({
           {completedSteps} of {totalSteps} ({STEP_LABELS[currentStep]})
         </span>
       </div>
-      <div className="flex items-start gap-1">
-        {STEPS.map((step) => {
-          const status = getStepStatus(step, currentStep);
-          return (
-            <div key={step} className="flex-1 flex flex-col gap-1.5">
-              <div className={cn("h-1.5 rounded-full", barStyles[status])} />
-              <span className={cn("text-xs leading-4", labelStyles[status])}>
-                {STEP_LABELS[step]}
-              </span>
-            </div>
-          );
-        })}
+      <div className="h-1.5 w-full bg-brand-beige rounded-full overflow-hidden">
+        <div
+          className="h-full bg-brand-green rounded-full transition-all duration-500"
+          style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
+        />
       </div>
     </div>
   );

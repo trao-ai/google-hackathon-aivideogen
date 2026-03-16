@@ -11,7 +11,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Project Atlas — AI Video Factory",
+  title: "Atlas — AI Video Factory",
   description:
     "AI-native animated edutainment YouTube video production platform",
   icons: {

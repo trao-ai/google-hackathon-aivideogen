@@ -13,7 +13,19 @@ import {
 } from "@phosphor-icons/react";
 import { formatCost } from "@/lib/utils";
 import { PipelineProgress } from "./PipelineProgress";
-import type { ProjectCardProps } from "@/types/components";
+import type { ProjectCardProps, PipelineStep } from "@/types/components";
+
+const STEP_THUMBNAILS: Record<PipelineStep, string> = {
+  topic: "/images/topic1.png",
+  research: "/images/research2.png",
+  character: "/images/character3.png",
+  script: "/images/script4.png",
+  voice: "/images/voice5.png",
+  scenes: "/images/scenes6.png",
+  captions: "/images/captions7.png",
+  cost: "/images/cost8.png",
+  export: "/images/cost8.png",
+};
 
 const statusConfig = {
   in_progress: {
@@ -78,7 +90,12 @@ export function ProjectCard({
         {thumbnailUrl ? (
           <Image src={thumbnailUrl} alt={title} fill className="object-cover" />
         ) : (
-          <div className="size-full bg-gradient-to-br from-brand-beige to-muted" />
+          <Image
+            src={STEP_THUMBNAILS[currentStep] ?? "/images/topic1.png"}
+            alt={title}
+            fill
+            className="object-cover"
+          />
         )}
         {isCompleted && (
           <div className="absolute inset-0 flex items-center justify-center">

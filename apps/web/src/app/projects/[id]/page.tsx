@@ -76,8 +76,9 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Review and customize captions for your video.",
   },
   cost: {
-    title: "Cost Breakdown",
-    subtitle: "Review the costs for your project.",
+    title: "Cost & Production Estimation",
+    subtitle:
+      "Review the AI cost and see how much time and effort you save compared to traditional video production.",
   },
   export: {
     title: "Final Render",
@@ -360,7 +361,7 @@ export default function ProjectPage() {
           {activeStep === "scenes" && <ScenesTab project={project} />}
           {activeStep === "captions" && <CaptionsTab project={project} />}
           {activeStep === "export" && <RenderTab project={project} />}
-          {activeStep === "cost" && <CostsTab projectId={id} />}
+          {activeStep === "cost" && <CostsTab />}
         </div>
       </main>
 
@@ -457,14 +458,25 @@ export default function ProjectPage() {
             </button>
           )}
 
-          {/* Captions → Export: Navigate to export */}
+          {/* Captions → Cost: Navigate to cost */}
           {activeStep === "captions" && (
+            <button
+              type="button"
+              onClick={() => setActiveStep("cost")}
+              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+            >
+              Continue to Cost
+            </button>
+          )}
+
+          {/* Cost → Export: Start Rendering */}
+          {activeStep === "cost" && (
             <button
               type="button"
               onClick={() => setActiveStep("export")}
               className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
             >
-              Continue to Export
+              Start Rendering
             </button>
           )}
         </div>

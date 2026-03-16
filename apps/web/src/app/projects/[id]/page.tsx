@@ -81,8 +81,8 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
       "Review the AI cost and see how much time and effort you save compared to traditional video production.",
   },
   export: {
-    title: "Final Render",
-    subtitle: "Render and export your final video.",
+    title: "Final Video Preview",
+    subtitle: "Review your video and export to your preferred platform",
   },
 };
 
@@ -360,7 +360,7 @@ export default function ProjectPage() {
           {activeStep === "voice" && <VoiceTab project={project} onRefresh={async () => { await refetch(); }} />}
           {activeStep === "scenes" && <ScenesTab project={project} />}
           {activeStep === "captions" && <CaptionsTab project={project} />}
-          {activeStep === "export" && <RenderTab project={project} />}
+          {activeStep === "export" && <RenderTab />}
           {activeStep === "cost" && <CostsTab />}
         </div>
       </main>

@@ -51,7 +51,11 @@ Topic Idea → Research → Script → Voiceover → Frames → Video Clips → 
 
 **Google Cloud Services Used:**
 - **Google ADK** (`@google/adk`) — 8 LLM agent types (Topic Scout, Research Synthesizer, Script Architect, Scene Planner, Motion Director, Audio Designer, Character Describer, Frame Validator)
+  - **Code:** [`packages/integrations/src/llm/adk-runner.ts`](https://github.com/trao-ai/google-hackathon-aivideogen/blob/main/packages/integrations/src/llm/adk-runner.ts)
 - **Google GenAI SDK** (`@google/genai`) — Direct API for Veo 3.1 video generation, Gemini 3 Pro image generation, and frame quality validation
+  - **Video Generation:** [`packages/integrations/src/video/veo.ts`](https://github.com/trao-ai/google-hackathon-aivideogen/blob/main/packages/integrations/src/video/veo.ts)
+  - **Image Generation:** [`packages/integrations/src/image/gemini.ts`](https://github.com/trao-ai/google-hackathon-aivideogen/blob/main/packages/integrations/src/image/gemini.ts)
+  - **Frame Validation:** [`packages/validation/src/frame-validator.ts`](https://github.com/trao-ai/google-hackathon-aivideogen/blob/main/packages/validation/src/frame-validator.ts)
 - **Gemini Models** — `gemini-2.5-flash` (fast tasks), `gemini-3.1-pro-preview` (complex reasoning), `gemini-3-pro-image-preview` (image generation), `veo-3.1-generate-preview` (video generation)
 
 ---

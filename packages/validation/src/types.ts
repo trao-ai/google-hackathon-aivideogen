@@ -3,6 +3,8 @@ export interface FrameValidationResult {
   styleMatchScore: number; // 0-100
   issues: string[];
   recommendations: string[];
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface CharacterProfile {

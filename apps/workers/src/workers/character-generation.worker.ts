@@ -1,12 +1,13 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma, trackImageCost } from "@atlas/db";
+import { prisma, trackImageCost, trackLLMCost } from "@atlas/db";
 import {
   createImageProvider,
   createStorageProvider,
   runAgent,
 } from "@atlas/integrations";
 import { getStylePrefix } from "@atlas/style-system";
+import { calculateLLMCost } from "@atlas/shared";
 import type { StyleBible } from "@atlas/shared";
 
 export class CharacterGenerationWorker {
@@ -70,6 +71,7 @@ export class CharacterGenerationWorker {
 
     // Generate a canonical text description for use in scene prompts
     const description = await this.generateDescription({
+      projectId,
       gender,
       ageStyle,
       emotion,
@@ -139,6 +141,7 @@ export class CharacterGenerationWorker {
   }
 
   private async generateDescription(params: {
+    projectId: string;
     gender: string;
     ageStyle: string;
     emotion: string;
@@ -146,7 +149,7 @@ export class CharacterGenerationWorker {
     userPrompt: string | null;
     niche: string;
   }): Promise<string> {
-    const { gender, ageStyle, emotion, appearance, userPrompt, niche } = params;
+    const { projectId, gender, ageStyle, emotion, appearance, userPrompt, niche } = params;
 
     try {
       const result = await runAgent({
@@ -155,6 +158,26 @@ export class CharacterGenerationWorker {
         userMessage: `Describe a ${ageStyle.toLowerCase()} ${gender.toLowerCase()} character with a ${emotion.toLowerCase()} expression in ${appearance.toLowerCase()} style. Context: ${userPrompt || `presenter for a video about ${niche}`}`,
         generationConfig: { maxOutputTokens: 300, temperature: 0.7 },
       });
+
+      // Track character description LLM cost
+      if (result.inputTokens > 0 || result.outputTokens > 0) {
+        const descCost = calculateLLMCost(
+          result.model,
+          result.inputTokens,
+          result.outputTokens,
+        );
+        await trackLLMCost({
+          projectId,
+          stage: "character_generation",
+          vendor: "gemini",
+          model: result.model,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          totalCostUsd: descCost,
+          metadata: { task: "character_description" },
+        });
+      }
+
       return result.content.trim();
     } catch (err) {
       console.warn(`[character-gen] Description generation failed:`, (err as Error).message);

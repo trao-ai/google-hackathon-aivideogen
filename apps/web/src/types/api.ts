@@ -210,6 +210,8 @@ export type CostEstimate = {
   videos: number;
   motionEnrichment: number;
   validation: number;
+  tts: number;
+  sfx: number;
   total: number;
   perScene?: number;
   sceneCount?: number;

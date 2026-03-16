@@ -251,12 +251,12 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
         styleBible: project.styleBible as unknown as StyleBible,
       }).catch((err) => {
         console.warn(`[frame-gen] Start frame validation failed:`, err.message);
-        return { qualityScore: 0, styleMatchScore: 0, issues: [], recommendations: [] };
+        return { qualityScore: 0, styleMatchScore: 0, issues: [] as string[], recommendations: [] as string[], inputTokens: 0, outputTokens: 0 };
       });
 
-      // Track validation costs (1 frame)
-      const validationInputTokens = 500;
-      const validationOutputTokens = 200;
+      // Track validation costs using real token counts from Gemini response
+      const validationInputTokens = startValidation.inputTokens || 500;
+      const validationOutputTokens = startValidation.outputTokens || 200;
       const validationCost = calculateLLMCost("gemini-2.5-flash", validationInputTokens, validationOutputTokens);
       await trackLLMCost({
         projectId,
@@ -313,7 +313,7 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
           styleBible: project.styleBible as unknown as StyleBible,
         }).catch((err) => {
           console.warn(`[frame-gen] Start frame validation failed:`, err.message);
-          return { qualityScore: 0, styleMatchScore: 0, issues: [], recommendations: [] };
+          return { qualityScore: 0, styleMatchScore: 0, issues: [] as string[], recommendations: [] as string[], inputTokens: 0, outputTokens: 0 };
         }),
         validator.validateFrame({
           imageBuffer: endResult.imageBuffer,
@@ -321,13 +321,15 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
           styleBible: project.styleBible as unknown as StyleBible,
         }).catch((err) => {
           console.warn(`[frame-gen] End frame validation failed:`, err.message);
-          return { qualityScore: 0, styleMatchScore: 0, issues: [], recommendations: [] };
+          return { qualityScore: 0, styleMatchScore: 0, issues: [] as string[], recommendations: [] as string[], inputTokens: 0, outputTokens: 0 };
         }),
       ]);
 
-      // Track validation costs (using rough estimate: ~500 tokens input, ~200 tokens output per validation)
-      const validationInputTokens = 500 * 2;
-      const validationOutputTokens = 200 * 2;
+      // Track validation costs using real token counts from Gemini responses
+      const validationInputTokens =
+        (startValidation.inputTokens || 500) + (endValidation.inputTokens || 500);
+      const validationOutputTokens =
+        (startValidation.outputTokens || 200) + (endValidation.outputTokens || 200);
       const validationCost = calculateLLMCost("gemini-2.5-flash", validationInputTokens, validationOutputTokens);
       await trackLLMCost({
         projectId,

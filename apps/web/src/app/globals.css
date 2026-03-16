@@ -4,55 +4,88 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    /* ── Brand Colors (from Figma) ── */
+    --color-black: #141413;
+    --color-warm-beige: #E1DACD;
+    --color-off-white: #F0EEE7;
+    --color-green: #00A191;
+    --color-dark-green: #017752;
+    --color-red: #FF5252;
+    --color-blue: #759AC8;
+    --color-indigo: #5379FF;
+    --color-indigo-light: #5379FF33;
+    --color-green-light: #00A19133;
+    --color-orange-light: #D9775733;
+    --color-yellow-light: #F6A81433;
+    --color-dark-green-light: #01775233;
+    --color-red-light: #FF525233;
+    --color-indigo-border: #5379FF80;
+    --color-warm-orange: #D97757;
+    --color-golden-yellow: #F6A814;
+    --color-surface: #FAF9F599;
+    --color-foreground-70: #141413B2;
+    --color-foreground-50: #14141380;
+    --color-border-light: #E3E2DE;
+
+    /* ── Semantic Tokens ── */
+    --background: var(--color-off-white);
+    --foreground: var(--color-black);
+    --card: #FFFFFF;
+    --card-foreground: var(--color-black);
+    --popover: #FFFFFF;
+    --popover-foreground: var(--color-black);
+    --primary: var(--color-green);
+    --primary-foreground: #FFFFFF;
+    --secondary: var(--color-warm-beige);
+    --secondary-foreground: var(--color-black);
+    --muted: var(--color-off-white);
+    --muted-foreground: #6B6B6B;
+    --accent: var(--color-dark-green);
+    --accent-foreground: #FFFFFF;
+    --destructive: var(--color-red);
+    --destructive-foreground: #FFFFFF;
+    --info: var(--color-blue);
+    --info-foreground: #FFFFFF;
+    --warning: var(--color-warm-orange);
+    --warning-foreground: #FFFFFF;
+    --success: var(--color-green);
+    --success-foreground: #FFFFFF;
+    --highlight: var(--color-golden-yellow);
+    --highlight-foreground: var(--color-black);
+    --border: var(--color-warm-beige);
+    --input: var(--color-warm-beige);
+    --ring: var(--color-green);
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: var(--color-black);
+    --foreground: var(--color-off-white);
+    --card: #1E1E1D;
+    --card-foreground: var(--color-off-white);
+    --popover: #1E1E1D;
+    --popover-foreground: var(--color-off-white);
+    --primary: var(--color-green);
+    --primary-foreground: #FFFFFF;
+    --secondary: #2A2A28;
+    --secondary-foreground: var(--color-off-white);
+    --muted: #2A2A28;
+    --muted-foreground: #A0A0A0;
+    --accent: var(--color-dark-green);
+    --accent-foreground: #FFFFFF;
+    --destructive: var(--color-red);
+    --destructive-foreground: #FFFFFF;
+    --border: #2A2A28;
+    --input: #2A2A28;
+    --ring: var(--color-green);
   }
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: var(--border);
   }
+
   body {
     @apply bg-background text-foreground;
   }

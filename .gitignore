@@ -1,6 +1,28 @@
+# Environment files
 .env
 .env.local
-.env.example
-node_modules
-.next
+.env*.local
+
+# Dependencies
+**/node_modules
+
+# Build output
+**/.next
+**/dist
+*.tsbuildinfo
+
+# Turbo
+.turbo
+
+# Generated audio/media
 public/audio
+**/public/audio
+
+# Local storage (dev file uploads)
+**/.local-storage
+
+# OS files
+**/.DS_Store
+
+# IDE / local settings
+.claude/settings.local.json

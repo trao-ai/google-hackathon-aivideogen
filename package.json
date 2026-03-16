@@ -12,13 +12,20 @@
     "db:migrate": "cd packages/db && npx prisma migrate dev",
     "db:generate": "cd packages/db && npx prisma generate",
     "db:seed": "cd packages/db && npx ts-node seed.ts",
-    "db:studio": "cd packages/db && npx prisma studio"
+    "db:studio": "cd packages/db && npx prisma studio",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test -- --coverage"
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
-    "typescript": "^5.4.5",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.14.9",
+    "@types/supertest": "^7.2.0",
+    "jest": "^30.3.0",
     "prettier": "^3.3.2",
-    "@types/node": "^20.14.9"
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.6",
+    "turbo": "^2.3.3",
+    "typescript": "^5.4.5"
   },
   "workspaces": [
     "apps/*",

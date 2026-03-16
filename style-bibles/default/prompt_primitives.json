@@ -1,31 +1,39 @@
 {
-  "stylePrefix": "flat-design vector illustration, clean minimal infographic style, bright colors, no gradients, bold outlines",
+  "stylePrefix": "Kurzgesagt-style cinematic illustration, richly detailed with atmospheric depth and subtle lighting, dark navy or deep space background with glowing highlights and particle effects, layered parallax composition, smooth soft shapes with subtle gradients for volume, NO hard outlines, educational infographic aesthetic with scientific precision",
   "qualityTags": [
     "high quality",
-    "sharp lines",
-    "professional educational illustration"
+    "cinematic framing",
+    "professional educational illustration",
+    "vibrant bold colors",
+    "atmospheric depth"
   ],
   "compositionRules": [
     "rule of thirds",
     "clear visual hierarchy",
-    "generous white space",
-    "single focal point per frame"
+    "layered depth with foreground, midground, and background elements",
+    "single focal point per frame",
+    "rich detailed environments with atmospheric effects"
   ],
-  "colorInstruction": "use the palette: primary blue #3B6EF8, orange accent #F97316, green highlight #10B981, dark text #1A1A2E on light background #F8F9FC",
+  "colorInstruction": "use dark rich backgrounds like #1A1A2E or #16213E with vibrant accent colors: red #E94560, yellow #FFB703, green #53D769, blue #00BBF9, pink #F15BB5. Use subtle gradients for volume and depth.",
   "textInImage": {
-    "allowed": true,
-    "font": "clean sans-serif, Nunito or similar",
-    "maxWords": 12,
-    "placement": "avoid center unless intentional title card"
+    "allowed": false,
+    "note": "No text, words, letters, or writing of any kind in generated images"
   },
   "avoidList": [
     "photorealistic",
     "3D render",
-    "blurry",
-    "watermark",
-    "signature",
-    "dark background unless explicitly requested",
+    "anime",
+    "watercolor",
+    "sketch",
+    "thin outlines",
+    "sharp angular edges",
+    "realistic photo shading",
     "cluttered composition",
-    "more than 3 focal elements"
+    "text or writing",
+    "Duolingo style",
+    "simple flat cartoon",
+    "clipart",
+    "low detail",
+    "childish"
   ]
 }

@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
-import { createLLMProvider } from "@atlas/integrations";
+import { prisma, trackLLMCost } from "@atlas/db";
+import { runAgent } from "@atlas/integrations";
 import {
   SCENE_PLANNER_SYSTEM_PROMPT,
   buildScenePlannerPrompt,
@@ -39,6 +39,14 @@ export class ScenePlannerWorker {
     if (!voiceover) throw new Error(`Voiceover ${voiceoverId} not found`);
     if (!project.selectedScriptId) throw new Error("No selected script");
 
+    // Load selected character for injection into scene prompts
+    const selectedCharacter = project.selectedCharacterId
+      ? await prisma.character.findUnique({ where: { id: project.selectedCharacterId } })
+      : null;
+    if (selectedCharacter?.description) {
+      console.log(`[scene-planner] Using character "${selectedCharacter.name}": ${selectedCharacter.description.slice(0, 100)}...`);
+    }
+
     const script = await prisma.script.findUnique({
       where: { id: project.selectedScriptId },
       include: { sections: { orderBy: { orderIndex: "asc" } } },
@@ -50,8 +58,6 @@ export class ScenePlannerWorker {
       where: { id: projectId },
       data: { status: "planning_scenes" },
     });
-
-    const llm = createLLMProvider();
 
     // Build section summaries with timestamps
     const segments = voiceover.segments as Array<{
@@ -65,7 +71,7 @@ export class ScenePlannerWorker {
       return {
         order: s.orderIndex,
         type: s.sectionType,
-        text: s.text.slice(0, 200),
+        text: s.text,
         startSec: seg?.startSec ?? 0,
         endSec: seg?.endSec ?? 0,
       };
@@ -73,29 +79,41 @@ export class ScenePlannerWorker {
 
     const styleSummary = project.styleBible
       ? styleBibleToPromptSummary(project.styleBible as unknown as StyleBible)
-      : "Flat-design educational infographic style, vibrant colors";
+      : "Kurzgesagt-style cinematic illustration, vibrant colorful backgrounds that match scene mood, glowing highlights, sophisticated simplified characters with expressive eyes and no mouth, atmospheric depth";
 
-    const llmResponse = await llm.chat([
-      { role: "system", content: SCENE_PLANNER_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: buildScenePlannerPrompt(
-          JSON.stringify(sectionSummaries, null, 2),
-          JSON.stringify(segments, null, 2),
-          styleSummary,
-        ),
-      },
-    ]);
+    const platformAspectRatio = project.platform && project.platform !== "youtube" ? "9:16" : "16:9";
 
-    await prisma.costEvent.create({
-      data: {
-        projectId,
-        stage: "scene_planning",
-        vendor: "openai",
-        units: 1,
-        unitCost: llmResponse.costUsd,
-        totalCostUsd: llmResponse.costUsd,
-      },
+    // Inject selected character description into style context so the LLM uses it
+    const characterContext = selectedCharacter?.description
+      ? `\n\nMAIN CHARACTER (use this EXACT description in every scene where the character appears):\nName: ${selectedCharacter.name}\nAppearance: ${selectedCharacter.description}\nGender: ${selectedCharacter.gender}, Age style: ${selectedCharacter.ageStyle}, Emotion: ${selectedCharacter.emotion}\nIMPORTANT: You MUST use this character description verbatim in the "characterDescriptions" field and embed it into startPrompt/endPrompt for every scene featuring this character.`
+      : "";
+
+    const llmResponse = await runAgent({
+      agentName: "scene-planner",
+      instruction: SCENE_PLANNER_SYSTEM_PROMPT,
+      userMessage: buildScenePlannerPrompt(
+        JSON.stringify(sectionSummaries, null, 2),
+        JSON.stringify(segments, null, 2),
+        styleSummary + characterContext,
+        voiceover.durationSec,
+        {
+          platform: project.platform,
+          videoStyle: project.videoStyle,
+          toneKeywords: project.toneKeywords ?? [],
+          aspectRatio: platformAspectRatio,
+        },
+      ),
+      model: "gemini-3.1-pro-preview",
+    });
+
+    await trackLLMCost({
+      projectId,
+      stage: "scene_planning",
+      vendor: "gemini",
+      model: llmResponse.model,
+      inputTokens: llmResponse.inputTokens,
+      outputTokens: llmResponse.outputTokens,
+      totalCostUsd: llmResponse.costUsd,
     });
 
     let scenes: Array<{
@@ -110,6 +128,7 @@ export class ScenePlannerWorker {
       bubbleText?: string | null;
       continuityNotes?: string | null;
       scriptSectionId?: string | null;
+      characterDescriptions?: string | null;
     }> = [];
 
     try {
@@ -117,6 +136,26 @@ export class ScenePlannerWorker {
       if (jsonMatch) scenes = JSON.parse(jsonMatch[0]);
     } catch {
       console.warn("[scene-planner] Could not parse scene JSON");
+    }
+
+    // Enforce character consistency: extract character descriptions from scene 0
+    // and inject into all subsequent scenes' prompts
+    if (scenes.length > 0 && scenes[0].characterDescriptions) {
+      const canonical = scenes[0].characterDescriptions;
+      console.log(`[scene-planner] Character descriptions from scene 0: "${canonical.slice(0, 100)}..."`);
+      for (let i = 1; i < scenes.length; i++) {
+        if (!scenes[i].characterDescriptions) {
+          scenes[i].characterDescriptions = canonical;
+        }
+        // Prepend character descriptions to prompts if not already present
+        const charPrefix = `Characters: ${canonical}\n`;
+        if (!scenes[i].startPrompt.includes(canonical.slice(0, 50))) {
+          scenes[i].startPrompt = charPrefix + scenes[i].startPrompt;
+        }
+        if (!scenes[i].endPrompt.includes(canonical.slice(0, 50))) {
+          scenes[i].endPrompt = charPrefix + scenes[i].endPrompt;
+        }
+      }
     }
 
     if (scenes.length === 0) {
@@ -133,15 +172,124 @@ export class ScenePlannerWorker {
       }));
     }
 
+    // Post-validation: auto-split any scene longer than 14s into ~10s sub-scenes
+    const MAX_SCENE_SEC = 14;
+    const validated: typeof scenes = [];
+    for (const sc of scenes) {
+      const dur = sc.narrationEndSec - sc.narrationStartSec;
+      if (dur <= MAX_SCENE_SEC) {
+        validated.push({ ...sc, orderIndex: validated.length });
+      } else {
+        // Split into ~10s parts
+        const parts = Math.ceil(dur / 10);
+        const partDur = dur / parts;
+        console.log(
+          `[scene-planner] Auto-splitting scene "${sc.purpose.slice(0, 50)}" (${dur.toFixed(1)}s) into ${parts} parts of ~${partDur.toFixed(1)}s`,
+        );
+        for (let p = 0; p < parts; p++) {
+          validated.push({
+            ...sc,
+            orderIndex: validated.length,
+            narrationStartSec: parseFloat((sc.narrationStartSec + p * partDur).toFixed(2)),
+            narrationEndSec: parseFloat((sc.narrationStartSec + (p + 1) * partDur).toFixed(2)),
+            purpose: parts > 1 ? `${sc.purpose} (part ${p + 1}/${parts})` : sc.purpose,
+          });
+        }
+      }
+    }
+
+    if (validated.length !== scenes.length) {
+      console.log(
+        `[scene-planner] Post-validation: ${scenes.length} scenes → ${validated.length} scenes after splitting`,
+      );
+    }
+
+    // Ensure scenes cover the full audio duration with no gaps
+    if (voiceover.durationSec > 0 && validated.length > 0) {
+      const audioDuration = voiceover.durationSec;
+
+      // If first scene doesn't start at 0, fix it
+      if (validated[0].narrationStartSec > 0.5) {
+        console.log(
+          `[scene-planner] First scene starts at ${validated[0].narrationStartSec.toFixed(1)}s — resetting to 0`,
+        );
+        validated[0].narrationStartSec = 0;
+      }
+
+      // Check for gaps between scenes and close them
+      for (let i = 1; i < validated.length; i++) {
+        const gap = validated[i].narrationStartSec - validated[i - 1].narrationEndSec;
+        if (gap > 0.5) {
+          console.log(
+            `[scene-planner] Gap of ${gap.toFixed(1)}s between scenes ${i - 1} and ${i} — closing`,
+          );
+          validated[i - 1].narrationEndSec = validated[i].narrationStartSec;
+        }
+      }
+
+      // If last scene ends more than 1s before audio end, extend it
+      const lastScene = validated[validated.length - 1];
+      if (lastScene.narrationEndSec < audioDuration - 1) {
+        console.log(
+          `[scene-planner] Last scene ends at ${lastScene.narrationEndSec.toFixed(1)}s but audio is ${audioDuration.toFixed(1)}s — extending`,
+        );
+        lastScene.narrationEndSec = parseFloat(audioDuration.toFixed(2));
+      }
+    }
+
+    // ─── Duration budget: compute clip target durations so video matches audio ───
+    // When clips are joined with xfade transitions, each transition overlaps two
+    // clips, making the final video shorter by sum(transitionDurations).
+    // To compensate, we extend each clip proportionally so:
+    //   sum(clipTargetDurations) - totalTransitionOverlap = audioDuration
+    const DEFAULT_TRANSITION_SEC = 0.5;
+    const numTransitions = Math.max(0, validated.length - 1);
+    const totalTransitionOverlap = numTransitions * DEFAULT_TRANSITION_SEC;
+    const audioDuration = voiceover.durationSec;
+    const totalBaseDuration = validated.reduce(
+      (sum, sc) => sum + (sc.narrationEndSec - sc.narrationStartSec),
+      0,
+    );
+
+    const clipTargetDurations: number[] = validated.map((sc) => {
+      const baseDur = sc.narrationEndSec - sc.narrationStartSec;
+      // Distribute the transition overlap proportionally to each scene's share
+      const compensation =
+        totalBaseDuration > 0
+          ? (baseDur / totalBaseDuration) * totalTransitionOverlap
+          : 0;
+      // Clamp to Kling's 3-15s range
+      return Math.max(3, Math.min(15, parseFloat((baseDur + compensation).toFixed(2))));
+    });
+
+    console.log(
+      `[scene-planner] Duration budget: audio=${audioDuration.toFixed(1)}s, ` +
+        `scenes=${validated.length}, transitions=${numTransitions}×${DEFAULT_TRANSITION_SEC}s=${totalTransitionOverlap.toFixed(1)}s, ` +
+        `totalClipTarget=${clipTargetDurations.reduce((a, b) => a + b, 0).toFixed(1)}s`,
+    );
+
+    // Set default transition plans on each scene (except last)
+    for (let i = 0; i < validated.length; i++) {
+      if (i < validated.length - 1) {
+        (validated[i] as Record<string, unknown>).transitionPlan = {
+          type: "fade",
+          durationSec: DEFAULT_TRANSITION_SEC,
+          ffmpegTransition: "fade",
+          visualNotes: "smooth cross-fade",
+        };
+      }
+    }
+
     // Delete any old scenes for this project
     await prisma.scene.deleteMany({ where: { projectId } });
 
     await prisma.scene.createMany({
-      data: scenes.map((sc) => ({
+      data: validated.map((sc, i) => ({
         projectId,
         orderIndex: sc.orderIndex,
         narrationStartSec: sc.narrationStartSec,
         narrationEndSec: sc.narrationEndSec,
+        clipTargetDurationSec: clipTargetDurations[i],
         purpose: sc.purpose,
         sceneType: sc.sceneType ?? "infographic",
         startPrompt: sc.startPrompt,
@@ -150,6 +298,7 @@ export class ScenePlannerWorker {
         bubbleText: sc.bubbleText ?? null,
         continuityNotes: sc.continuityNotes ?? null,
         scriptSectionId: sc.scriptSectionId ?? null,
+        transitionPlan: (sc as Record<string, unknown>).transitionPlan as object ?? null,
       })),
     });
 
@@ -159,7 +308,7 @@ export class ScenePlannerWorker {
     });
 
     console.log(
-      `[scene-planner] Created ${scenes.length} scenes for project ${projectId}`,
+      `[scene-planner] Created ${validated.length} scenes for project ${projectId}`,
     );
   }
 

@@ -1,147 +1,166 @@
 "use client";
 
-import { useState } from "react";
-import { api, type ProjectDetail, type Topic } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useRef, useState } from "react";
+import type { ProjectDetail, Topic } from "@/lib/api";
+import { useDiscoverTopics, useApproveTopic } from "@/hooks/use-topics";
+import { TopicCard } from "@/components/project/TopicCard";
+import type { ScoreBarProps } from "@/types/components";
 
-interface Props {
+type Props = {
   project: ProjectDetail;
-  onRefresh: () => Promise<void>;
+};
+
+const MOCK_TOPICS: Topic[] = [
+  {
+    id: "mock-1",
+    title: "Why Churros Outperformed Disney+ in the Profit Race",
+    summary:
+      "Disney's theme park churros are now generating more revenue than its streaming platform, highlighting unexpected shifts in entertainment profits.",
+    thumbnailAngle:
+      "A giant stack of churros towering over a small Disney+ logo with dollar symbols floating around.",
+    status: "discovered",
+    trendScore: 85,
+    evergreenScore: 88,
+    visualStorytellingScore: 80,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "mock-2",
+    title: "Why Churros Outperformed Disney+ in the Profit Race",
+    summary:
+      "Disney's theme park churros are now generating more revenue than its streaming platform, highlighting unexpected shifts in entertainment profits.",
+    thumbnailAngle:
+      "A giant stack of churros towering over a small Disney+ logo with dollar symbols floating around.",
+    status: "discovered",
+    trendScore: 85,
+    evergreenScore: 88,
+    visualStorytellingScore: 80,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "mock-3",
+    title: "Why Churros Outperformed Disney+ in the Profit Race",
+    summary:
+      "Disney's theme park churros are now generating more revenue than its streaming platform, highlighting unexpected shifts in entertainment profits.",
+    thumbnailAngle:
+      "A giant stack of churros towering over a small Disney+ logo with dollar symbols floating around.",
+    status: "discovered",
+    trendScore: 85,
+    evergreenScore: 88,
+    visualStorytellingScore: 80,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "mock-4",
+    title: "Why Churros Outperformed Disney+ in the Profit Race",
+    summary:
+      "Disney's theme park churros are now generating more revenue than its streaming platform, highlighting unexpected shifts in entertainment profits.",
+    thumbnailAngle:
+      "A giant stack of churros towering over a small Disney+ logo with dollar symbols floating around.",
+    status: "discovered",
+    trendScore: 85,
+    evergreenScore: 88,
+    visualStorytellingScore: 80,
+    createdAt: new Date().toISOString(),
+  },
+];
+
+function getTopicScores(topic: Topic): ScoreBarProps[] {
+  const scores: ScoreBarProps[] = [];
+  if (topic.trendScore !== undefined) {
+    scores.push({ label: "Viral", value: Math.round(topic.trendScore) });
+  }
+  if (topic.evergreenScore !== undefined) {
+    scores.push({ label: "Edu", value: Math.round(topic.evergreenScore) });
+  }
+  if (topic.visualStorytellingScore !== undefined) {
+    scores.push({
+      label: "Visual",
+      value: Math.round(topic.visualStorytellingScore),
+    });
+  }
+  return scores;
 }
 
-export function TopicsTab({ project, onRefresh }: Props) {
-  const [loading, setLoading] = useState(false);
+export function TopicsTab({ project }: Props) {
   const [error, setError] = useState("");
+  const discoverTopics = useDiscoverTopics(project.id);
+  const approveTopic = useApproveTopic(project.id);
 
-  const handleDiscover = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      await api.topics.discover(project.id, { count: 10 });
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
+  const apiTopics: Topic[] = project.topics ?? [];
+  const topics = apiTopics.length > 0 ? apiTopics : MOCK_TOPICS;
+  const isDiscovering = ["discovering_topics", "topic_discovery"].includes(project.status);
+  const discovering = discoverTopics.isPending;
+  const loading = approveTopic.isPending;
+  const autoTriggered = useRef(false);
+
+  // Auto-discover topics on mount if none exist and not already discovering
+  useEffect(() => {
+    if (apiTopics.length === 0 && !isDiscovering && !autoTriggered.current) {
+      autoTriggered.current = true;
+      discoverTopics.mutate(
+        { count: 10 },
+        { onError: (err) => setError(err.message) },
+      );
     }
+  }, [apiTopics.length, isDiscovering]);
+
+  const handleSelect = (topicId: string) => {
+    approveTopic.mutate(topicId, {
+      onError: (err) => setError(err.message),
+    });
   };
 
-  const handleApprove = async (topicId: string) => {
-    setLoading(true);
-    try {
-      await api.topics.approve(project.id, topicId);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReject = async (topicId: string) => {
-    setLoading(true);
-    try {
-      await api.topics.reject(project.id, topicId);
-      await onRefresh();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const topics: Topic[] = project.topics ?? [];
-
-  const isDiscovering = ["discovering_topics"].includes(project.status);
+  if (apiTopics.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-brand-border-light py-16 text-center">
+        {isDiscovering || discoverTopics.isPending ? (
+          <>
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-brand-border-light border-t-brand-black" />
+            <p className="text-foreground/70">Discovering viral topics...</p>
+          </>
+        ) : (
+          <>
+            <p className="mb-3 text-foreground/70">No topics discovered yet.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                discoverTopics.mutate(
+                  { count: 10 },
+                  { onError: (err) => setError(err.message) },
+                );
+              }}
+              disabled={discovering}
+              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              Discover Topics
+            </button>
+          </>
+        )}
+        {error && <p className="mt-3 text-sm text-brand-red">{error}</p>}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Topic Discovery</h2>
-        <Button onClick={handleDiscover} disabled={loading || isDiscovering}>
-          {isDiscovering
-            ? "Discovering…"
-            : loading
-              ? "Working…"
-              : "Discover Topics"}
-        </Button>
-      </div>
+    <div className="flex flex-col gap-5">
+      {error && <p className="text-sm text-brand-red">{error}</p>}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      {topics.length === 0 && (
-        <p className="text-sm text-gray-500">
-          No topics yet. Click &ldquo;Discover Topics&rdquo; to start.
-        </p>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {topics.map((topic) => (
-          <Card
+          <TopicCard
             key={topic.id}
-            className={
-              topic.id === project.selectedTopicId ? "ring-2 ring-blue-500" : ""
-            }
-          >
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <p className="font-medium leading-tight">{topic.title}</p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {topic.summary}
-                  </p>
-                  {topic.opportunityScore !== undefined && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {[
-                        ["Opp", topic.opportunityScore],
-                        ["Visual", topic.visualStorytellingScore],
-                        ["Trend", topic.trendScore],
-                        ["Evergreen", topic.evergreenScore],
-                      ]
-                        .filter(([, v]) => v !== undefined)
-                        .map(([label, value]) => (
-                          <span
-                            key={label as string}
-                            className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600"
-                          >
-                            {label}: {Number(value).toFixed(1)}
-                          </span>
-                        ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <StatusBadge status={topic.status} />
-                  {topic.id === project.selectedTopicId && (
-                    <span className="text-xs text-blue-600 font-medium">
-                      Selected
-                    </span>
-                  )}
-                </div>
-              </div>
-              {topic.status === "pending" && (
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => handleApprove(topic.id)}
-                    disabled={loading}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleReject(topic.id)}
-                    disabled={loading}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            id={topic.id}
+            title={topic.title}
+            category={project.niche}
+            summary={topic.summary}
+            thumbnailAngle={topic.thumbnailAngle}
+            scores={getTopicScores(topic)}
+            isSelected={topic.id === project.selectedTopicId}
+            onSelect={handleSelect}
+            loading={loading}
+          />
         ))}
       </div>
     </div>

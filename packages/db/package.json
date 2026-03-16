@@ -8,9 +8,11 @@
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
     "seed": "ts-node seed.ts",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "test": "jest"
   },
   "dependencies": {
+    "@atlas/shared": "*",
     "@prisma/client": "^5.16.0"
   },
   "devDependencies": {

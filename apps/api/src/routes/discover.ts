@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { createLLMProvider } from "@atlas/integrations";
-import { prisma } from "@atlas/db";
+import { runAgent } from "@atlas/integrations";
+import { prisma, trackLLMCost } from "@atlas/db";
 
 export const discoverRouter = Router();
 
@@ -132,12 +132,9 @@ discoverRouter.post("/", async (_req, res, next) => {
       .map((s) => `[${s.source}${s.score ? ` ↑${s.score}` : ""}] ${s.title}`)
       .join("\n");
 
-    const llm = createLLMProvider();
-
-    const response = await llm.chat([
-      {
-        role: "system",
-        content: `You are the world's best edutainment topic researcher and viral content strategist.
+    const response = await runAgent({
+      agentName: "topic-discoverer",
+      instruction: `You are the world's best edutainment topic researcher and viral content strategist.
 You have deep expertise in what makes YouTube videos go viral, specifically for educational animation
 channels like Kurzgesagt (50M subs), The Infographics Show (14M subs), and Veritasium (18M subs).
 
@@ -189,10 +186,7 @@ TRANSFORMATION EXAMPLES:
 ✅ "Why Every AI Breakthrough Is 10x Less Impressive Than It Sounds (And Still Changes Everything)"
 
 Return ONLY valid JSON. No markdown, no preamble, no explanation. Just the JSON array.`,
-      },
-      {
-        role: "user",
-        content: `Here is today's LIVE internet signal feed (${allSignals.length} signals from Reddit, Hacker News, Google Trends):
+      userMessage: `Here is today's LIVE internet signal feed (${allSignals.length} signals from Reddit, Hacker News, Google Trends):
 
 ${signalText}
 
@@ -218,8 +212,7 @@ Return a JSON array of exactly 8 objects:
 ]
 
 Make these genuinely excellent. These will become real videos watched by millions.`,
-      },
-    ]);
+    });
 
     let topics: Array<{
       title: string;
@@ -239,7 +232,13 @@ Make these genuinely excellent. These will become real videos watched by million
     }
 
     console.log(`[discover] Returning ${topics.length} topic ideas`);
-    res.json({ topics, signalCount: allSignals.length });
+    res.json({
+      topics,
+      signalCount: allSignals.length,
+      costUsd: response.costUsd,
+      inputTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+    });
   } catch (err) {
     next(err);
   }
@@ -249,7 +248,7 @@ Make these genuinely excellent. These will become real videos watched by million
 
 discoverRouter.post("/select", async (req, res, next) => {
   try {
-    const { title, hook, category, viralityScore, educationalScore, visualScore, thumbnailAngle } =
+    const { title, hook, category, viralityScore, educationalScore, visualScore, thumbnailAngle, discoverCostUsd, discoverInputTokens, discoverOutputTokens, platform, videoType, videoStyle, toneKeywords } =
       req.body as {
         title: string;
         hook: string;
@@ -258,6 +257,13 @@ discoverRouter.post("/select", async (req, res, next) => {
         educationalScore: number;
         visualScore: number;
         thumbnailAngle: string;
+        discoverCostUsd?: number;
+        discoverInputTokens?: number;
+        discoverOutputTokens?: number;
+        platform?: string;
+        videoType?: string;
+        videoStyle?: string;
+        toneKeywords?: string[];
       };
 
     if (!title || !category) {
@@ -265,12 +271,17 @@ discoverRouter.post("/select", async (req, res, next) => {
     }
 
     const project = await prisma.$transaction(async (tx) => {
+      const VIDEO_TYPE_RUNTIME: Record<string, number> = { short: 60, medium: 240, long: 600 };
       const proj = await tx.project.create({
         data: {
           title,
           niche: category,
-          targetRuntimeSec: 60,
+          targetRuntimeSec: videoType ? VIDEO_TYPE_RUNTIME[videoType] ?? 60 : 60,
           status: "topic_selected",
+          platform: platform ?? undefined,
+          videoType: videoType ?? null,
+          videoStyle: videoStyle ?? null,
+          toneKeywords: toneKeywords ?? [],
         },
       });
 
@@ -293,6 +304,20 @@ discoverRouter.post("/select", async (req, res, next) => {
         data: { selectedTopicId: topic.id },
       });
     });
+
+    // Track discovery LLM cost against the newly created project
+    if (discoverCostUsd && discoverCostUsd > 0) {
+      await trackLLMCost({
+        projectId: project.id,
+        stage: "topic_discovery",
+        vendor: "gemini",
+        model: "gemini-2.5-flash",
+        inputTokens: discoverInputTokens ?? 0,
+        outputTokens: discoverOutputTokens ?? 0,
+        totalCostUsd: discoverCostUsd,
+        metadata: { source: "discover_endpoint" },
+      });
+    }
 
     res.status(201).json({ projectId: project.id });
   } catch (err) {

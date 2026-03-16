@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { prisma } from "@atlas/db";
-import { createLLMProvider } from "@atlas/integrations";
+import { prisma, trackLLMCost } from "@atlas/db";
+import { runAgent } from "@atlas/integrations";
 import { ApiError } from "../middleware/error-handler";
 
 export const researchRouter = Router();
@@ -98,26 +98,28 @@ researchRouter.post("/:id/research", async (req, res, next) => {
       return `[SOURCE ${i + 1}] ${s.title}\n${meta}\nURL: ${s.url}\n${s.snippet}`;
     }).join("\n\n---\n\n");
 
-    const llm = createLLMProvider();
-    const response = await llm.chat([
-      {
-        role: "system",
-        content: `You are the world's most rigorous research synthesizer for educational video production.
+    const response = await runAgent({
+      agentName: "research-synthesizer",
+      instruction: `You are the world's most rigorous research synthesizer for educational video production.
 You have deep expertise across science, history, psychology, technology, and society.
 You surface counterintuitive findings, identify scientific debates, and find the human angle.
 Distinguish ESTABLISHED consensus from EMERGING or CONTESTED findings.
 Return ONLY valid JSON. No markdown. No preamble.`,
-      },
-      {
-        role: "user",
-        content: `Topic: "${topic.title}"
+      userMessage: `Topic: "${topic.title}"
 Hook: "${topic.summary}"
+Category: ${project.niche}
+${project.platform ? `Target Platform: ${project.platform}` : ""}
+${project.videoType ? `Video Type: ${project.videoType === "short" ? "short-form (30-60s)" : project.videoType === "medium" ? "medium-form (3-5 min)" : "long-form (8-12 min)"}` : ""}
+${project.videoStyle ? `Video Style: ${project.videoStyle}` : ""}
+${(project.toneKeywords as string[])?.length ? `Tone: ${(project.toneKeywords as string[]).join(", ")}` : ""}
 
 ${allSources.length} sources collected from Wikipedia, OpenAlex, Semantic Scholar, CrossRef:
 
 ${sourceText}
 
-Synthesize into a research brief for a 10-15 minute educational video.
+Synthesize into a research brief for ${project.videoType === "short" ? "a 30-60 second" : project.videoType === "medium" ? "a 3-5 minute" : "a 10-15 minute"} ${project.videoStyle ? project.videoStyle.toLowerCase() : "educational"} video${project.platform ? ` targeting ${project.platform}` : ""}.
+${project.videoType === "short" ? "Focus on the single most compelling angle — one killer fact and one emotional hook. Keep it tight." : ""}
+${project.toneKeywords?.length ? `The tone should be ${(project.toneKeywords as string[]).join(", ").toLowerCase()}.` : ""}
 
 Return this JSON:
 {
@@ -132,8 +134,18 @@ Return this JSON:
   "sources": [{ "title": "...", "url": "...", "type": "paper|wiki|web", "year": 2023, "credibility": "high|medium|low", "keyContribution": "what this uniquely adds" }],
   "confidenceScore": 0.85
 }`,
-      },
-    ]);
+    });
+
+    // Track LLM cost
+    await trackLLMCost({
+      projectId: project.id,
+      stage: "research",
+      vendor: "gemini",
+      model: response.model,
+      inputTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+      totalCostUsd: response.costUsd,
+    });
 
     let brief: any = { summary: "" };
     try {

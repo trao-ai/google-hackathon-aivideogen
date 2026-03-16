@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import type { RedisOptions } from "bullmq";
-import { prisma } from "@atlas/db";
-import { createLLMProvider } from "@atlas/integrations";
+import { prisma, trackLLMCost } from "@atlas/db";
+import { runAgent } from "@atlas/integrations";
 import {
   TOPIC_SCOUT_SYSTEM_PROMPT,
   buildTopicScoutPrompt,
@@ -29,25 +29,30 @@ export class TopicDiscoveryWorker {
     if (!project) throw new Error(`Project ${projectId} not found`);
 
     try {
-      const llm = createLLMProvider();
-      const prompt = buildTopicScoutPrompt(project.niche, 10);
+      const prompt = buildTopicScoutPrompt({
+        niche: project.niche,
+        count: 10,
+        platform: project.platform,
+        videoType: project.videoType,
+        videoStyle: project.videoStyle,
+        toneKeywords: project.toneKeywords ?? [],
+      });
 
-      const response = await llm.chat([
-        { role: "system", content: TOPIC_SCOUT_SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ]);
+      const response = await runAgent({
+        agentName: "topic-scout",
+        instruction: TOPIC_SCOUT_SYSTEM_PROMPT,
+        userMessage: prompt,
+      });
 
       // Track LLM cost
-      await prisma.costEvent.create({
-        data: {
-          projectId,
-          stage: "research",
-          vendor: "openai",
-          units: response.inputTokens + response.outputTokens,
-          unitCost: 0,
-          totalCostUsd: response.costUsd,
-          metadata: { jobType: "topic_discovery" },
-        },
+      await trackLLMCost({
+        projectId,
+        stage: "topic_discovery",
+        vendor: "gemini",
+        model: response.model,
+        inputTokens: response.inputTokens,
+        outputTokens: response.outputTokens,
+        totalCostUsd: response.costUsd,
       });
 
       // Parse LLM response — try to extract JSON array

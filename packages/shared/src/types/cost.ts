@@ -1,12 +1,30 @@
+export type VideoProviderType =
+  | "veo"
+  | "kling"
+  | "seedance"
+  | "replicate-veo"
+  | "replicate-kling"
+  | "replicate-seedance"
+  | "replicate-seedance-lite";
+
 export type CostStage =
+  | "topic_discovery"
   | "research"
   | "script"
   | "tts"
+  | "scene_planning"
   | "image_generation"
+  | "frame_regeneration"
+  | "frame_validation"
   | "video_generation"
+  | "video_fallback"
+  | "motion_enrichment"
+  | "transition_planning"
   | "render"
+  | "sfx"
   | "storage"
-  | "channel_analysis";
+  | "channel_analysis"
+  | "character_generation";
 
 export interface CostEvent {
   id: string;

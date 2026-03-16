@@ -2,31 +2,36 @@
 
 ## Visual Identity
 
-**Style**: Flat-design vector illustration. Clean, minimal, and educational.
-No photorealism. No gradients unless explicitly in `palette.json`.
-Bold 2px outlines. Bright, accessible colors.
+**Style**: Kurzgesagt-inspired flat vector illustration with Duolingo-style characters.
+No photorealism. No outlines (shapes defined by color differences). No gradients.
+Bold, vibrant colors on rich dark backgrounds. Layered compositions with depth.
 
 ## Palette
 
 See `palette.json`. Summary:
 
-- Background: `#F8F9FC` (light), `#0F172A` (dark)
-- Primary: `#3B6EF8` (blue)
-- Secondary: `#F97316` (orange)
-- Accent: `#10B981` (green)
-- Text: `#1A1A2E`
+- Dark backgrounds: `#1A1A2E`, `#16213E`, `#0F3460`
+- Red accent: `#E94560`
+- Yellow accent: `#FFB703`
+- Green accent: `#53D769`
+- Blue accent: `#00BBF9`
+- Pink accent: `#F15BB5`
+- Light backgrounds (when needed): `#F0F4FF`, `#E8ECFB`
 
 ## Characters
 
-See `character_rules.json`. Flat-vector style, expressive dot eyes, arc mouths.
-Proportions slightly exaggerated (large head, round body). Friendly, approachable.
+See `character_rules.json`. Duolingo-style friendly characters:
+- Rounded, blob-like body shapes
+- Large expressive dot eyes
+- Simple mitten hands
+- Large head, small body (2-head-height ratio)
+- Flat solid colors, no outlines
+- Warm, friendly expressions
 
 ## Typography (in-frame)
 
-- Font style: clean sans-serif (Nunito or similar)
-- Keep text in frames to ≤ 12 words
-- Bold important terms
-- Left-aligned body text; centered for titles/callouts
+- **No text in generated images.** All text is added in post-production.
+- Never include words, letters, numbers, labels, or writing in any scene.
 
 ## Scene Templates
 
@@ -42,21 +47,22 @@ See `motion_rules.json`.
 - Easing: ease-in-out-cubic
 - Transitions: cross-fade (0.5s)
 - Camera: slow zoom or pan; never shaky
-- Charts animate on-screen (draw-on, grow, step-reveal)
+- Elements: smooth parallax, organic morphing, gentle floats
+- Style: Kurzgesagt-like smooth, satisfying movements
 
 ## Image Generation (Prompt Guidelines)
 
 See `prompt_primitives.json` and `negative_prompts.json`.
-Always start image prompts with the `stylePrefix` in `prompt_primitives.json`.
-Always append negative prompts from `negative_prompts.json`.
+Always start image prompts with the Kurzgesagt-style prefix.
+Always append negative prompts to enforce the flat vector style.
 
 ## Speech Bubbles
 
 See `speech_bubble_rules.json`.
-Rounded rectangles, curved tails, 2px outline, white/light-blue backgrounds.
+Rounded shapes with no text inside — visual indicator only.
 
 ## Tone
 
-Educational, curious, friendly. Avoid alarmist or clickbait visual framing.
-The visuals should _illuminate_ the topic, not just decorate it.
+Educational, curious, warm, playful. Like Kurzgesagt meets Duolingo.
+The visuals should _illuminate_ the topic with vibrant, engaging illustrations.
 Every frame should make the viewer understand something new.

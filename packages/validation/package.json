@@ -1,0 +1,20 @@
+{
+  "name": "@atlas/validation",
+  "version": "0.1.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@atlas/shared": "*",
+    "@atlas/db": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "typescript": "^5.4.5"
+  }
+}

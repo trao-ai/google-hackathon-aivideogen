@@ -76,7 +76,7 @@ export default function DashboardPage() {
   const inProgressBars = buildBars(
     (p) =>
       !["draft", "complete"].includes(p.status) && !p.status.includes("failed"),
-    7
+    7,
   );
 
   // Build daily spend bars for the last 7 days

@@ -3,13 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowClockwiseIcon,
   LinkIcon,
   ChartBarIcon,
 } from "@phosphor-icons/react";
 import { useProject } from "@/hooks/use-projects";
 import { useProjectStore } from "@/stores/project-store";
-import { useDiscoverTopics } from "@/hooks/use-topics";
 import { useStartResearch } from "@/hooks/use-research";
 import { useGenerateScript } from "@/hooks/use-scripts";
 import { useGenerateVoice } from "@/hooks/use-voice";
@@ -110,7 +108,6 @@ export default function ProjectPage() {
       topics: [],
     } satisfies import("@/types/api").ProjectDetail);
 
-  const discoverTopics = useDiscoverTopics(id);
   const startResearch = useStartResearch(id);
   const generateScript = useGenerateScript(id);
   const generateVoice = useGenerateVoice(id);
@@ -225,16 +222,6 @@ export default function ProjectPage() {
                   </p>
                 )}
               </div>
-              {activeStep !== "scenes" && (
-                <button
-                  type="button"
-                  onClick={() => void refetch()}
-                  className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity shrink-0"
-                >
-                  <ArrowClockwiseIcon size={20} weight="regular" />
-                  <span>Refresh</span>
-                </button>
-              )}
             </div>
           )}
 
@@ -248,32 +235,6 @@ export default function ProjectPage() {
                   {tabInfo.subtitle}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setFooterError("");
-                  discoverTopics.mutate(
-                    { count: 10 },
-                    { onError: (err) => setFooterError(err.message) },
-                  );
-                }}
-                disabled={
-                  discoverTopics.isPending ||
-                  ["discovering_topics", "topic_discovery"].includes(
-                    project.status,
-                  )
-                }
-                className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80 transition-opacity disabled:opacity-50 shrink-0"
-              >
-                <ArrowClockwiseIcon
-                  size={20}
-                  weight="regular"
-                  className={discoverTopics.isPending ? "animate-spin" : ""}
-                />
-                <span>
-                  {discoverTopics.isPending ? "Discovering..." : "Refresh"}
-                </span>
-              </button>
             </div>
           )}
 

@@ -206,23 +206,25 @@ export default function ProjectPage() {
     <div className="flex flex-col h-screen bg-secondary">
       <Header totalSpend={project.totalCostUsd ?? 0} />
 
-      <main className="flex-1 overflow-y-auto px-4 pt-4 pb-0">
+      <main className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
         <div className="bg-brand-off-white rounded-2xl border border-brand-border-light p-5 flex flex-col gap-5">
-          {activeStep !== "topic" && project.title && !(activeStep === "scenes" && showEditor) && (
-            <div className="flex items-start justify-between gap-8">
-              <div className="flex flex-col gap-1">
-                <h1 className="text-2xl font-semibold text-foreground">
-                  {project.title}
-                </h1>
-                {project.niche && (
-                  <p className="text-base font-extralight text-[#141413B2]">
-                    A Surprising Look At How This Topic Connects To{" "}
-                    {project.niche} And Beyond.
-                  </p>
-                )}
+          {activeStep !== "topic" &&
+            project.title &&
+            !(activeStep === "scenes" && showEditor) && (
+              <div className="flex items-start justify-between gap-8">
+                <div className="flex flex-col gap-1">
+                  <h1 className="text-2xl font-semibold text-foreground">
+                    {project.title}
+                  </h1>
+                  {project.niche && (
+                    <p className="text-base font-extralight text-[#141413B2]">
+                      A Surprising Look At How This Topic Connects To{" "}
+                      {project.niche} And Beyond.
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {activeStep === "topic" && (
             <div className="flex items-start justify-between gap-8">
@@ -247,113 +249,116 @@ export default function ProjectPage() {
             />
           )}
 
-          {activeStep !== "topic" && !(activeStep === "scenes" && showEditor) && (
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-xl font-semibold text-foreground">
-                  {tabInfo.title}
-                </h2>
-                <p className="text-sm font-extralight text-[#141413B2]">
-                  {tabInfo.subtitle}
-                </p>
-              </div>
-              {activeStep === "research" && hasResearch && (
-                <div className="flex items-center gap-3">
-                  <span className="px-3 py-1.5 bg-brand-green-light rounded-full text-xs font-medium text-brand-green flex items-center gap-1.5">
-                    <LinkIcon size={14} weight="bold" />
-                    Sources: {sourceCount}
-                  </span>
-                  <span className="px-3 py-1.5 bg-brand-indigo-light rounded-full text-xs font-medium text-brand-indigo flex items-center gap-1.5">
-                    <ChartBarIcon size={14} weight="bold" />
-                    Confidence: {confidenceScore}%
-                  </span>
+          {activeStep !== "topic" &&
+            !(activeStep === "scenes" && showEditor) && (
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-xl font-semibold text-foreground">
+                    {tabInfo.title}
+                  </h2>
+                  <p className="text-sm font-extralight text-[#141413B2]">
+                    {tabInfo.subtitle}
+                  </p>
                 </div>
-              )}
-              {activeStep === "scenes" && (
-                <div className="flex items-center gap-3">
-                  <VideoModelSelector
-                    projectId={id}
-                    disabled={
-                      generateFrames.isPending ||
-                      generateAllVideos.isPending ||
-                      project.status === "video_generation"
-                    }
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => planScenes.mutate()}
-                    disabled={
-                      planScenes.isPending ||
-                      project.status === "planning_scenes" ||
-                      !hasVoiceover
-                    }
-                    title={
-                      !hasVoiceover ? "Generate voiceover first" : undefined
-                    }
-                    className="px-4 py-2.5 rounded-full border border-brand-border-light bg-brand-surface hover:bg-brand-surface hover:opacity-80 text-sm hover:text-black"
-                  >
-                    {project.status === "planning_scenes"
-                      ? "Planning..."
-                      : "Plan Scene"}
-                  </Button>
-                  {hasScenes &&
-                    !(project.scenes ?? []).some(
-                      (s) => (s.frames ?? []).length > 0,
-                    ) && (
-                      <Button
-                        onClick={() => generateFrames.mutate()}
-                        disabled={
-                          generateFrames.isPending ||
-                          project.status === "frame_generation"
-                        }
-                        className="px-4 py-2.5 bg-brand-black text-brand-off-white rounded-full hover:opacity-90 text-sm font-medium"
-                      >
-                        {project.status === "frame_generation"
-                          ? "Generating..."
-                          : "Generate Frames"}
-                      </Button>
-                    )}
-                  {(project.scenes ?? []).some(
-                    (s) => (s.frames ?? []).length > 0,
-                  ) && (
-                    <>
-                      <Button
-                        variant="outline"
-                        onClick={() => generateFrames.mutate()}
-                        disabled={
-                          generateFrames.isPending ||
-                          project.status === "frame_generation"
-                        }
-                        className="px-4 py-2.5 rounded-full border border-brand-border-light bg-brand-surface hover:bg-brand-surface hover:opacity-80 text-sm hover:text-black"
-                      >
-                        Regenerate Frames
-                      </Button>
-                      <Button
-                        onClick={() => generateAllVideos.mutate()}
-                        disabled={
-                          generateAllVideos.isPending ||
-                          project.status === "video_generation"
-                        }
-                        className="px-4 py-2.5 bg-brand-black text-brand-off-white rounded-full hover:opacity-90 text-sm font-medium"
-                      >
-                        {project.status === "video_generation"
-                          ? "Generating..."
-                          : "Generate all videos"}
-                      </Button>
-                      {(project.scenes ?? []).some((s) => s.clip?.videoUrl) && (
+                {activeStep === "research" && hasResearch && (
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1.5 bg-brand-green-light rounded-full text-xs font-medium text-brand-green flex items-center gap-1.5">
+                      <LinkIcon size={14} weight="bold" />
+                      Sources: {sourceCount}
+                    </span>
+                    <span className="px-3 py-1.5 bg-brand-indigo-light rounded-full text-xs font-medium text-brand-indigo flex items-center gap-1.5">
+                      <ChartBarIcon size={14} weight="bold" />
+                      Confidence: {confidenceScore}%
+                    </span>
+                  </div>
+                )}
+                {activeStep === "scenes" && (
+                  <div className="flex items-center gap-3">
+                    <VideoModelSelector
+                      projectId={id}
+                      disabled={
+                        generateFrames.isPending ||
+                        generateAllVideos.isPending ||
+                        project.status === "video_generation"
+                      }
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => planScenes.mutate()}
+                      disabled={
+                        planScenes.isPending ||
+                        project.status === "planning_scenes" ||
+                        !hasVoiceover
+                      }
+                      title={
+                        !hasVoiceover ? "Generate voiceover first" : undefined
+                      }
+                      className="px-4 py-2.5 rounded-full border border-brand-border-light bg-brand-surface hover:bg-brand-surface hover:opacity-80 text-sm hover:text-black"
+                    >
+                      {project.status === "planning_scenes"
+                        ? "Planning..."
+                        : "Plan Scene"}
+                    </Button>
+                    {hasScenes &&
+                      !(project.scenes ?? []).some(
+                        (s) => (s.frames ?? []).length > 0,
+                      ) && (
                         <Button
-                          onClick={() => setShowEditor(true)}
+                          onClick={() => generateFrames.mutate()}
+                          disabled={
+                            generateFrames.isPending ||
+                            project.status === "frame_generation"
+                          }
                           className="px-4 py-2.5 bg-brand-black text-brand-off-white rounded-full hover:opacity-90 text-sm font-medium"
                         >
-                          Editor &rarr;
+                          {project.status === "frame_generation"
+                            ? "Generating..."
+                            : "Generate Frames"}
                         </Button>
                       )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                    {(project.scenes ?? []).some(
+                      (s) => (s.frames ?? []).length > 0,
+                    ) && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => generateFrames.mutate()}
+                          disabled={
+                            generateFrames.isPending ||
+                            project.status === "frame_generation"
+                          }
+                          className="px-4 py-2.5 rounded-full border border-brand-border-light bg-brand-surface hover:bg-brand-surface hover:opacity-80 text-sm hover:text-black"
+                        >
+                          Regenerate Frames
+                        </Button>
+                        <Button
+                          onClick={() => generateAllVideos.mutate()}
+                          disabled={
+                            generateAllVideos.isPending ||
+                            project.status === "video_generation"
+                          }
+                          className="px-4 py-2.5 bg-brand-black text-brand-off-white rounded-full hover:opacity-90 text-sm font-medium"
+                        >
+                          {project.status === "video_generation"
+                            ? "Generating..."
+                            : "Generate all videos"}
+                        </Button>
+                        {(project.scenes ?? []).some(
+                          (s) => s.clip?.videoUrl,
+                        ) && (
+                          <Button
+                            onClick={() => setShowEditor(true)}
+                            className="px-4 py-2.5 bg-brand-black text-brand-off-white rounded-full hover:opacity-90 text-sm font-medium"
+                          >
+                            Editor &rarr;
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
           {activeStep === "topic" && <TopicsTab project={project} />}
           {activeStep === "research" && <ResearchTab project={project} />}
@@ -385,122 +390,124 @@ export default function ProjectPage() {
         </div>
       </main>
 
-      {!(activeStep === "scenes" && showEditor) && <div className="shrink-0 bg-brand-off-white border-t border-brand-border-light shadow-[0px_-4px_16px_rgba(225,218,205,0.2)] px-5 py-3 flex items-center justify-between gap-5">
-        <div>
-          {footerError && (
-            <p className="text-sm text-brand-red">{footerError}</p>
-          )}
+      {!(activeStep === "scenes" && showEditor) && (
+        <div className="shrink-0 bg-brand-off-white border-t border-brand-border-light shadow-[0px_-4px_16px_rgba(225,218,205,0.2)] px-5 py-3 flex items-center justify-between gap-5">
+          <div>
+            {footerError && (
+              <p className="text-sm text-brand-red">{footerError}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light text-sm font-medium text-foreground hover:opacity-80 transition-opacity"
+            >
+              Back
+            </button>
+
+            {/* Topic → Research: Start research */}
+            {activeStep === "topic" && hasTopicSelected && (
+              <button
+                type="button"
+                onClick={handleStartResearch}
+                disabled={footerLoading || isResearching}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {isResearching || startResearch.isPending
+                  ? "Researching..."
+                  : "Start Research"}
+              </button>
+            )}
+
+            {/* Research → Character: Approve & Continue */}
+            {activeStep === "research" && hasResearch && (
+              <button
+                type="button"
+                onClick={() => setActiveStep("character")}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+              >
+                Approve &amp; Continue
+              </button>
+            )}
+
+            {/* Character → Script: Approve Character & Continue */}
+            {activeStep === "character" && (
+              <button
+                type="button"
+                onClick={handleGenerateScript}
+                disabled={footerLoading || isScripting}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {isScripting || generateScript.isPending
+                  ? "Generating Script..."
+                  : "Approve Character & Continue"}
+              </button>
+            )}
+
+            {/* Script → Voice: Generate voiceover */}
+            {activeStep === "script" && hasScript && (
+              <button
+                type="button"
+                onClick={handleGenerateVoice}
+                disabled={footerLoading || isVoicing}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {isVoicing || generateVoice.isPending
+                  ? "Generating Voice..."
+                  : "Generate Voiceover"}
+              </button>
+            )}
+
+            {/* Voice → Scenes: Plan scenes */}
+            {activeStep === "voice" && hasVoiceover && (
+              <button
+                type="button"
+                onClick={handlePlanScenes}
+                disabled={footerLoading || isPlanning}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {isPlanning || planScenes.isPending
+                  ? "Planning Scenes..."
+                  : "Plan Scenes"}
+              </button>
+            )}
+
+            {/* Scenes → Captions: Navigate to captions */}
+            {activeStep === "scenes" && hasScenes && (
+              <button
+                type="button"
+                onClick={() => setActiveStep("captions")}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+              >
+                Continue to Captions
+              </button>
+            )}
+
+            {/* Captions → Cost: Navigate to cost */}
+            {activeStep === "captions" && (
+              <button
+                type="button"
+                onClick={() => setActiveStep("cost")}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+              >
+                Continue to Cost
+              </button>
+            )}
+
+            {/* Cost → Export: Start Rendering */}
+            {activeStep === "cost" && (
+              <button
+                type="button"
+                onClick={() => setActiveStep("export")}
+                className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+              >
+                Start Rendering
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light text-sm font-medium text-foreground hover:opacity-80 transition-opacity"
-          >
-            Back
-          </button>
-
-          {/* Topic → Research: Start research */}
-          {activeStep === "topic" && hasTopicSelected && (
-            <button
-              type="button"
-              onClick={handleStartResearch}
-              disabled={footerLoading || isResearching}
-              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {isResearching || startResearch.isPending
-                ? "Researching..."
-                : "Start Research"}
-            </button>
-          )}
-
-          {/* Research → Character: Approve & Continue */}
-          {activeStep === "research" && hasResearch && (
-            <button
-              type="button"
-              onClick={() => setActiveStep("character")}
-              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
-            >
-              Approve &amp; Continue
-            </button>
-          )}
-
-          {/* Character → Script: Approve Character & Continue */}
-          {activeStep === "character" && (
-            <button
-              type="button"
-              onClick={handleGenerateScript}
-              disabled={footerLoading || isScripting}
-              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {isScripting || generateScript.isPending
-                ? "Generating Script..."
-                : "Approve Character & Continue"}
-            </button>
-          )}
-
-          {/* Script → Voice: Generate voiceover */}
-          {activeStep === "script" && hasScript && (
-            <button
-              type="button"
-              onClick={handleGenerateVoice}
-              disabled={footerLoading || isVoicing}
-              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {isVoicing || generateVoice.isPending
-                ? "Generating Voice..."
-                : "Generate Voiceover"}
-            </button>
-          )}
-
-          {/* Voice → Scenes: Plan scenes */}
-          {activeStep === "voice" && hasVoiceover && (
-            <button
-              type="button"
-              onClick={handlePlanScenes}
-              disabled={footerLoading || isPlanning}
-              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {isPlanning || planScenes.isPending
-                ? "Planning Scenes..."
-                : "Plan Scenes"}
-            </button>
-          )}
-
-          {/* Scenes → Captions: Navigate to captions */}
-          {activeStep === "scenes" && hasScenes && (
-            <button
-              type="button"
-              onClick={() => setActiveStep("captions")}
-              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
-            >
-              Continue to Captions
-            </button>
-          )}
-
-          {/* Captions → Cost: Navigate to cost */}
-          {activeStep === "captions" && (
-            <button
-              type="button"
-              onClick={() => setActiveStep("cost")}
-              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
-            >
-              Continue to Cost
-            </button>
-          )}
-
-          {/* Cost → Export: Start Rendering */}
-          {activeStep === "cost" && (
-            <button
-              type="button"
-              onClick={() => setActiveStep("export")}
-              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
-            >
-              Start Rendering
-            </button>
-          )}
-        </div>
-      </div>}
+      )}
     </div>
   );
 }

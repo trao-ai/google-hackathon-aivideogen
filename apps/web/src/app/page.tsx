@@ -158,7 +158,7 @@ export default function DashboardPage() {
             <span>Create New Project</span>
           </Link>
         </div>
-        /{/* Stats Row */}
+        {/* Stats Row */}
         <div className="grid grid-cols-3 gap-4">
           <StatCard
             label="Total Projects"

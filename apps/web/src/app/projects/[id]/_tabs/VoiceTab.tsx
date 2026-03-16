@@ -4,15 +4,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   GenderMaleIcon,
   GenderFemaleIcon,
-  RobotIcon,
   PlayIcon,
   PauseIcon,
-  CaretDownIcon,
   SpeakerHighIcon,
   ArrowClockwiseIcon,
   SparkleIcon,
   WaveformIcon,
-  CheckIcon,
 } from "@phosphor-icons/react";
 import {
   api,
@@ -26,7 +23,6 @@ type Props = {
   onRefresh: () => Promise<void>;
 };
 
-/* ── Voice type cards ── */
 type VoiceTypeId = "male" | "female" | "ai";
 
 const VOICE_TYPES: {
@@ -47,7 +43,6 @@ const VOICE_TYPES: {
     description: "Clear, engaging",
     icon: GenderFemaleIcon,
   },
-  // { id: "ai", label: "AI Narrator", description: "Professional, neutral", icon: RobotIcon },
 ];
 
 const ACCENT_OPTIONS = [
@@ -56,7 +51,6 @@ const ACCENT_OPTIONS = [
   "Indian English",
   "Neutral",
 ];
-/** Map UI accent label → ElevenLabs accent strings for filtering */
 const ACCENT_FILTER_MAP: Record<string, string[]> = {
   "US English": ["american"],
   "UK English": ["british"],
@@ -64,94 +58,11 @@ const ACCENT_FILTER_MAP: Record<string, string[]> = {
   Neutral: [], // empty = show all
 };
 
-/* ── Waveform bars (mock visualization) ── */
 const WAVEFORM_BARS = [
   12, 20, 32, 18, 28, 36, 14, 24, 30, 16, 34, 22, 28, 36, 12, 26, 32, 20, 14,
   30, 24, 36, 18, 28, 22, 34, 16, 26, 30, 12, 20, 36, 28, 18, 32, 24,
 ];
 
-/* ── Dropdown Component ── */
-function Dropdown({
-  label,
-  placeholder,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  placeholder: string;
-  options: string[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  return (
-    <div className="flex-1 flex flex-col gap-2" ref={ref}>
-      <span className="text-base font-medium text-foreground">{label}</span>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className={`w-full px-4 py-2.5 bg-[#FAF9F5]/50 rounded-xl border flex items-center justify-between text-sm font-normal transition-colors ${
-            value ? "border-foreground/40" : "border-brand-border-light"
-          }`}
-        >
-          <span
-            className={value ? "text-foreground font-medium" : "text-[#a0a0a0]"}
-          >
-            {value || placeholder}
-          </span>
-          <CaretDownIcon
-            size={20}
-            weight="regular"
-            className="text-foreground/50"
-          />
-        </button>
-        {open && (
-          <div className="absolute z-10 top-full mt-1 w-full p-2 bg-[#FAF9F5] rounded-xl shadow-[0px_6px_10px_rgba(0,0,0,0.1)] border border-brand-border-light backdrop-blur-[35px] flex flex-col gap-1">
-            {options.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => {
-                  onChange(opt);
-                  setOpen(false);
-                }}
-                className={`w-full text-left px-2.5 py-2 rounded-lg text-sm text-foreground flex items-center justify-between ${
-                  value === opt
-                    ? "bg-[#F0EEE7] font-medium"
-                    : "font-normal hover:bg-[#F0EEE7]/50"
-                }`}
-              >
-                {opt}
-                {value === opt && (
-                  <CheckIcon
-                    size={16}
-                    weight="bold"
-                    className="text-foreground/70 shrink-0"
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── Helpers ── */
 function formatDurationMinutes(sec: number): string {
   const totalSec = Math.round(sec);
   const m = Math.floor(totalSec / 60);
@@ -177,7 +88,7 @@ function matchesGender(preset: VoicePreset, type: VoiceTypeId): boolean {
 function matchesAccent(preset: VoicePreset, uiAccent: string): boolean {
   if (!uiAccent) return true;
   const allowed = ACCENT_FILTER_MAP[uiAccent];
-  if (!allowed || allowed.length === 0) return true; // "Neutral" or unknown → show all
+  if (!allowed || allowed.length === 0) return true;
   return allowed.includes(preset.accent?.toLowerCase() ?? "");
 }
 
@@ -198,7 +109,6 @@ export function VoiceTab({ project, onRefresh }: Props) {
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
 
-  /* Fetch voice presets */
   useEffect(() => {
     api.voice
       .presets()
@@ -212,8 +122,11 @@ export function VoiceTab({ project, onRefresh }: Props) {
   const voiceovers: Voiceover[] = project.voiceovers ?? [];
   const latestVoiceover = voiceovers[0];
 
-  /* Reset audio when voiceover changes */
-  const audioUrl = latestVoiceover?.audioUrl ?? null;
+  /* Reset audio when voiceover changes — append cache-buster since URL path stays the same */
+  const rawAudioUrl = latestVoiceover?.audioUrl ?? null;
+  const audioUrl = rawAudioUrl
+    ? `${rawAudioUrl}${rawAudioUrl.includes("?") ? "&" : "?"}t=${latestVoiceover?.createdAt ?? Date.now()}`
+    : null;
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
@@ -330,10 +243,8 @@ export function VoiceTab({ project, onRefresh }: Props) {
   const segments = latestVoiceover?.segments?.length ?? 0;
 
   return (
-    <div className="flex items-start gap-5 overflow-hidden">
-      {/* Left Content */}
+    <div className="flex items-start gap-5">
       <div className="flex-1 min-w-0 flex flex-col items-end gap-5">
-        {/* Voice Type */}
         <div className="w-full flex flex-col gap-2">
           <span className="text-base font-medium text-foreground">
             Voice Type
@@ -347,28 +258,24 @@ export function VoiceTab({ project, onRefresh }: Props) {
                   key={v.id}
                   type="button"
                   onClick={() => setSelectedType(v.id)}
-                  className={`flex-1 min-w-0 p-5 rounded-2xl border-2 flex items-start gap-2.5 transition-all hover:opacity-90 ${
+                  className={`flex-1 p-5 rounded-2xl outline outline-1 -outline-offset-1 flex items-start gap-2.5 transition-all hover:opacity-90 ${
                     isActive
-                      ? "bg-[#FAF9F5] border-foreground/70 shadow-sm"
-                      : "bg-[#FAF9F5]/50 border-brand-border-light"
+                      ? "bg-brand-surface/70 outline-foreground/70"
+                      : "bg-brand-surface/50 outline-brand-border-light"
                   }`}
                 >
-                  <div
-                    className={`size-11 p-3.5 rounded-xl flex items-center justify-center ${
-                      isActive ? "bg-foreground/10" : "bg-secondary"
-                    }`}
-                  >
+                  <div className="w-11 h-11 shrink-0 rounded-xl bg-brand-beige flex items-center justify-center">
                     <Icon
                       size={24}
-                      weight={isActive ? "fill" : "regular"}
+                      weight="regular"
                       className="text-foreground"
                     />
                   </div>
-                  <div className="flex flex-col items-start gap-0.5 min-w-0">
-                    <span className="text-base font-medium text-foreground truncate w-full">
+                  <div className="flex flex-col items-start gap-0.5">
+                    <span className="text-base font-normal text-foreground">
                       {v.label}
                     </span>
-                    <span className="text-sm font-normal text-brand-foreground-70 truncate w-full">
+                    <span className="text-xs text-brand-foreground-70">
                       {v.description}
                     </span>
                   </div>
@@ -379,38 +286,54 @@ export function VoiceTab({ project, onRefresh }: Props) {
         </div>
 
         {/* Accent */}
-        <div className="w-full flex items-start gap-7">
-          <Dropdown
-            label="Accent"
-            placeholder="Select an accent"
-            options={ACCENT_OPTIONS}
-            value={accent}
-            onChange={setAccent}
-          />
+        <div className="w-full flex flex-col gap-2">
+          <span className="text-base font-medium text-foreground">Accent</span>
+          <div className="flex items-center gap-3">
+            {ACCENT_OPTIONS.map((opt) => {
+              const isActive = accent === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setAccent(opt)}
+                  className={`flex-1 p-4 rounded-xl outline outline-1 -outline-offset-1 text-base font-normal text-center text-foreground transition-all ${
+                    isActive
+                      ? "bg-brand-surface/70 outline-foreground/70"
+                      : "bg-brand-surface/50 outline-brand-border-light"
+                  }`}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {error && <p className="w-full text-sm text-brand-red">{error}</p>}
 
+        {/* Generate Voice button — right-aligned between accent and voices */}
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={loading || !allOptionsSelected}
+          className="px-4 py-2.5 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {loading ? "Generating..." : "Generate Voice"}
+        </button>
+
         {/* Available Voices */}
-        <div className="w-full flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-base font-medium text-foreground">
-                Available Voices
-              </span>
-              <span className="text-sm font-medium text-brand-foreground-70">
-                Select a voice and click play to preview.
-              </span>
-            </div>
-            {filteredVoices.length > 0 && (
-              <span className="text-xs font-medium text-brand-foreground-70 shrink-0">
-                {filteredVoices.length} voice
-                {filteredVoices.length !== 1 ? "s" : ""}
-              </span>
-            )}
+        <div className="w-full flex flex-col gap-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-base font-medium text-foreground">
+              Available Voices
+            </span>
+            <span className="text-sm font-medium text-brand-foreground-70">
+              Select from a library of AI voices and preview how they sound in
+              your video.
+            </span>
           </div>
 
-          <div className="flex flex-col gap-2.5 max-h-[480px] overflow-y-auto overflow-x-hidden pr-1">
+          <div className="flex flex-col gap-2.5">
             {filteredVoices.length === 0 && presets.length === 0 && (
               <p className="text-sm text-brand-foreground-70 py-4">
                 Loading voices...
@@ -425,107 +348,91 @@ export function VoiceTab({ project, onRefresh }: Props) {
             {filteredVoices.map((voice) => {
               const isActive = selectedVoice === voice.key;
               const isPreviewing = previewingVoice === voice.key;
-              // Split "Adam - Engaging, Friendly and Bright" into name + tagline
               const dashIdx = voice.name.indexOf(" - ");
               const displayName =
                 dashIdx > 0 ? voice.name.slice(0, dashIdx) : voice.name;
-              const tagline =
-                dashIdx > 0 ? voice.name.slice(dashIdx + 3) : null;
               return (
                 <div
                   key={voice.key}
                   onClick={() => setSelectedVoice(voice.key)}
-                  className={`w-full px-4 py-3 rounded-2xl border-2 flex items-center gap-3 cursor-pointer transition-all overflow-hidden ${
+                  className={`w-full px-4 py-2.5 rounded-2xl outline outline-1 -outline-offset-1 flex items-center justify-between cursor-pointer transition-all ${
                     isActive
-                      ? "bg-[#FAF9F5] border-foreground/70 shadow-sm"
-                      : "bg-[#FAF9F5]/50 border-transparent hover:border-brand-border-light"
+                      ? "bg-brand-surface outline-foreground/70"
+                      : "bg-brand-surface/50 outline-brand-border-light hover:outline-foreground/30"
                   }`}
                 >
-                  {/* Avatar */}
-                  <div
-                    className={`size-10 rounded-full shrink-0 flex items-center justify-center text-xs font-semibold uppercase ${
-                      isActive
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-secondary text-foreground/60"
-                    }`}
-                  >
-                    {displayName.slice(0, 2)}
-                  </div>
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="w-14 h-14 shrink-0 rounded-full bg-white overflow-hidden flex items-center justify-center">
+                      <span className="text-base font-semibold text-foreground">
+                        {displayName.slice(0, 2)}
+                      </span>
+                    </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-semibold text-foreground truncate">
+                    {/* Info */}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-semibold text-foreground">
                         {displayName}
                       </span>
-                      {tagline && (
-                        <span className="text-xs text-brand-foreground-70 truncate hidden sm:inline">
-                          {tagline}
-                        </span>
-                      )}
-                      {voice.gender && (
-                        <span className="text-[11px] text-brand-foreground-70 capitalize shrink-0 px-1.5 py-0.5 bg-secondary rounded">
-                          {voice.gender}
-                        </span>
-                      )}
-                      {voice.age && (
-                        <span className="text-[11px] text-brand-foreground-70 capitalize shrink-0 px-1.5 py-0.5 bg-secondary rounded">
-                          {voice.age}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-xs text-brand-foreground-70 capitalize truncate">
-                        {voice.accent}
-                      </span>
-                      {voice.personality && (
-                        <span className="text-[11px] text-brand-indigo/80 capitalize shrink-0 px-1.5 py-0.5 bg-brand-indigo/10 rounded">
-                          {voice.personality}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {voice.gender && (
+                          <span className="text-sm text-brand-foreground-70">
+                            {voice.gender}
+                          </span>
+                        )}
+                        {voice.accent && (
+                          <>
+                            <span className="text-sm text-brand-foreground-70">
+                              •
+                            </span>
+                            <span className="text-sm text-brand-foreground-70 capitalize">
+                              {voice.accent}
+                            </span>
+                          </>
+                        )}
+                        {voice.personality && (
+                          <>
+                            <span className="text-sm text-brand-foreground-70">
+                              •
+                            </span>
+                            <span className="text-sm text-brand-foreground-70 capitalize">
+                              {voice.personality}
+                            </span>
+                          </>
+                        )}
+                      </div>
                       {voice.useCase && (
-                        <span className="text-[11px] text-brand-foreground-70 capitalize shrink-0 px-1.5 py-0.5 bg-secondary rounded">
-                          {voice.useCase}
+                        <span className="text-xs text-brand-indigo">
+                          Best for: {voice.useCase}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Selected indicator + Preview play */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isActive && (
-                      <div className="size-6 rounded-full bg-foreground flex items-center justify-center">
-                        <CheckIcon
-                          size={14}
-                          weight="bold"
-                          className="text-white"
-                        />
-                      </div>
+                  {/* Play button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      togglePreview(voice);
+                    }}
+                    disabled={!voice.previewUrl}
+                    className="w-11 h-11 shrink-0 bg-brand-beige rounded-full flex items-center justify-center hover:bg-foreground/10 transition-colors disabled:opacity-30"
+                  >
+                    {isPreviewing ? (
+                      <PauseIcon
+                        size={20}
+                        weight="regular"
+                        className="text-foreground"
+                      />
+                    ) : (
+                      <PlayIcon
+                        size={20}
+                        weight="regular"
+                        className="text-foreground ml-0.5"
+                      />
                     )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        togglePreview(voice);
-                      }}
-                      disabled={!voice.previewUrl}
-                      className="size-9 bg-secondary rounded-full flex items-center justify-center hover:bg-foreground/10 transition-colors disabled:opacity-30"
-                    >
-                      {isPreviewing ? (
-                        <PauseIcon
-                          size={16}
-                          weight="fill"
-                          className="text-foreground"
-                        />
-                      ) : (
-                        <PlayIcon
-                          size={16}
-                          weight="fill"
-                          className="text-foreground"
-                        />
-                      )}
-                    </button>
-                  </div>
+                  </button>
                 </div>
               );
             })}
@@ -533,54 +440,33 @@ export function VoiceTab({ project, onRefresh }: Props) {
         </div>
       </div>
 
-      {/* Right Sidebar — always visible */}
-      <div className="w-[442px] shrink-0 flex flex-col gap-5">
-        {/* Generate / Re-Generate Button */}
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={loading || !allOptionsSelected}
-          className="w-full px-4 py-3 bg-brand-black rounded-full text-[15px] font-medium text-brand-off-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            "Generating..."
-          ) : latestVoiceover ? (
-            <>
-              <ArrowClockwiseIcon size={20} weight="regular" /> Re-Generate
-              Voice
-            </>
-          ) : (
-            "Generate Voice"
-          )}
-        </button>
-        {!allOptionsSelected && !loading && (
-          <p className="text-xs text-brand-foreground-70 -mt-3 text-center">
-            Select voice type, accent & a voice to generate.
-          </p>
-        )}
-
+      {/* Right Sidebar */}
+      <div className="w-[442px] shrink-0 flex flex-col gap-7">
         {/* Audio Preview Card */}
-        <div className="p-5 bg-[#FAF9F5] rounded-2xl border border-brand-border-light flex flex-col gap-4">
+        <div className="p-5 bg-brand-surface rounded-2xl border border-brand-border-light flex flex-col gap-4">
           <div className="flex items-center gap-2.5">
             <WaveformIcon
               size={20}
               weight="regular"
               className="text-foreground"
             />
-            <span className="text-xl font-semibold text-foreground capitalize">
+            <span className="text-lg font-normal text-foreground capitalize">
               Audio Preview
             </span>
           </div>
 
           {/* Waveform */}
-          <div className="w-full h-24 bg-[#E1DACD99] rounded-2xl flex items-center justify-center gap-[5px] overflow-hidden">
+          <div
+            className="w-full h-24 rounded-2xl flex items-center justify-center gap-0.5 overflow-hidden"
+            style={{ backgroundColor: "#E1DACD99" }}
+          >
             {WAVEFORM_BARS.map((h, i) => (
               <div
                 key={i}
-                className={`w-[31px] rounded-sm ${
+                className={`w-1 rounded-sm ${
                   i % 3 === 1
                     ? "bg-foreground/50"
-                    : i % 5 === 0
+                    : i % 4 === 0
                       ? "bg-foreground/70"
                       : "bg-foreground"
                 }`}
@@ -607,7 +493,7 @@ export function VoiceTab({ project, onRefresh }: Props) {
               type="button"
               onClick={togglePlayback}
               disabled={!audioUrl}
-              className="size-[38px] p-2.5 bg-secondary rounded-full flex items-center justify-center disabled:opacity-50"
+              className="w-9 h-9 shrink-0 bg-brand-beige rounded-full flex items-center justify-center disabled:opacity-50"
             >
               {isPlaying ? (
                 <PauseIcon
@@ -616,51 +502,53 @@ export function VoiceTab({ project, onRefresh }: Props) {
                   className="text-foreground"
                 />
               ) : (
-                <PlayIcon size={20} weight="fill" className="text-foreground" />
+                <PlayIcon
+                  size={20}
+                  weight="regular"
+                  className="text-foreground ml-0.5"
+                />
               )}
             </button>
-            <span className="text-sm font-normal text-brand-foreground-70">
+            <span className="text-sm text-brand-foreground-70">
               {formatTime(currentTime)}
             </span>
             <div
-              className="flex-1 h-2 bg-brand-border-light rounded-full overflow-hidden cursor-pointer"
+              className="flex-1 h-2 bg-brand-border-light rounded-xl overflow-hidden cursor-pointer"
               onClick={handleSeek}
             >
               <div
-                className="h-full bg-brand-green rounded-full transition-[width] duration-150"
+                className="h-full bg-brand-green rounded-xl transition-[width] duration-150"
                 style={{
                   width: `${durationSec > 0 ? (currentTime / durationSec) * 100 : 0}%`,
                 }}
               />
             </div>
-            <span className="text-sm font-normal text-brand-foreground-70">
+            <span className="text-sm text-brand-foreground-70">
               {formatTime(durationSec)}
             </span>
             <SpeakerHighIcon
               size={20}
               weight="regular"
-              className="text-[#777777]"
+              className="text-brand-foreground-50"
             />
           </div>
 
-          {/* Duration & Segments — only show when audio exists */}
+          {/* Duration & Segments */}
           {latestVoiceover && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-normal text-brand-foreground-70">
+                <span className="text-sm text-brand-foreground-70">
                   Duration
                 </span>
-                <span className="text-[15px] font-normal text-foreground">
+                <span className="text-sm text-foreground">
                   {formatDurationMinutes(durationSec)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-normal text-brand-foreground-70">
+                <span className="text-sm text-brand-foreground-70">
                   Segments
                 </span>
-                <span className="text-[15px] font-normal text-foreground">
-                  {segments}
-                </span>
+                <span className="text-sm text-foreground">{segments}</span>
               </div>
             </div>
           )}
@@ -669,6 +557,18 @@ export function VoiceTab({ project, onRefresh }: Props) {
             <p className="text-sm text-brand-foreground-70 text-center py-2">
               No audio generated yet. Select options and generate.
             </p>
+          )}
+
+          {latestVoiceover && (
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={loading || !allOptionsSelected}
+              className="w-full px-4 py-2.5 bg-brand-surface/50 rounded-full border border-brand-border-light flex items-center justify-center gap-2 text-sm font-medium text-foreground hover:bg-brand-beige/30 transition-colors disabled:opacity-50"
+            >
+              <ArrowClockwiseIcon size={20} weight="regular" />
+              Re-Generate Voice
+            </button>
           )}
         </div>
 
@@ -684,7 +584,7 @@ export function VoiceTab({ project, onRefresh }: Props) {
               AI Suggestion
             </span>
           </div>
-          <p className="text-sm font-normal text-brand-foreground-70">
+          <p className="text-sm text-brand-foreground-70">
             Energetic female voice works best for your topic and target audience
             based on engagement data.
           </p>

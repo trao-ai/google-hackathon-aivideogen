@@ -37,9 +37,6 @@ const VOICE_TYPES: {
 
 const ACCENT_OPTIONS = ["US English", "UK English", "Indian English", "Neutral"];
 const TONE_OPTIONS = ["Energetic", "Calm", "Motivational", "Professional"];
-const AGE_OPTIONS = ["All Ages", "Young", "Middle Aged", "Old"];
-const USE_CASE_OPTIONS = ["All", "Narration", "Characters", "Conversational", "News"];
-
 /** Map UI accent label → ElevenLabs accent strings for filtering */
 const ACCENT_FILTER_MAP: Record<string, string[]> = {
   "US English": ["american"],
@@ -147,22 +144,11 @@ function matchesAccent(preset: VoicePreset, uiAccent: string): boolean {
   return allowed.includes(preset.accent?.toLowerCase() ?? "");
 }
 
-function matchesAge(preset: VoicePreset, uiAge: string): boolean {
-  if (!uiAge || uiAge === "All Ages") return true;
-  return (preset.age?.toLowerCase() ?? "") === uiAge.toLowerCase().replace(/\s+/g, "_");
-}
-
-function matchesUseCase(preset: VoicePreset, uiUseCase: string): boolean {
-  if (!uiUseCase || uiUseCase === "All") return true;
-  return (preset.useCase?.toLowerCase() ?? "") === uiUseCase.toLowerCase();
-}
 
 export function VoiceTab({ project, onRefresh }: Props) {
   const [selectedType, setSelectedType] = useState<VoiceTypeId>("female");
   const [accent, setAccent] = useState("");
   const [tone, setTone] = useState("");
-  const [age, setAge] = useState("");
-  const [useCase, setUseCase] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -240,13 +226,9 @@ export function VoiceTab({ project, onRefresh }: Props) {
 
   useEffect(() => { return () => { previewAudioRef.current?.pause(); }; }, []);
 
-  /* ── Filter voices by type + accent + age + useCase ── */
+  /* ── Filter voices by type + accent ── */
   const filteredVoices = presets.filter(
-    (p) =>
-      matchesGender(p, selectedType) &&
-      matchesAccent(p, accent) &&
-      matchesAge(p, age) &&
-      matchesUseCase(p, useCase),
+    (p) => matchesGender(p, selectedType) && matchesAccent(p, accent),
   );
 
   // Auto-select first voice from filtered list when filters change
@@ -254,7 +236,7 @@ export function VoiceTab({ project, onRefresh }: Props) {
     if (filteredVoices.length > 0 && !filteredVoices.some((v) => v.key === selectedVoice)) {
       setSelectedVoice(filteredVoices[0].key);
     }
-  }, [selectedType, accent, age, useCase, filteredVoices, selectedVoice]);
+  }, [selectedType, accent, filteredVoices, selectedVoice]);
 
   /* ── Generate / Regenerate ── */
   const generateOptions = {
@@ -322,12 +304,6 @@ export function VoiceTab({ project, onRefresh }: Props) {
         <div className="w-full flex items-start gap-7">
           <Dropdown label="Accent" placeholder="Select an accent" options={ACCENT_OPTIONS} value={accent} onChange={setAccent} />
           <Dropdown label="Emotion & Tone" placeholder="Select emotion and tone" options={TONE_OPTIONS} value={tone} onChange={setTone} />
-        </div>
-
-        {/* Age & Use Case Row */}
-        <div className="w-full flex items-start gap-7">
-          <Dropdown label="Age" placeholder="All Ages" options={AGE_OPTIONS} value={age} onChange={setAge} />
-          <Dropdown label="Use Case" placeholder="All" options={USE_CASE_OPTIONS} value={useCase} onChange={setUseCase} />
         </div>
 
         {error && <p className="w-full text-sm text-brand-red">{error}</p>}

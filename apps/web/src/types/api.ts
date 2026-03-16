@@ -191,3 +191,21 @@ export type CostEstimate = {
   provider?: string;
   message?: string;
 };
+
+export type CaptionSettings = {
+  id: string;
+  projectId: string;
+  font: string;
+  fontSize: number;
+  textColor: string;
+  textOpacity: number;
+  bgColor: string;
+  bgOpacity: number;
+  position: "top" | "bottom";
+  template: string;
+  highlightKeywords: boolean;
+  targetLanguage: string;
+  burnInCaptions: boolean;
+  createdAt: string;
+  updatedAt: string;
+};

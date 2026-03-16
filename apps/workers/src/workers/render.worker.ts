@@ -67,6 +67,25 @@ export class RenderWorker {
         data: { status: "composition" },
       });
 
+      // Fetch project to get platform for aspect ratio
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { platform: true },
+      });
+
+      // Fetch caption settings for this project
+      const captionSettings = await prisma.captionSettings.findUnique({
+        where: { projectId },
+      });
+
+      // Determine output resolution based on platform
+      const isPortrait = project?.platform && project.platform !== "youtube";
+      const outputWidth = isPortrait ? 720 : 1280;
+      const outputHeight = isPortrait ? 1280 : 720;
+      const aspectRatioLabel = isPortrait ? "9:16 (portrait)" : "16:9 (landscape)";
+
+      console.log(`[render] Platform: "${project?.platform}" → Output resolution: ${outputWidth}x${outputHeight} (${aspectRatioLabel})`);
+
       // Fetch scenes with clips, ordered
       const scenes = await prisma.scene.findMany({
         where: { projectId },
@@ -314,6 +333,9 @@ export class RenderWorker {
             voTrimStartSec,
             voTrimEndSec,
             outputPath: path.join(tmpDir, "subtitles.ass"),
+            outputWidth,
+            outputHeight,
+            captionSettings,
           });
         } else {
           console.warn("[render] No matching voiceover segments found, skipping subtitles");
@@ -330,6 +352,8 @@ export class RenderWorker {
           voTrimEndSec,
           subtitlePath,
           sceneDurations: sceneAudioInfos.map((s) => s.durationSec),
+          outputWidth,
+          outputHeight,
         });
 
         // Read output and upload
@@ -568,9 +592,13 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     voTrimEndSec: number;
     subtitlePath?: string;
     sceneDurations?: number[];
+    outputWidth?: number;
+    outputHeight?: number;
   }): Promise<void> {
-    const { clips, voiceoverPath, ambientPaths, transitionSfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec, subtitlePath, sceneDurations } = params;
+    const { clips, voiceoverPath, ambientPaths, transitionSfxPaths, outputPath, transitionPlans, voTrimStartSec, voTrimEndSec, subtitlePath, sceneDurations, outputWidth = 1280, outputHeight = 720 } = params;
     const args: string[] = [];
+
+    console.log(`[render] FFmpeg output resolution: ${outputWidth}x${outputHeight}`);
 
     // --- Inputs ---
     // Clip inputs: indices 0 .. N-1
@@ -624,15 +652,15 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
         filterParts.push(
           `[${i}:v]setpts=PTS*${cappedFactor.toFixed(6)},` +
             `tpad=stop_mode=clone:stop_duration=${padSec.toFixed(3)},` +
-            `scale=1280:720:force_original_aspect_ratio=decrease,` +
-            `pad=1280:720:(ow-iw)/2:(oh-ih)/2,` +
+            `scale=${outputWidth}:${outputHeight}:force_original_aspect_ratio=decrease,` +
+            `pad=${outputWidth}:${outputHeight}:(ow-iw)/2:(oh-ih)/2,` +
             `fps=24,format=yuv420p[v${i}]`,
         );
       } else {
         filterParts.push(
           `[${i}:v]setpts=PTS*${cappedFactor.toFixed(6)},` +
-            `scale=1280:720:force_original_aspect_ratio=decrease,` +
-            `pad=1280:720:(ow-iw)/2:(oh-ih)/2,` +
+            `scale=${outputWidth}:${outputHeight}:force_original_aspect_ratio=decrease,` +
+            `pad=${outputWidth}:${outputHeight}:(ow-iw)/2:(oh-ih)/2,` +
             `fps=24,format=yuv420p[v${i}]`,
         );
       }
@@ -874,10 +902,11 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     startSec: number,
     endSec: number,
     wordTimestamps?: Array<{ word: string; start: number; end: number }>,
+    isPortrait?: boolean,
   ): Array<{ text: string; start: number; end: number }> {
     // If we have real word timestamps, use them for accurate timing
     if (wordTimestamps && wordTimestamps.length > 0) {
-      const CHUNK = 6; // ~6 words per subtitle line — reads like a natural sentence
+      const CHUNK = isPortrait ? 4 : 6; // Fewer words per line for portrait (narrower screen)
       const lines: Array<{ text: string; start: number; end: number }> = [];
       let idx = 0;
 
@@ -902,7 +931,7 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     const totalDur = endSec - startSec;
     const secPerWord = totalDur / words.length;
 
-    const CHUNK = 6;
+    const CHUNK = isPortrait ? 4 : 6;
     const lines: Array<{ text: string; start: number; end: number }> = [];
     let wordIdx = 0;
 
@@ -919,6 +948,27 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     return lines;
   }
 
+  // Helper: Convert hex color + opacity to ASS format (&HAABBGGRR)
+  private hexToASS(hexColor: string, opacity: number): string {
+    const hex = hexColor.replace('#', '');
+    const r = hex.substring(0, 2);
+    const g = hex.substring(2, 4);
+    const b = hex.substring(4, 6);
+    const alpha = Math.round((100 - opacity) * 2.55).toString(16).padStart(2, '0');
+    return `&H${alpha.toUpperCase()}${b.toUpperCase()}${g.toUpperCase()}${r.toUpperCase()}`;
+  }
+
+  // Helper: Map font size (1-17) to pixel size
+  private mapFontSize(size: number, isPortrait: boolean): number {
+    const fontSizeMap: { [key: number]: number } = {
+      1: 12, 2: 14, 3: 16, 4: 18, 5: 20, 6: 22, 7: 24, 8: 26, 9: 28,
+      10: 32, 11: 36, 12: 40, 13: 44, 14: 48, 15: 54, 16: 60, 17: 72
+    };
+    const baseSize = fontSizeMap[size] || 24;
+    // Adjust for portrait (Instagram/TikTok need larger fonts)
+    return isPortrait ? Math.round(baseSize * 1.5) : baseSize;
+  }
+
   private generateSubtitleFile(params: {
     segments: Array<{
       text: string;
@@ -929,26 +979,48 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
     voTrimStartSec: number;
     voTrimEndSec: number;
     outputPath: string;
+    outputWidth?: number;
+    outputHeight?: number;
+    captionSettings?: {
+      font: string;
+      fontSize: number;
+      textColor: string;
+      textOpacity: number;
+      bgColor: string;
+      bgOpacity: number;
+      position: string;
+    } | null;
   }): string {
-    const { segments, voTrimStartSec, voTrimEndSec, outputPath } = params;
+    const { segments, voTrimStartSec, voTrimEndSec, outputPath, outputWidth = 1280, outputHeight = 720, captionSettings } = params;
     const trimDuration = voTrimEndSec - voTrimStartSec;
+
+    // Use saved caption settings or defaults
+    const isPortrait = outputHeight > outputWidth;
+    const font = captionSettings?.font || 'Arial';
+    const fontSize = captionSettings ? this.mapFontSize(captionSettings.fontSize, isPortrait) : (isPortrait ? 36 : 28);
+    const textColor = captionSettings ? this.hexToASS(captionSettings.textColor, captionSettings.textOpacity) : '&H00FFFFFF';
+    const bgColor = captionSettings ? this.hexToASS(captionSettings.bgColor, captionSettings.bgOpacity) : '&H64000000';
+    const alignment = captionSettings?.position === 'top' ? 8 : 2; // 8=top center, 2=bottom center
+    const marginV = isPortrait ? 50 : 35;
 
     const header = `[Script Info]
 Title: Atlas Subtitles
 ScriptType: v4.00+
-WrapStyle: 0
+WrapStyle: 2
 ScaledBorderAndShadow: yes
 YCbCr Matrix: None
-PlayResX: 1280
-PlayResY: 720
+PlayResX: ${outputWidth}
+PlayResY: ${outputHeight}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,28,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2.5,1,2,30,30,35,1
+Style: Default,${font},${fontSize},${textColor},&H000000FF,&H00000000,${bgColor},-1,0,0,0,100,100,0,0,1,2.5,1,${alignment},30,30,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
+
+    console.log(`[render] Subtitle style: ${outputWidth}x${outputHeight} (${isPortrait ? 'portrait' : 'landscape'}), font=${fontSize}px, WrapStyle=2 for max 2 lines`);
 
     const dialogues: string[] = [];
     console.log(`[render] Subtitle: ${segments.length} segments, trim=${voTrimStartSec.toFixed(1)}-${voTrimEndSec.toFixed(1)}s (dur=${trimDuration.toFixed(1)}s)`);
@@ -960,6 +1032,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         segment.startSec,
         segment.endSec,
         segment.words,
+        isPortrait,
       );
 
       for (const line of lines) {

@@ -29,6 +29,7 @@ import { ScriptsTab } from "./_tabs/ScriptsTab";
 import { CharacterTab } from "./_tabs/CharacterTab";
 import { VoiceTab } from "./_tabs/VoiceTab";
 import { ScenesTab } from "./_tabs/ScenesTab";
+import { CaptionsTab } from "./_tabs/CaptionsTab";
 import { RenderTab } from "./_tabs/RenderTab";
 import { CostsTab } from "./_tabs/CostsTab";
 import type { StepNavItem } from "@/types/components";
@@ -40,6 +41,7 @@ const STEPS: StepNavItem[] = [
   { id: "script", label: "Script" },
   { id: "voice", label: "Voice" },
   { id: "scenes", label: "Scenes" },
+  { id: "captions", label: "Captions" },
   { id: "captions", label: "Captions" },
   { id: "cost", label: "Cost" },
   { id: "export", label: "Export" },
@@ -386,11 +388,17 @@ export default function ProjectPage() {
           {activeStep === "topic" && <TopicsTab project={project} />}
           {activeStep === "research" && <ResearchTab project={project} />}
           {activeStep === "character" && (
-            <CharacterTab project={project} onRefresh={async () => { await refetch(); }} />
+            <CharacterTab
+              project={project}
+              onRefresh={async () => {
+                await refetch();
+              }}
+            />
           )}
           {activeStep === "script" && <ScriptsTab project={project} />}
           {activeStep === "voice" && <VoiceTab project={project} />}
           {activeStep === "scenes" && <ScenesTab project={project} />}
+          {activeStep === "captions" && <CaptionsTab project={project} />}
           {activeStep === "export" && <RenderTab project={project} />}
           {activeStep === "cost" && <CostsTab projectId={id} />}
         </div>
@@ -478,8 +486,19 @@ export default function ProjectPage() {
             </button>
           )}
 
-          {/* Scenes → Export: Navigate to export */}
+          {/* Scenes → Captions: Navigate to captions */}
           {activeStep === "scenes" && hasScenes && (
+            <button
+              type="button"
+              onClick={() => setActiveStep("captions")}
+              className="px-4 py-3 bg-brand-black rounded-full text-sm font-medium text-brand-off-white hover:opacity-90 transition-opacity"
+            >
+              Continue to Captions
+            </button>
+          )}
+
+          {/* Captions → Export: Navigate to export */}
+          {activeStep === "captions" && (
             <button
               type="button"
               onClick={() => setActiveStep("export")}

@@ -99,15 +99,47 @@ async function resolveVoiceId(requestedVoice: string | undefined): Promise<{ voi
   return { voiceId: defaultPreset.voiceId, voiceName: defaultPreset.name };
 }
 
-// ─── Tone → voice_settings mapping ───────────────────────────────────────────
-// Maps UI tone selections to ElevenLabs voice_settings for expressive control
-const TONE_SETTINGS: Record<string, { stability: number; similarity_boost: number; style: number }> = {
-  energetic:    { stability: 0.20, similarity_boost: 0.70, style: 0.85 },
-  calm:         { stability: 0.55, similarity_boost: 0.80, style: 0.40 },
-  motivational: { stability: 0.25, similarity_boost: 0.75, style: 0.80 },
-  professional: { stability: 0.50, similarity_boost: 0.85, style: 0.50 },
+// ─── Tone → voice_settings + audio tag mapping ──────────────────────────────
+// ElevenLabs v3 uses audio tags in the text AND voice_settings together
+// for proper emotional delivery. Tags drive the emotion; settings control range.
+interface ToneConfig {
+  settings: { stability: number; similarity_boost: number; style: number };
+  /** Audio tag prefix prepended to each section for emotional direction */
+  sectionTag: string;
+  /** Audio tag for high-impact sections (hook, twist, CTA) */
+  impactTag: string;
+}
+
+const TONE_CONFIGS: Record<string, ToneConfig> = {
+  energetic: {
+    settings: { stability: 0.15, similarity_boost: 0.65, style: 0.90 },
+    sectionTag: "[excited, upbeat]",
+    impactTag: "[very excited, enthusiastic]",
+  },
+  calm: {
+    settings: { stability: 0.60, similarity_boost: 0.85, style: 0.30 },
+    sectionTag: "[calm, gentle]",
+    impactTag: "[softly, reassuring]",
+  },
+  motivational: {
+    settings: { stability: 0.20, similarity_boost: 0.70, style: 0.85 },
+    sectionTag: "[inspiring, confident]",
+    impactTag: "[passionately, empowering]",
+  },
+  professional: {
+    settings: { stability: 0.55, similarity_boost: 0.85, style: 0.45 },
+    sectionTag: "[measured, authoritative]",
+    impactTag: "[firmly, with conviction]",
+  },
 };
-const DEFAULT_TONE_SETTINGS = { stability: 0.30, similarity_boost: 0.75, style: 0.70 };
+const DEFAULT_TONE_CONFIG: ToneConfig = {
+  settings: { stability: 0.30, similarity_boost: 0.75, style: 0.70 },
+  sectionTag: "",
+  impactTag: "",
+};
+
+/** Sections that get the stronger "impact" audio tag */
+const IMPACT_SECTIONS = new Set(["cold_open", "hook", "twist", "dramatic_reveal", "closing_hook", "cta"]);
 
 // ─── POST /:id/generate-voice ────────────────────────────────────────────────
 voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
@@ -123,10 +155,11 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
     console.log(`[voice] Request body:`, { voice: requestedVoice, tone: requestedTone, accent: requestedAccent });
 
     const { voiceId: VOICE_ID, voiceName } = await resolveVoiceId(requestedVoice);
-    const toneSettings = TONE_SETTINGS[requestedTone ?? ""] ?? DEFAULT_TONE_SETTINGS;
+    const toneConfig = TONE_CONFIGS[requestedTone ?? ""] ?? DEFAULT_TONE_CONFIG;
+    const toneSettings = toneConfig.settings;
     console.log(`[voice] Resolved voice: ${voiceName} (${VOICE_ID})`);
     console.log(`[voice] Model: ${ELEVENLABS_TTS_MODEL}, Output: ${ELEVENLABS_OUTPUT_FORMAT}`);
-    console.log(`[voice] Tone settings:`, toneSettings);
+    console.log(`[voice] Tone: ${requestedTone ?? "default"}, settings:`, toneSettings);
 
     const script = await prisma.script.findUnique({
       where: { id: project.selectedScriptId },
@@ -138,7 +171,7 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
 
     // Delete any existing voiceovers + audio files so we always start fresh
     const existing = await prisma.voiceover.findMany({ where: { projectId: project.id } });
-    for (const vo of existing) {
+    for (const _vo of existing) {
       const audioKey = `projects/${project.id}/voiceover.mp3`;
       try { await storage.delete(audioKey); } catch { /* file may not exist */ }
     }
@@ -154,15 +187,23 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
        "consequences", "closing_hook", "cta", "narration"].includes(s.sectionType)
     );
 
-    // Insert natural pause markers for dramatic sections
+    // Build text with ElevenLabs v3 audio tags for emotional delivery
     const fullText = narrationSections
       .map((s) => {
         let text = s.text.trim();
+        // Add dramatic pause markers for impact sections
         if (
           ["cold_open", "hook", "twist", "dramatic_reveal"].includes(s.sectionType) &&
           !text.endsWith("...")
         ) {
           text = text.replace(/\.(\s*)$/, "...$1");
+        }
+        // Prepend audio tag based on tone + section importance
+        const tag = IMPACT_SECTIONS.has(s.sectionType)
+          ? toneConfig.impactTag
+          : toneConfig.sectionTag;
+        if (tag) {
+          text = `${tag} ${text}`;
         }
         return text;
       })

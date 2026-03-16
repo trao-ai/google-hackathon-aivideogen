@@ -6,13 +6,37 @@ import type { VoiceSettings } from "@atlas/integrations";
 
 const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
 
-// Tone → voice_settings mapping (matches API route)
-const TONE_SETTINGS: Record<string, VoiceSettings> = {
-  energetic:    { stability: 0.20, similarity_boost: 0.70, style: 0.85 },
-  calm:         { stability: 0.55, similarity_boost: 0.80, style: 0.40 },
-  motivational: { stability: 0.25, similarity_boost: 0.75, style: 0.80 },
-  professional: { stability: 0.50, similarity_boost: 0.85, style: 0.50 },
+// Tone → voice_settings + audio tags mapping (mirrors API route)
+interface ToneConfig {
+  settings: VoiceSettings;
+  sectionTag: string;
+  impactTag: string;
+}
+
+const TONE_CONFIGS: Record<string, ToneConfig> = {
+  energetic: {
+    settings: { stability: 0.15, similarity_boost: 0.65, style: 0.90 },
+    sectionTag: "[excited, upbeat]",
+    impactTag: "[very excited, enthusiastic]",
+  },
+  calm: {
+    settings: { stability: 0.60, similarity_boost: 0.85, style: 0.30 },
+    sectionTag: "[calm, gentle]",
+    impactTag: "[softly, reassuring]",
+  },
+  motivational: {
+    settings: { stability: 0.20, similarity_boost: 0.70, style: 0.85 },
+    sectionTag: "[inspiring, confident]",
+    impactTag: "[passionately, empowering]",
+  },
+  professional: {
+    settings: { stability: 0.55, similarity_boost: 0.85, style: 0.45 },
+    sectionTag: "[measured, authoritative]",
+    impactTag: "[firmly, with conviction]",
+  },
 };
+
+const IMPACT_SECTIONS = new Set(["hook", "cta", "intro", "outro"]);
 
 interface TTSJobData {
   projectId: string;
@@ -38,7 +62,8 @@ export class TTSWorker {
   ): Promise<void> {
     const { projectId, scriptId, voiceId, tone } = job.data;
     const resolvedVoiceId = voiceId || DEFAULT_VOICE_ID;
-    const voiceSettings = TONE_SETTINGS[tone?.toLowerCase() ?? ""] ?? undefined;
+    const toneConfig = TONE_CONFIGS[tone?.toLowerCase() ?? ""] ?? undefined;
+    const voiceSettings = toneConfig?.settings;
 
     console.log(`[tts] Generating voiceover for script ${scriptId}, voice: ${resolvedVoiceId}, tone: ${tone ?? "default"}`);
 
@@ -63,7 +88,18 @@ export class TTSWorker {
         s.sectionType,
       ),
     );
-    const fullText = narrationSections.map((s) => s.text).join("\n\n");
+
+    // Build text with ElevenLabs v3 audio tags for emotional delivery
+    const fullText = narrationSections
+      .map((s) => {
+        const text = s.text.trim();
+        if (!toneConfig) return text;
+        const tag = IMPACT_SECTIONS.has(s.sectionType)
+          ? toneConfig.impactTag
+          : toneConfig.sectionTag;
+        return tag ? `${tag} ${text}` : text;
+      })
+      .join("\n\n");
 
     const ttsResult = await tts.generate(fullText, resolvedVoiceId, voiceSettings);
 

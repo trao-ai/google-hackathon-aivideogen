@@ -150,8 +150,12 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
 
     // Resolve voice
     const requestedVoice = req.body?.voice as string | undefined;
-    const requestedTone = (req.body?.tone as string | undefined)?.toLowerCase();
     const requestedAccent = req.body?.accent as string | undefined;
+    // Tone: prefer explicit request body, fall back to project's toneKeywords
+    const requestedTone = (
+      (req.body?.tone as string | undefined) ??
+      (project.toneKeywords as string[])?.[0]
+    )?.toLowerCase();
     console.log(`[voice] Request body:`, { voice: requestedVoice, tone: requestedTone, accent: requestedAccent });
 
     const { voiceId: VOICE_ID, voiceName } = await resolveVoiceId(requestedVoice);

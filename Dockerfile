@@ -19,6 +19,23 @@ COPY apps/web/package.json apps/web/
 
 RUN npm ci
 
+# ── Production deps only (for smaller final images) ─────────────────────────
+FROM node:20-alpine AS prod-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY packages/db/package.json packages/db/
+COPY packages/shared/package.json packages/shared/
+COPY packages/integrations/package.json packages/integrations/
+COPY packages/prompts/package.json packages/prompts/
+COPY packages/style-system/package.json packages/style-system/
+COPY packages/cost-estimation/package.json packages/cost-estimation/
+COPY packages/validation/package.json packages/validation/
+COPY packages/motion-fallback/package.json packages/motion-fallback/
+COPY apps/api/package.json apps/api/
+COPY apps/workers/package.json apps/workers/
+COPY apps/web/package.json apps/web/
+RUN npm ci --omit=dev
+
 # ── Build: compile everything ────────────────────────────────────────────────
 FROM base AS build
 COPY . .
@@ -26,19 +43,17 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# Build all packages (shared, db, integrations, prompts, style-system, etc.)
-RUN npx tsc -p packages/shared/tsconfig.json
-RUN npx tsc -p packages/db/tsconfig.json
-RUN npx tsc -p packages/integrations/tsconfig.json
-RUN npx tsc -p packages/prompts/tsconfig.json
-RUN npx tsc -p packages/style-system/tsconfig.json
-RUN npx tsc -p packages/cost-estimation/tsconfig.json
-RUN npx tsc -p packages/validation/tsconfig.json
-RUN npx tsc -p packages/motion-fallback/tsconfig.json
-
-# Build API and Workers
-RUN npx tsc -p apps/api/tsconfig.json
-RUN npx tsc -p apps/workers/tsconfig.json
+# Build all packages in one tsc pass where possible
+RUN npx tsc -p packages/shared/tsconfig.json && \
+    npx tsc -p packages/db/tsconfig.json && \
+    npx tsc -p packages/integrations/tsconfig.json && \
+    npx tsc -p packages/prompts/tsconfig.json && \
+    npx tsc -p packages/style-system/tsconfig.json && \
+    npx tsc -p packages/cost-estimation/tsconfig.json && \
+    npx tsc -p packages/validation/tsconfig.json && \
+    npx tsc -p packages/motion-fallback/tsconfig.json && \
+    npx tsc -p apps/api/tsconfig.json && \
+    npx tsc -p apps/workers/tsconfig.json
 
 # Build Next.js web app
 RUN cd apps/web && npm run build
@@ -48,7 +63,10 @@ FROM node:20-alpine AS api
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=build /app/node_modules ./node_modules
+# Production-only node_modules (much smaller — no TS, Next.js, React, etc.)
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
 COPY --from=build /app/packages/db/dist ./packages/db/dist
@@ -66,7 +84,6 @@ COPY --from=build /app/packages/validation/dist ./packages/validation/dist
 COPY --from=build /app/packages/validation/package.json ./packages/validation/
 COPY --from=build /app/packages/motion-fallback/dist ./packages/motion-fallback/dist
 COPY --from=build /app/packages/motion-fallback/package.json ./packages/motion-fallback/
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3001
@@ -78,13 +95,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Workers need ffmpeg with full codec/filter support for video/audio processing
-# - ffmpeg: core binary (libx264, libvpx/vp9, aac, libopus, zoompan, xfade, etc.)
-# - ffmpeg-libass: subtitle rendering (subtitles filter with custom fonts)
-# - fontconfig: font discovery for libass subtitle burn-in
-# - ttf-dejavu: fallback font family for captions
 RUN apk add --no-cache ffmpeg ffmpeg-libass fontconfig ttf-dejavu
 
-COPY --from=build /app/node_modules ./node_modules
+# Production-only node_modules (much smaller)
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
 COPY --from=build /app/packages/db/dist ./packages/db/dist
@@ -102,7 +118,6 @@ COPY --from=build /app/packages/validation/dist ./packages/validation/dist
 COPY --from=build /app/packages/validation/package.json ./packages/validation/
 COPY --from=build /app/packages/motion-fallback/dist ./packages/motion-fallback/dist
 COPY --from=build /app/packages/motion-fallback/package.json ./packages/motion-fallback/
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/apps/workers/dist ./apps/workers/dist
 
 CMD ["node", "apps/workers/dist/index.js"]

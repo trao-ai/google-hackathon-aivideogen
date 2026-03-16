@@ -2,6 +2,8 @@ import {
   calculateImageCost,
   calculateVideoCost,
   calculateLLMCost,
+  calculateTTSCost,
+  calculateSFXCost,
   type VideoProviderType,
 } from "@atlas/shared";
 
@@ -19,7 +21,7 @@ const MODEL_ID_MAP: Record<VideoProviderType, string> = {
   seedance: "fal-ai/bytedance/seedance/v1.5/pro/image-to-video",
   "replicate-veo": "google/veo-3.1",
   "replicate-kling": "kwaivgi/kling-v2.1",
-  "replicate-seedance": "bytedance/seedance-1-pro",
+  "replicate-seedance": "bytedance/seedance-1.5-pro",
   "replicate-seedance-lite": "bytedance/seedance-1-lite",
 };
 
@@ -29,6 +31,11 @@ const FIXED_DURATION_PROVIDERS = new Set<VideoProviderType>([
   "replicate-veo",
 ]);
 const FIXED_DURATION_SEC = 8;
+
+// Average characters per word for TTS estimation
+const AVG_CHARS_PER_WORD = 5.5;
+// Average words per second of narration
+const AVG_WORDS_PER_SECOND = 2.5;
 
 export class CostEstimator {
   /**
@@ -102,6 +109,30 @@ export class CostEstimator {
   }
 
   /**
+   * Estimate TTS (text-to-speech) costs based on total narration duration.
+   * Approximates character count from narration duration.
+   */
+  static estimateTTS(scenes: Scene[], ttsModel = "eleven_v3"): number {
+    const totalNarrationSec = scenes.reduce(
+      (sum, s) => sum + (s.narrationEndSec - s.narrationStartSec),
+      0,
+    );
+    const estimatedWords = totalNarrationSec * AVG_WORDS_PER_SECOND;
+    const estimatedChars = Math.round(estimatedWords * AVG_CHARS_PER_WORD);
+    return calculateTTSCost(ttsModel, estimatedChars);
+  }
+
+  /**
+   * Estimate SFX (sound effects) costs.
+   * Each scene gets 1 ambient sound, ~30% of scenes get a transition SFX.
+   */
+  static estimateSFX(sceneCount: number): number {
+    const ambientGenerations = sceneCount;
+    const transitionGenerations = Math.round(sceneCount * 0.3);
+    return calculateSFXCost("elevenlabs_sfx", ambientGenerations + transitionGenerations);
+  }
+
+  /**
    * Estimate full project costs
    */
   static estimateProject(params: {
@@ -113,6 +144,8 @@ export class CostEstimator {
     videos: number;
     motionEnrichment: number;
     validation: number;
+    tts: number;
+    sfx: number;
     total: number;
   } {
     const { sceneCount, avgSceneDuration = 8, provider = "kling" } = params;
@@ -129,13 +162,17 @@ export class CostEstimator {
     const videos = this.estimateVideoGeneration(mockScenes, provider);
     const motionEnrichment = this.estimateMotionEnrichment(sceneCount);
     const validation = this.estimateFrameValidation(sceneCount);
+    const tts = this.estimateTTS(mockScenes);
+    const sfx = this.estimateSFX(sceneCount);
 
     return {
       frames,
       videos,
       motionEnrichment,
       validation,
-      total: frames + videos + motionEnrichment + validation,
+      tts,
+      sfx,
+      total: frames + videos + motionEnrichment + validation + tts + sfx,
     };
   }
 
@@ -150,6 +187,8 @@ export class CostEstimator {
     videos: number;
     motionEnrichment: number;
     validation: number;
+    tts: number;
+    sfx: number;
     total: number;
     perScene: number;
   } {
@@ -159,14 +198,18 @@ export class CostEstimator {
     const videos = this.estimateVideoGeneration(scenes, provider);
     const motionEnrichment = this.estimateMotionEnrichment(sceneCount);
     const validation = this.estimateFrameValidation(sceneCount);
+    const tts = this.estimateTTS(scenes);
+    const sfx = this.estimateSFX(sceneCount);
 
-    const total = frames + videos + motionEnrichment + validation;
+    const total = frames + videos + motionEnrichment + validation + tts + sfx;
 
     return {
       frames,
       videos,
       motionEnrichment,
       validation,
+      tts,
+      sfx,
       total,
       perScene: sceneCount > 0 ? total / sceneCount : 0,
     };

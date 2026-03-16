@@ -5,13 +5,14 @@ import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { prisma, trackCost } from "@atlas/db";
+import { prisma, trackCost, trackLLMCost, trackSFXCost } from "@atlas/db";
 import {
   createStorageProvider,
   resolveStorageDir,
   resolveUrlToLocalPath,
   runAgent,
 } from "@atlas/integrations";
+import { calculateLLMCost, calculateSFXCost } from "@atlas/shared";
 
 const execFileAsync = promisify(execFile);
 
@@ -213,7 +214,7 @@ export class RenderWorker {
           durationSec: s.narrationEndSec - s.narrationStartSec,
         }));
 
-        const audioDesigns = await this.describeAudioDesign(sceneAudioInfos);
+        const audioDesigns = await this.describeAudioDesign(sceneAudioInfos, projectId);
         console.log(
           `[render] Audio design: ${audioDesigns.length} scenes, ${audioDesigns.filter((d) => d.transition).length} transitions`,
         );
@@ -221,6 +222,7 @@ export class RenderWorker {
         // Generate ambient sounds (one per scene) and transition SFX
         const ambientPaths: string[] = [];
         const transitionSfxPaths: string[] = [];
+        let sfxGenerationCount = 0; // Track total successful SFX API calls for cost
 
         for (let i = 0; i < audioDesigns.length; i++) {
           const design = audioDesigns[i];
@@ -237,6 +239,7 @@ export class RenderWorker {
               0.3, // subtle prompt influence
             );
             ambientPaths.push(ambientPath);
+            sfxGenerationCount++;
             console.log(
               `[render] Ambient ${i}: "${design.ambient.slice(0, 50)}" (${ambientDur.toFixed(1)}s)`,
             );
@@ -249,6 +252,7 @@ export class RenderWorker {
               const fallbackDesc = this.defaultAmbientForType(sceneAudioInfos[i].sceneType);
               await this.generateSFX(fallbackDesc, ambientPath, ambientDur, 0.3);
               ambientPaths.push(ambientPath);
+              sfxGenerationCount++;
               console.log(`[render] Ambient ${i} retry succeeded with fallback: "${fallbackDesc}"`);
             } catch (retryErr) {
               console.error(
@@ -264,6 +268,7 @@ export class RenderWorker {
             try {
               await this.generateSFX(design.transition, transPath, 1.0, 0.3);
               transitionSfxPaths.push(transPath);
+              sfxGenerationCount++;
               console.log(
                 `[render] Transition ${i}: "${design.transition.slice(0, 50)}"`,
               );
@@ -274,6 +279,7 @@ export class RenderWorker {
               try {
                 await this.generateSFX("gentle soft whoosh", transPath, 1.0, 0.3);
                 transitionSfxPaths.push(transPath);
+                sfxGenerationCount++;
                 console.log(`[render] Transition ${i} retry succeeded with generic whoosh`);
               } catch (retryErr) {
                 console.error(
@@ -285,6 +291,25 @@ export class RenderWorker {
           } else {
             transitionSfxPaths.push(""); // clean cut — no transition SFX
           }
+        }
+
+        // Track SFX generation costs
+        if (sfxGenerationCount > 0) {
+          const sfxCost = calculateSFXCost("elevenlabs_sfx", sfxGenerationCount);
+          await trackSFXCost({
+            projectId,
+            vendor: "elevenlabs",
+            model: "elevenlabs_sfx",
+            generationCount: sfxGenerationCount,
+            totalCostUsd: sfxCost,
+            metadata: {
+              ambientCount: ambientPaths.filter(Boolean).length,
+              transitionCount: transitionSfxPaths.filter(Boolean).length,
+            },
+          });
+          console.log(
+            `[render] SFX cost tracked: ${sfxGenerationCount} generations, $${sfxCost.toFixed(4)}`,
+          );
         }
 
         const ambientCount = ambientPaths.filter(Boolean).length;
@@ -463,7 +488,7 @@ export class RenderWorker {
    * Ask Gemini to design ambient sounds per scene + transition SFX where natural.
    * Returns one AudioDesign per scene with ambient description and optional transition.
    */
-  private async describeAudioDesign(scenes: SceneAudioInfo[]): Promise<AudioDesign[]> {
+  private async describeAudioDesign(scenes: SceneAudioInfo[], projectId?: string): Promise<AudioDesign[]> {
     const defaultDesigns: AudioDesign[] = scenes.map((s) => ({
       ambient: this.defaultAmbientForType(s.sceneType),
       transition: null,
@@ -500,6 +525,28 @@ Example: [{"ambient":"soft lab hum","transition":"gentle swoosh"},{"ambient":"na
         userMessage: `Scene list:\n${sceneList}`,
         generationConfig: { maxOutputTokens: 1000, temperature: 0.7 },
       });
+
+      // Track audio design LLM cost
+      if (projectId && (result.inputTokens > 0 || result.outputTokens > 0)) {
+        const audioDesignCost = calculateLLMCost(
+          result.model,
+          result.inputTokens,
+          result.outputTokens,
+        );
+        await trackLLMCost({
+          projectId,
+          stage: "sfx",
+          vendor: "gemini",
+          model: result.model,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          totalCostUsd: audioDesignCost,
+          metadata: { task: "audio_design", sceneCount: scenes.length },
+        });
+        console.log(
+          `[render] Audio design LLM cost tracked: ${result.inputTokens}+${result.outputTokens} tokens, $${audioDesignCost.toFixed(4)}`,
+        );
+      }
 
       const cleaned = result.content.replace(/```json\n?/g, "").replace(/```/g, "").trim();
       const designs = JSON.parse(cleaned) as AudioDesign[];

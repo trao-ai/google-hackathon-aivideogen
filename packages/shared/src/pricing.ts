@@ -28,7 +28,9 @@ export const LLM_PRICING: Record<string, LLMPricing> = {
 
 export const TTS_PRICING: Record<string, TTSPricing> = {
   // ElevenLabs — elevenlabs.io/pricing/api (usage-based tier, ~$0.20-0.30/1K chars)
+  eleven_v3: { perCharacter: 0.0003 },
   eleven_multilingual_v2: { perCharacter: 0.0003 },
+  eleven_flash_v2_5: { perCharacter: 0.00015 },
   eleven_turbo_v2_5: { perCharacter: 0.0002 },
 };
 
@@ -54,7 +56,7 @@ export const VIDEO_PRICING: Record<string, VideoPricing> = {
 };
 
 const DEFAULT_LLM_MODEL = "gemini-2.5-flash";
-const DEFAULT_TTS_MODEL = "eleven_multilingual_v2";
+const DEFAULT_TTS_MODEL = "eleven_v3";
 const DEFAULT_IMAGE_MODEL = "imagen-4.0-fast-generate-001";
 const DEFAULT_VIDEO_MODEL = "veo-3.1-generate-preview";
 

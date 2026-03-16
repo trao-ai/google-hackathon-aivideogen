@@ -1,48 +1,132 @@
 import { Router } from "express";
 import { prisma, trackTTSCost } from "@atlas/db";
 import { calculateTTSCost } from "@atlas/shared";
-import { createStorageProvider } from "@atlas/integrations";
+import {
+  createStorageProvider,
+  fetchElevenLabsVoices,
+  ELEVENLABS_TTS_MODEL,
+  ELEVENLABS_OUTPUT_FORMAT,
+} from "@atlas/integrations";
+import type { ElevenLabsVoice } from "@atlas/integrations";
 import { ApiError } from "../middleware/error-handler";
 
 export const voiceRouter = Router();
 
-// Available voice presets — users can select from these in the UI
-const VOICE_PRESETS: Record<string, { name: string; accent: string; voiceId: string }> = {
-  adam:    { name: "Adam",    accent: "American",  voiceId: "pNInz6obpgDQGcFmaJgB" },
-  daniel:  { name: "Daniel",  accent: "British",   voiceId: "onwK4e9ZLuTAKqWW03F9" },
-  george:  { name: "George",  accent: "British",   voiceId: "JBFqnCBsd6RMkjVDRZzb" },
-  charlie: { name: "Charlie", accent: "Australian", voiceId: "IKne3meq5aSn9XLyUdCD" },
-  bill:    { name: "Bill",    accent: "American",  voiceId: "pqHfZKP75CvOlQylNhV4" },
-  rachel:  { name: "Rachel",  accent: "American",  voiceId: "21m00Tcm4TlvDq8ikWAM" },
-};
-const DEFAULT_VOICE = "adam"; // Deep, engaging American narrator — closest to Kurzgesagt style
 const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 
-// Expose available voice presets to frontend
-voiceRouter.get("/voice-presets", (_req, res) => {
-  const presets = Object.entries(VOICE_PRESETS).map(([key, v]) => ({
-    key,
-    name: v.name,
-    accent: v.accent,
-  }));
-  res.json(presets);
+// ─── Voice cache ─────────────────────────────────────────────────────────────
+// Cache fetched voices for 10 minutes to avoid hitting ElevenLabs on every request
+let cachedVoices: ElevenLabsVoice[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function getVoices(): Promise<ElevenLabsVoice[]> {
+  const now = Date.now();
+  if (cachedVoices && now - cacheTimestamp < CACHE_TTL_MS) return cachedVoices;
+
+  cachedVoices = await fetchElevenLabsVoices({ pageSize: 100 });
+  cacheTimestamp = now;
+  return cachedVoices;
+}
+
+// Fallback presets used when ElevenLabs API is unreachable
+const FALLBACK_PRESETS: Record<string, { name: string; accent: string; voiceId: string }> = {
+  adam:    { name: "Adam",    accent: "American",   voiceId: "pNInz6obpgDQGcFmaJgB" },
+  daniel:  { name: "Daniel",  accent: "British",    voiceId: "onwK4e9ZLuTAKqWW03F9" },
+  george:  { name: "George",  accent: "British",    voiceId: "JBFqnCBsd6RMkjVDRZzb" },
+  charlie: { name: "Charlie", accent: "Australian", voiceId: "IKne3meq5aSn9XLyUdCD" },
+  bill:    { name: "Bill",    accent: "American",   voiceId: "pqHfZKP75CvOlQylNhV4" },
+  rachel:  { name: "Rachel",  accent: "American",   voiceId: "21m00Tcm4TlvDq8ikWAM" },
+};
+const DEFAULT_VOICE = "adam";
+
+// ─── GET /voice-presets ──────────────────────────────────────────────────────
+// Returns available voices in the shape the UI expects: { key, name, accent }[]
+voiceRouter.get("/voice-presets", async (_req, res, next) => {
+  try {
+    const voices = await getVoices();
+    // Map ElevenLabs voice objects to the UI's VoicePreset shape
+    const presets = voices.map((v) => ({
+      key: v.name.toLowerCase().replace(/\s+/g, "_"),
+      name: v.name,
+      accent: v.labels?.accent ?? v.labels?.description ?? "Unknown",
+      voiceId: v.voice_id,
+      category: v.category,
+      description: v.description,
+      previewUrl: v.preview_url,
+      gender: v.labels?.gender ?? null,
+      age: v.labels?.age ?? null,
+      personality: v.labels?.description ?? null,
+      useCase: v.labels?.use_case ?? null,
+    }));
+    res.json(presets);
+  } catch (err) {
+    console.warn("[voice] Failed to fetch ElevenLabs voices, using fallback presets:", (err as Error).message);
+    // Return fallback presets so UI still works
+    const presets = Object.entries(FALLBACK_PRESETS).map(([key, v]) => ({
+      key,
+      name: v.name,
+      accent: v.accent,
+    }));
+    res.json(presets);
+  }
 });
 
+// ─── Helper: resolve voice ID from request ───────────────────────────────────
+async function resolveVoiceId(requestedVoice: string | undefined): Promise<{ voiceId: string; voiceName: string }> {
+  // 1. Try to resolve from live ElevenLabs voices
+  if (requestedVoice) {
+    try {
+      const voices = await getVoices();
+      const match = voices.find(
+        (v) =>
+          v.name.toLowerCase() === requestedVoice.toLowerCase() ||
+          v.name.toLowerCase().replace(/\s+/g, "_") === requestedVoice.toLowerCase(),
+      );
+      if (match) return { voiceId: match.voice_id, voiceName: match.name };
+    } catch { /* fall through to fallback */ }
+
+    // 2. Check fallback presets
+    const fallback = FALLBACK_PRESETS[requestedVoice.toLowerCase()];
+    if (fallback) return { voiceId: fallback.voiceId, voiceName: fallback.name };
+  }
+
+  // 3. Env override or default
+  const envOverride = process.env.ELEVENLABS_VOICE_ID;
+  if (envOverride) return { voiceId: envOverride, voiceName: "env-override" };
+
+  const defaultPreset = FALLBACK_PRESETS[DEFAULT_VOICE];
+  return { voiceId: defaultPreset.voiceId, voiceName: defaultPreset.name };
+}
+
+// ─── Tone → voice_settings mapping ───────────────────────────────────────────
+// Maps UI tone selections to ElevenLabs voice_settings for expressive control
+const TONE_SETTINGS: Record<string, { stability: number; similarity_boost: number; style: number }> = {
+  energetic:    { stability: 0.20, similarity_boost: 0.70, style: 0.85 },
+  calm:         { stability: 0.55, similarity_boost: 0.80, style: 0.40 },
+  motivational: { stability: 0.25, similarity_boost: 0.75, style: 0.80 },
+  professional: { stability: 0.50, similarity_boost: 0.85, style: 0.50 },
+};
+const DEFAULT_TONE_SETTINGS = { stability: 0.30, similarity_boost: 0.75, style: 0.70 };
+
+// ─── POST /:id/generate-voice ────────────────────────────────────────────────
 voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id } });
     if (!project) throw new ApiError(404, "Project not found");
     if (!project.selectedScriptId) throw new ApiError(400, "No script selected. Generate and approve a script first.");
 
-    // Resolve voice: UI selection > env var override > default preset
+    // Resolve voice
     const requestedVoice = req.body?.voice as string | undefined;
-    const preset = VOICE_PRESETS[requestedVoice ?? ""] ?? VOICE_PRESETS[DEFAULT_VOICE];
-    const envOverride = process.env.ELEVENLABS_VOICE_ID;
-    // UI selection always wins; env var only applies when no UI selection
-    const VOICE_ID = requestedVoice && VOICE_PRESETS[requestedVoice]
-      ? preset.voiceId
-      : (envOverride || preset.voiceId);
-    console.log(`[voice] Using voice: ${preset.name} (${preset.accent}) — ${VOICE_ID}`);
+    const requestedTone = (req.body?.tone as string | undefined)?.toLowerCase();
+    const requestedAccent = req.body?.accent as string | undefined;
+    console.log(`[voice] Request body:`, { voice: requestedVoice, tone: requestedTone, accent: requestedAccent });
+
+    const { voiceId: VOICE_ID, voiceName } = await resolveVoiceId(requestedVoice);
+    const toneSettings = TONE_SETTINGS[requestedTone ?? ""] ?? DEFAULT_TONE_SETTINGS;
+    console.log(`[voice] Resolved voice: ${voiceName} (${VOICE_ID})`);
+    console.log(`[voice] Model: ${ELEVENLABS_TTS_MODEL}, Output: ${ELEVENLABS_OUTPUT_FORMAT}`);
+    console.log(`[voice] Tone settings:`, toneSettings);
 
     const script = await prisma.script.findUnique({
       where: { id: project.selectedScriptId },
@@ -63,14 +147,14 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
     await prisma.project.update({ where: { id: project.id }, data: { status: "voicing" } });
     console.log(`[voice] Generating TTS for script ${script.id} (${script.sections.length} sections)`);
 
-    // Narration sections only (exclude CTA for some setups, but include all here)
+    // Narration sections only
     const narrationSections = script.sections.filter((s) =>
       ["cold_open", "hook", "promise", "context", "escalation",
        "main_explanation_1", "main_explanation_2", "twist",
        "consequences", "closing_hook", "cta", "narration"].includes(s.sectionType)
     );
-    // Insert natural pause markers for dramatic sections — ElevenLabs interprets
-    // trailing ellipses as slight pauses with trailing intonation for more human delivery
+
+    // Insert natural pause markers for dramatic sections
     const fullText = narrationSections
       .map((s) => {
         let text = s.text.trim();
@@ -86,23 +170,33 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
 
     if (!ELEVENLABS_KEY) throw new ApiError(500, "ELEVENLABS_API_KEY not configured");
 
-    // Use /with-timestamps endpoint to get character-level alignment for accurate subtitles
-    const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/with-timestamps`, {
+    // Use /with-timestamps endpoint for character-level alignment (accurate subtitles)
+    const ttsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/with-timestamps?output_format=${ELEVENLABS_OUTPUT_FORMAT}`;
+    const ttsBody = {
+      text: fullText,
+      model_id: ELEVENLABS_TTS_MODEL,
+      voice_settings: {
+        stability: toneSettings.stability,
+        similarity_boost: toneSettings.similarity_boost,
+        style: toneSettings.style,
+        use_speaker_boost: true,
+      },
+    };
+    console.log(`[voice] ElevenLabs request URL: ${ttsUrl}`);
+    console.log(`[voice] ElevenLabs request payload:`, {
+      model_id: ttsBody.model_id,
+      voice_settings: ttsBody.voice_settings,
+      text_length: fullText.length,
+      text_preview: fullText.slice(0, 100) + "...",
+    });
+
+    const ttsRes = await fetch(ttsUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "xi-api-key": ELEVENLABS_KEY,
       },
-      body: JSON.stringify({
-        text: fullText,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: {
-          stability: 0.30,
-          similarity_boost: 0.75,
-          style: 0.70,
-          use_speaker_boost: true,
-        },
-      }),
+      body: JSON.stringify(ttsBody),
     });
 
     if (!ttsRes.ok) {
@@ -161,22 +255,19 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
     const durationSec = allWords.length > 0
       ? parseFloat(allWords[allWords.length - 1].end.toFixed(2))
       : 0;
-    const costUsd = calculateTTSCost("eleven_multilingual_v2", fullText.length);
+    const costUsd = calculateTTSCost(ELEVENLABS_TTS_MODEL, fullText.length);
     console.log(`[voice] Alignment: ${allWords.length} words, real duration ${durationSec.toFixed(1)}s`);
 
     // Map words back to narration sections for accurate segment timestamps
-    // Use ORIGINAL script text for display (source of truth for spelling/caps),
-    // alignment data for timing only — fixes subtitle spelling and double-cap issues
     let wordIdx = 0;
     const segments = narrationSections.map((section) => {
       const sectionWords = section.text.split(/\s+/).filter(Boolean);
       const sectionWordData: Array<{ word: string; start: number; end: number }> = [];
 
-      // Consume words from the alignment stream for this section
       for (let i = 0; i < sectionWords.length && wordIdx < allWords.length; i++) {
         sectionWordData.push({
-          word: sectionWords[i],           // original script text (correct spelling)
-          start: allWords[wordIdx].start,  // timing from alignment
+          word: sectionWords[i],
+          start: allWords[wordIdx].start,
           end: allWords[wordIdx].end,
         });
         wordIdx++;
@@ -197,7 +288,7 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
     await trackTTSCost({
       projectId: project.id,
       vendor: "elevenlabs",
-      model: "eleven_multilingual_v2",
+      model: ELEVENLABS_TTS_MODEL,
       characterCount: fullText.length,
       totalCostUsd: costUsd,
     });
@@ -216,7 +307,7 @@ voiceRouter.post("/:id/generate-voice", async (req, res, next) => {
     });
 
     await prisma.project.update({ where: { id: project.id }, data: { status: "voice_done" } });
-    console.log(`[voice] Done — ${durationSec}s audio, cost $${costUsd.toFixed(3)}`);
+    console.log(`[voice] Done — ${durationSec}s audio, cost $${costUsd.toFixed(3)} (model: ${ELEVENLABS_TTS_MODEL})`);
 
     res.json({ ...voiceover, audioUrl });
   } catch (err) {

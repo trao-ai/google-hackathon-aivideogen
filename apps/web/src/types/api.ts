@@ -178,6 +178,14 @@ export type VoicePreset = {
   key: string;
   name: string;
   accent: string;
+  voiceId?: string;
+  gender?: string | null;
+  age?: string | null;
+  personality?: string | null;
+  useCase?: string | null;
+  category?: string;
+  description?: string | null;
+  previewUrl?: string | null;
 };
 
 export type CostEstimate = {

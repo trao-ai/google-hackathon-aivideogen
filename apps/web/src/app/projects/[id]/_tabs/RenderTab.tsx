@@ -305,7 +305,13 @@ export function RenderTab({ project }: Props) {
       ...(params.exportId ? { exportId: params.exportId } : {}),
     });
     const url = `${apiBase}/api/projects/${project.id}/renders/${completedRender.id}/download?${qs}`;
-    downloadFile(url, params.filename);
+    // Use direct navigation to avoid CORS — the API sets Content-Disposition: attachment
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = params.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleExport = () => {
@@ -389,7 +395,7 @@ export function RenderTab({ project }: Props) {
               <video
                 ref={videoRef}
                 src={completedRender.videoUrl}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-contain"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
                 onEnded={() => setIsPlaying(false)}
@@ -673,15 +679,16 @@ export function RenderTab({ project }: Props) {
                 type="button"
                 onClick={() => {
                   if (matchingExport?.videoUrl) {
-                    downloadFile(
-                      matchingExport.videoUrl,
-                      `${project.title.replace(/[^a-zA-Z0-9]/g, "_")}.${normalizedFormat}`,
-                    );
+                    downloadViaProxy({
+                      type: "export",
+                      exportId: matchingExport.id,
+                      filename: `${project.title.replace(/[^a-zA-Z0-9]/g, "_")}.${normalizedFormat}`,
+                    });
                   } else {
-                    downloadFile(
-                      completedRender.videoUrl!,
-                      `${project.title.replace(/[^a-zA-Z0-9]/g, "_")}.mp4`,
-                    );
+                    downloadViaProxy({
+                      type: "render",
+                      filename: `${project.title.replace(/[^a-zA-Z0-9]/g, "_")}.mp4`,
+                    });
                   }
                 }}
                 disabled={isDownloading}

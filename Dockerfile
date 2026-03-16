@@ -77,8 +77,12 @@ FROM node:20-alpine AS workers
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Workers need ffmpeg for video/audio processing
-RUN apk add --no-cache ffmpeg
+# Workers need ffmpeg with full codec/filter support for video/audio processing
+# - ffmpeg: core binary (libx264, libvpx/vp9, aac, libopus, zoompan, xfade, etc.)
+# - ffmpeg-libass: subtitle rendering (subtitles filter with custom fonts)
+# - fontconfig: font discovery for libass subtitle burn-in
+# - ttf-dejavu: fallback font family for captions
+RUN apk add --no-cache ffmpeg ffmpeg-libass fontconfig ttf-dejavu
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist

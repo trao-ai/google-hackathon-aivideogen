@@ -49,8 +49,23 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/packages/*/dist ./packages/
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
+COPY --from=build /app/packages/shared/package.json ./packages/shared/
+COPY --from=build /app/packages/db/dist ./packages/db/dist
+COPY --from=build /app/packages/db/package.json ./packages/db/
 COPY --from=build /app/packages/db/prisma ./packages/db/prisma
+COPY --from=build /app/packages/integrations/dist ./packages/integrations/dist
+COPY --from=build /app/packages/integrations/package.json ./packages/integrations/
+COPY --from=build /app/packages/prompts/dist ./packages/prompts/dist
+COPY --from=build /app/packages/prompts/package.json ./packages/prompts/
+COPY --from=build /app/packages/style-system/dist ./packages/style-system/dist
+COPY --from=build /app/packages/style-system/package.json ./packages/style-system/
+COPY --from=build /app/packages/cost-estimation/dist ./packages/cost-estimation/dist
+COPY --from=build /app/packages/cost-estimation/package.json ./packages/cost-estimation/
+COPY --from=build /app/packages/validation/dist ./packages/validation/dist
+COPY --from=build /app/packages/validation/package.json ./packages/validation/
+COPY --from=build /app/packages/motion-fallback/dist ./packages/motion-fallback/dist
+COPY --from=build /app/packages/motion-fallback/package.json ./packages/motion-fallback/
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 
@@ -66,8 +81,23 @@ ENV NODE_ENV=production
 RUN apk add --no-cache ffmpeg
 
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/packages/*/dist ./packages/
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
+COPY --from=build /app/packages/shared/package.json ./packages/shared/
+COPY --from=build /app/packages/db/dist ./packages/db/dist
+COPY --from=build /app/packages/db/package.json ./packages/db/
 COPY --from=build /app/packages/db/prisma ./packages/db/prisma
+COPY --from=build /app/packages/integrations/dist ./packages/integrations/dist
+COPY --from=build /app/packages/integrations/package.json ./packages/integrations/
+COPY --from=build /app/packages/prompts/dist ./packages/prompts/dist
+COPY --from=build /app/packages/prompts/package.json ./packages/prompts/
+COPY --from=build /app/packages/style-system/dist ./packages/style-system/dist
+COPY --from=build /app/packages/style-system/package.json ./packages/style-system/
+COPY --from=build /app/packages/cost-estimation/dist ./packages/cost-estimation/dist
+COPY --from=build /app/packages/cost-estimation/package.json ./packages/cost-estimation/
+COPY --from=build /app/packages/validation/dist ./packages/validation/dist
+COPY --from=build /app/packages/validation/package.json ./packages/validation/
+COPY --from=build /app/packages/motion-fallback/dist ./packages/motion-fallback/dist
+COPY --from=build /app/packages/motion-fallback/package.json ./packages/motion-fallback/
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/apps/workers/dist ./apps/workers/dist
 

@@ -1,0 +1,143 @@
+version: "3.9"
+
+services:
+  # ── Database ─────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: atlas_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-atlas}
+      POSTGRES_DB: atlas
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: atlas_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API ──────────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: atlas_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://atlas:${DB_PASSWORD:-atlas}@postgres:5432/atlas
+      REDIS_URL: redis://redis:6379
+      PORT: "3001"
+      NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+      FAL_KEY: ${FAL_KEY}
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN}
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      S3_BUCKET: ${S3_BUCKET:-atlas-media}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    expose:
+      - "3001"
+
+  # ── Workers ──────────────────────────────────────────────────────────────────
+  workers:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: workers
+    container_name: atlas_workers
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://atlas:${DB_PASSWORD:-atlas}@postgres:5432/atlas
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+      FAL_KEY: ${FAL_KEY}
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN}
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      S3_BUCKET: ${S3_BUCKET:-atlas-media}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+
+  # ── Web (Next.js) ───────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    container_name: atlas_web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
+      PORT: "3000"
+      NODE_ENV: production
+    expose:
+      - "3000"
+
+  # ── Nginx reverse proxy ─────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: atlas_nginx
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  # ── Run Prisma migrations on startup ─────────────────────────────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: atlas_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://atlas:${DB_PASSWORD:-atlas}@postgres:5432/atlas
+    command: npx prisma migrate deploy --schema=/app/packages/db/prisma/schema.prisma
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:

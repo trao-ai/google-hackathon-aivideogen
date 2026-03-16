@@ -14,7 +14,12 @@ import {
   WaveformIcon,
   CheckIcon,
 } from "@phosphor-icons/react";
-import { api, type ProjectDetail, type Voiceover, type VoicePreset } from "@/lib/api";
+import {
+  api,
+  type ProjectDetail,
+  type Voiceover,
+  type VoicePreset,
+} from "@/lib/api";
 
 type Props = {
   project: ProjectDetail;
@@ -30,25 +35,39 @@ const VOICE_TYPES: {
   description: string;
   icon: typeof GenderMaleIcon;
 }[] = [
-  { id: "male", label: "Male Voice", description: "Deep, authoritative", icon: GenderMaleIcon },
-  { id: "female", label: "Female Voice", description: "Clear, engaging", icon: GenderFemaleIcon },
-  { id: "ai", label: "AI Narrator", description: "Professional, neutral", icon: RobotIcon },
+  {
+    id: "male",
+    label: "Male Voice",
+    description: "Deep, authoritative",
+    icon: GenderMaleIcon,
+  },
+  {
+    id: "female",
+    label: "Female Voice",
+    description: "Clear, engaging",
+    icon: GenderFemaleIcon,
+  },
+  // { id: "ai", label: "AI Narrator", description: "Professional, neutral", icon: RobotIcon },
 ];
 
-const ACCENT_OPTIONS = ["US English", "UK English", "Indian English", "Neutral"];
-const TONE_OPTIONS = ["Energetic", "Calm", "Motivational", "Professional"];
+const ACCENT_OPTIONS = [
+  "US English",
+  "UK English",
+  "Indian English",
+  "Neutral",
+];
 /** Map UI accent label → ElevenLabs accent strings for filtering */
 const ACCENT_FILTER_MAP: Record<string, string[]> = {
   "US English": ["american"],
   "UK English": ["british"],
   "Indian English": ["indian"],
-  "Neutral": [], // empty = show all
+  Neutral: [], // empty = show all
 };
 
 /* ── Waveform bars (mock visualization) ── */
 const WAVEFORM_BARS = [
-  12, 20, 32, 18, 28, 36, 14, 24, 30, 16, 34, 22, 28, 36, 12, 26, 32, 20,
-  14, 30, 24, 36, 18, 28, 22, 34, 16, 26, 30, 12, 20, 36, 28, 18, 32, 24,
+  12, 20, 32, 18, 28, 36, 14, 24, 30, 16, 34, 22, 28, 36, 12, 26, 32, 20, 14,
+  30, 24, 36, 18, 28, 22, 34, 16, 26, 30, 12, 20, 36, 28, 18, 32, 24,
 ];
 
 /* ── Dropdown Component ── */
@@ -70,7 +89,8 @@ function Dropdown({
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -87,10 +107,16 @@ function Dropdown({
             value ? "border-foreground/40" : "border-brand-border-light"
           }`}
         >
-          <span className={value ? "text-foreground font-medium" : "text-[#a0a0a0]"}>
+          <span
+            className={value ? "text-foreground font-medium" : "text-[#a0a0a0]"}
+          >
             {value || placeholder}
           </span>
-          <CaretDownIcon size={20} weight="regular" className="text-foreground/50" />
+          <CaretDownIcon
+            size={20}
+            weight="regular"
+            className="text-foreground/50"
+          />
         </button>
         {open && (
           <div className="absolute z-10 top-full mt-1 w-full p-2 bg-[#FAF9F5] rounded-xl shadow-[0px_6px_10px_rgba(0,0,0,0.1)] border border-brand-border-light backdrop-blur-[35px] flex flex-col gap-1">
@@ -98,13 +124,24 @@ function Dropdown({
               <button
                 key={opt}
                 type="button"
-                onClick={() => { onChange(opt); setOpen(false); }}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
                 className={`w-full text-left px-2.5 py-2 rounded-lg text-sm text-foreground flex items-center justify-between ${
-                  value === opt ? "bg-[#F0EEE7] font-medium" : "font-normal hover:bg-[#F0EEE7]/50"
+                  value === opt
+                    ? "bg-[#F0EEE7] font-medium"
+                    : "font-normal hover:bg-[#F0EEE7]/50"
                 }`}
               >
                 {opt}
-                {value === opt && <CheckIcon size={16} weight="bold" className="text-foreground/70 shrink-0" />}
+                {value === opt && (
+                  <CheckIcon
+                    size={16}
+                    weight="bold"
+                    className="text-foreground/70 shrink-0"
+                  />
+                )}
               </button>
             ))}
           </div>
@@ -144,11 +181,9 @@ function matchesAccent(preset: VoicePreset, uiAccent: string): boolean {
   return allowed.includes(preset.accent?.toLowerCase() ?? "");
 }
 
-
 export function VoiceTab({ project, onRefresh }: Props) {
   const [selectedType, setSelectedType] = useState<VoiceTypeId>("female");
   const [accent, setAccent] = useState("");
-  const [tone, setTone] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -165,10 +200,13 @@ export function VoiceTab({ project, onRefresh }: Props) {
 
   /* Fetch voice presets */
   useEffect(() => {
-    api.voice.presets().then((data) => {
-      setPresets(data);
-      if (data.length > 0 && !selectedVoice) setSelectedVoice(data[0].key);
-    }).catch(() => {});
+    api.voice
+      .presets()
+      .then((data) => {
+        setPresets(data);
+        if (data.length > 0 && !selectedVoice) setSelectedVoice(data[0].key);
+      })
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const voiceovers: Voiceover[] = project.voiceovers ?? [];
@@ -179,52 +217,76 @@ export function VoiceTab({ project, onRefresh }: Props) {
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
   }, [audioUrl]);
 
   const togglePlayback = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || !audioUrl) return;
-    if (previewAudioRef.current) { previewAudioRef.current.pause(); setPreviewingVoice(null); }
-    if (isPlaying) audio.pause(); else audio.play();
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      setPreviewingVoice(null);
+    }
+    if (isPlaying) audio.pause();
+    else audio.play();
   }, [isPlaying, audioUrl]);
 
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
   }, []);
 
-  const handleEnded = useCallback(() => { setIsPlaying(false); setCurrentTime(0); }, []);
+  const handleEnded = useCallback(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  }, []);
 
   const handleSeek = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const audio = audioRef.current;
       if (!audio || !audioUrl) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      audio.currentTime = ratio * (latestVoiceover?.durationSec ?? audio.duration ?? 0);
+      const ratio = Math.max(
+        0,
+        Math.min(1, (e.clientX - rect.left) / rect.width),
+      );
+      audio.currentTime =
+        ratio * (latestVoiceover?.durationSec ?? audio.duration ?? 0);
     },
     [audioUrl, latestVoiceover?.durationSec],
   );
 
   /* ── Voice preview ── */
-  const togglePreview = useCallback((preset: VoicePreset) => {
-    if (!preset.previewUrl) return;
-    if (previewingVoice === preset.key) {
-      previewAudioRef.current?.pause();
-      setPreviewingVoice(null);
-      return;
-    }
-    if (previewAudioRef.current) previewAudioRef.current.pause();
-    if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
-    const audio = new Audio(preset.previewUrl);
-    previewAudioRef.current = audio;
-    setPreviewingVoice(preset.key);
-    audio.play();
-    audio.onended = () => setPreviewingVoice(null);
-    audio.onerror = () => setPreviewingVoice(null);
-  }, [previewingVoice]);
+  const togglePreview = useCallback(
+    (preset: VoicePreset) => {
+      if (!preset.previewUrl) return;
+      if (previewingVoice === preset.key) {
+        previewAudioRef.current?.pause();
+        setPreviewingVoice(null);
+        return;
+      }
+      if (previewAudioRef.current) previewAudioRef.current.pause();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+      const audio = new Audio(preset.previewUrl);
+      previewAudioRef.current = audio;
+      setPreviewingVoice(preset.key);
+      audio.play();
+      audio.onended = () => setPreviewingVoice(null);
+      audio.onerror = () => setPreviewingVoice(null);
+    },
+    [previewingVoice],
+  );
 
-  useEffect(() => { return () => { previewAudioRef.current?.pause(); }; }, []);
+  useEffect(() => {
+    return () => {
+      previewAudioRef.current?.pause();
+    };
+  }, []);
 
   /* ── Filter voices by type + accent ── */
   const filteredVoices = presets.filter(
@@ -233,19 +295,23 @@ export function VoiceTab({ project, onRefresh }: Props) {
 
   // Auto-select first voice from filtered list when filters change
   useEffect(() => {
-    if (filteredVoices.length > 0 && !filteredVoices.some((v) => v.key === selectedVoice)) {
+    if (
+      filteredVoices.length > 0 &&
+      !filteredVoices.some((v) => v.key === selectedVoice)
+    ) {
       setSelectedVoice(filteredVoices[0].key);
     }
   }, [selectedType, accent, filteredVoices, selectedVoice]);
 
   /* ── Generate / Regenerate ── */
+  const projectTone = project.toneKeywords?.[0] ?? undefined;
   const generateOptions = {
     voice: selectedVoice || undefined,
-    tone: tone || undefined,
+    tone: projectTone,
     accent: accent || undefined,
   };
 
-  const allOptionsSelected = !!selectedVoice && !!tone && !!accent;
+  const allOptionsSelected = !!selectedVoice && !!accent;
 
   const handleGenerate = async () => {
     setError("");
@@ -269,7 +335,9 @@ export function VoiceTab({ project, onRefresh }: Props) {
       <div className="flex-1 min-w-0 flex flex-col items-end gap-5">
         {/* Voice Type */}
         <div className="w-full flex flex-col gap-2">
-          <span className="text-base font-medium text-foreground">Voice Type</span>
+          <span className="text-base font-medium text-foreground">
+            Voice Type
+          </span>
           <div className="flex items-center gap-5">
             {VOICE_TYPES.map((v) => {
               const Icon = v.icon;
@@ -285,14 +353,24 @@ export function VoiceTab({ project, onRefresh }: Props) {
                       : "bg-[#FAF9F5]/50 border-brand-border-light"
                   }`}
                 >
-                  <div className={`size-11 p-3.5 rounded-xl flex items-center justify-center ${
-                    isActive ? "bg-foreground/10" : "bg-secondary"
-                  }`}>
-                    <Icon size={24} weight={isActive ? "fill" : "regular"} className="text-foreground" />
+                  <div
+                    className={`size-11 p-3.5 rounded-xl flex items-center justify-center ${
+                      isActive ? "bg-foreground/10" : "bg-secondary"
+                    }`}
+                  >
+                    <Icon
+                      size={24}
+                      weight={isActive ? "fill" : "regular"}
+                      className="text-foreground"
+                    />
                   </div>
                   <div className="flex flex-col items-start gap-0.5 min-w-0">
-                    <span className="text-base font-medium text-foreground truncate w-full">{v.label}</span>
-                    <span className="text-sm font-normal text-brand-foreground-70 truncate w-full">{v.description}</span>
+                    <span className="text-base font-medium text-foreground truncate w-full">
+                      {v.label}
+                    </span>
+                    <span className="text-sm font-normal text-brand-foreground-70 truncate w-full">
+                      {v.description}
+                    </span>
                   </div>
                 </button>
               );
@@ -300,10 +378,15 @@ export function VoiceTab({ project, onRefresh }: Props) {
           </div>
         </div>
 
-        {/* Accent & Emotion Row */}
+        {/* Accent */}
         <div className="w-full flex items-start gap-7">
-          <Dropdown label="Accent" placeholder="Select an accent" options={ACCENT_OPTIONS} value={accent} onChange={setAccent} />
-          <Dropdown label="Emotion & Tone" placeholder="Select emotion and tone" options={TONE_OPTIONS} value={tone} onChange={setTone} />
+          <Dropdown
+            label="Accent"
+            placeholder="Select an accent"
+            options={ACCENT_OPTIONS}
+            value={accent}
+            onChange={setAccent}
+          />
         </div>
 
         {error && <p className="w-full text-sm text-brand-red">{error}</p>}
@@ -312,25 +395,31 @@ export function VoiceTab({ project, onRefresh }: Props) {
         <div className="w-full flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-0.5">
-              <span className="text-base font-medium text-foreground">Available Voices</span>
+              <span className="text-base font-medium text-foreground">
+                Available Voices
+              </span>
               <span className="text-sm font-medium text-brand-foreground-70">
                 Select a voice and click play to preview.
               </span>
             </div>
             {filteredVoices.length > 0 && (
               <span className="text-xs font-medium text-brand-foreground-70 shrink-0">
-                {filteredVoices.length} voice{filteredVoices.length !== 1 ? "s" : ""}
+                {filteredVoices.length} voice
+                {filteredVoices.length !== 1 ? "s" : ""}
               </span>
             )}
           </div>
 
           <div className="flex flex-col gap-2.5 max-h-[480px] overflow-y-auto overflow-x-hidden pr-1">
             {filteredVoices.length === 0 && presets.length === 0 && (
-              <p className="text-sm text-brand-foreground-70 py-4">Loading voices...</p>
+              <p className="text-sm text-brand-foreground-70 py-4">
+                Loading voices...
+              </p>
             )}
             {filteredVoices.length === 0 && presets.length > 0 && (
               <p className="text-sm text-brand-foreground-70 py-4">
-                No voices match the selected filters. Try changing voice type or accent.
+                No voices match the selected filters. Try changing voice type or
+                accent.
               </p>
             )}
             {filteredVoices.map((voice) => {
@@ -338,8 +427,10 @@ export function VoiceTab({ project, onRefresh }: Props) {
               const isPreviewing = previewingVoice === voice.key;
               // Split "Adam - Engaging, Friendly and Bright" into name + tagline
               const dashIdx = voice.name.indexOf(" - ");
-              const displayName = dashIdx > 0 ? voice.name.slice(0, dashIdx) : voice.name;
-              const tagline = dashIdx > 0 ? voice.name.slice(dashIdx + 3) : null;
+              const displayName =
+                dashIdx > 0 ? voice.name.slice(0, dashIdx) : voice.name;
+              const tagline =
+                dashIdx > 0 ? voice.name.slice(dashIdx + 3) : null;
               return (
                 <div
                   key={voice.key}
@@ -351,11 +442,13 @@ export function VoiceTab({ project, onRefresh }: Props) {
                   }`}
                 >
                   {/* Avatar */}
-                  <div className={`size-10 rounded-full shrink-0 flex items-center justify-center text-xs font-semibold uppercase ${
-                    isActive
-                      ? "bg-foreground/10 text-foreground"
-                      : "bg-secondary text-foreground/60"
-                  }`}>
+                  <div
+                    className={`size-10 rounded-full shrink-0 flex items-center justify-center text-xs font-semibold uppercase ${
+                      isActive
+                        ? "bg-foreground/10 text-foreground"
+                        : "bg-secondary text-foreground/60"
+                    }`}
+                  >
                     {displayName.slice(0, 2)}
                   </div>
 
@@ -402,19 +495,34 @@ export function VoiceTab({ project, onRefresh }: Props) {
                   <div className="flex items-center gap-2 shrink-0">
                     {isActive && (
                       <div className="size-6 rounded-full bg-foreground flex items-center justify-center">
-                        <CheckIcon size={14} weight="bold" className="text-white" />
+                        <CheckIcon
+                          size={14}
+                          weight="bold"
+                          className="text-white"
+                        />
                       </div>
                     )}
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); togglePreview(voice); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePreview(voice);
+                      }}
                       disabled={!voice.previewUrl}
                       className="size-9 bg-secondary rounded-full flex items-center justify-center hover:bg-foreground/10 transition-colors disabled:opacity-30"
                     >
                       {isPreviewing ? (
-                        <PauseIcon size={16} weight="fill" className="text-foreground" />
+                        <PauseIcon
+                          size={16}
+                          weight="fill"
+                          className="text-foreground"
+                        />
                       ) : (
-                        <PlayIcon size={16} weight="fill" className="text-foreground" />
+                        <PlayIcon
+                          size={16}
+                          weight="fill"
+                          className="text-foreground"
+                        />
                       )}
                     </button>
                   </div>
@@ -437,22 +545,31 @@ export function VoiceTab({ project, onRefresh }: Props) {
           {loading ? (
             "Generating..."
           ) : latestVoiceover ? (
-            <><ArrowClockwiseIcon size={20} weight="regular" /> Re-Generate Voice</>
+            <>
+              <ArrowClockwiseIcon size={20} weight="regular" /> Re-Generate
+              Voice
+            </>
           ) : (
             "Generate Voice"
           )}
         </button>
         {!allOptionsSelected && !loading && (
           <p className="text-xs text-brand-foreground-70 -mt-3 text-center">
-            Select voice type, accent, tone & a voice to generate.
+            Select voice type, accent & a voice to generate.
           </p>
         )}
 
         {/* Audio Preview Card */}
         <div className="p-5 bg-[#FAF9F5] rounded-2xl border border-brand-border-light flex flex-col gap-4">
           <div className="flex items-center gap-2.5">
-            <WaveformIcon size={20} weight="regular" className="text-foreground" />
-            <span className="text-xl font-semibold text-foreground capitalize">Audio Preview</span>
+            <WaveformIcon
+              size={20}
+              weight="regular"
+              className="text-foreground"
+            />
+            <span className="text-xl font-semibold text-foreground capitalize">
+              Audio Preview
+            </span>
           </div>
 
           {/* Waveform */}
@@ -461,7 +578,11 @@ export function VoiceTab({ project, onRefresh }: Props) {
               <div
                 key={i}
                 className={`w-[31px] rounded-sm ${
-                  i % 3 === 1 ? "bg-foreground/50" : i % 5 === 0 ? "bg-foreground/70" : "bg-foreground"
+                  i % 3 === 1
+                    ? "bg-foreground/50"
+                    : i % 5 === 0
+                      ? "bg-foreground/70"
+                      : "bg-foreground"
                 }`}
                 style={{ height: `${h}px` }}
               />
@@ -489,32 +610,57 @@ export function VoiceTab({ project, onRefresh }: Props) {
               className="size-[38px] p-2.5 bg-secondary rounded-full flex items-center justify-center disabled:opacity-50"
             >
               {isPlaying ? (
-                <PauseIcon size={20} weight="fill" className="text-foreground" />
+                <PauseIcon
+                  size={20}
+                  weight="fill"
+                  className="text-foreground"
+                />
               ) : (
                 <PlayIcon size={20} weight="fill" className="text-foreground" />
               )}
             </button>
-            <span className="text-sm font-normal text-brand-foreground-70">{formatTime(currentTime)}</span>
-            <div className="flex-1 h-2 bg-brand-border-light rounded-full overflow-hidden cursor-pointer" onClick={handleSeek}>
+            <span className="text-sm font-normal text-brand-foreground-70">
+              {formatTime(currentTime)}
+            </span>
+            <div
+              className="flex-1 h-2 bg-brand-border-light rounded-full overflow-hidden cursor-pointer"
+              onClick={handleSeek}
+            >
               <div
                 className="h-full bg-brand-green rounded-full transition-[width] duration-150"
-                style={{ width: `${durationSec > 0 ? (currentTime / durationSec) * 100 : 0}%` }}
+                style={{
+                  width: `${durationSec > 0 ? (currentTime / durationSec) * 100 : 0}%`,
+                }}
               />
             </div>
-            <span className="text-sm font-normal text-brand-foreground-70">{formatTime(durationSec)}</span>
-            <SpeakerHighIcon size={20} weight="regular" className="text-[#777777]" />
+            <span className="text-sm font-normal text-brand-foreground-70">
+              {formatTime(durationSec)}
+            </span>
+            <SpeakerHighIcon
+              size={20}
+              weight="regular"
+              className="text-[#777777]"
+            />
           </div>
 
           {/* Duration & Segments — only show when audio exists */}
           {latestVoiceover && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-normal text-brand-foreground-70">Duration</span>
-                <span className="text-[15px] font-normal text-foreground">{formatDurationMinutes(durationSec)}</span>
+                <span className="text-[15px] font-normal text-brand-foreground-70">
+                  Duration
+                </span>
+                <span className="text-[15px] font-normal text-foreground">
+                  {formatDurationMinutes(durationSec)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-normal text-brand-foreground-70">Segments</span>
-                <span className="text-[15px] font-normal text-foreground">{segments}</span>
+                <span className="text-[15px] font-normal text-brand-foreground-70">
+                  Segments
+                </span>
+                <span className="text-[15px] font-normal text-foreground">
+                  {segments}
+                </span>
               </div>
             </div>
           )}
@@ -529,11 +675,18 @@ export function VoiceTab({ project, onRefresh }: Props) {
         {/* AI Suggestion */}
         <div className="p-4 bg-gradient-to-br from-[#5379FF33] to-[#00A19133] rounded-2xl border border-[#5678FC80] flex flex-col gap-2.5">
           <div className="flex items-center gap-2.5">
-            <SparkleIcon size={20} weight="fill" className="text-brand-indigo" />
-            <span className="text-base font-semibold text-foreground">AI Suggestion</span>
+            <SparkleIcon
+              size={20}
+              weight="fill"
+              className="text-brand-indigo"
+            />
+            <span className="text-base font-semibold text-foreground">
+              AI Suggestion
+            </span>
           </div>
           <p className="text-sm font-normal text-brand-foreground-70">
-            Energetic female voice works best for your topic and target audience based on engagement data.
+            Energetic female voice works best for your topic and target audience
+            based on engagement data.
           </p>
         </div>
       </div>

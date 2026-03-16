@@ -126,7 +126,7 @@ export default function DashboardPage() {
     return matchesSearch && matchesCategory;
   });
 
-  /* ── Empty state: no projects at all ── */
+  /* ── Empty state: no projects at all ─ */
   if (!isLoading && projects.length === 0) {
     return (
       <div className="min-h-screen bg-background">

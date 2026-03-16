@@ -400,7 +400,13 @@ export default function ProjectPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => {
+                if (currentStepIndex > 0) {
+                  setActiveStep(STEPS[currentStepIndex - 1].id);
+                } else {
+                  router.push("/");
+                }
+              }}
               className="px-4 py-3 bg-brand-surface rounded-full border border-brand-border-light text-sm font-medium text-foreground hover:opacity-80 transition-opacity"
             >
               Back

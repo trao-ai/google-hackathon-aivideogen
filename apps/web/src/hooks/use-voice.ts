@@ -12,7 +12,8 @@ export function useVoicePresets() {
 export function useGenerateVoice(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (voice?: string) => api.voice.generate(projectId, voice),
+    mutationFn: (options?: { voice?: string; tone?: string; accent?: string }) =>
+      api.voice.generate(projectId, options),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.projects.detail(projectId) });
     },

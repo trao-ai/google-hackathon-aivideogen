@@ -116,9 +116,9 @@ export const api = {
   },
 
   voice: {
-    generate: (projectId: string, voice?: string) =>
+    generate: (projectId: string, options?: { voice?: string; tone?: string; accent?: string }) =>
       apiClient
-        .post<Voiceover>(`/api/projects/${projectId}/generate-voice`, voice ? { voice } : {})
+        .post<Voiceover>(`/api/projects/${projectId}/generate-voice`, options ?? {})
         .then((r) => r.data),
     presets: () =>
       apiClient.get<VoicePreset[]>("/api/projects/voice-presets").then((r) => r.data),

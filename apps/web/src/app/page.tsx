@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const [category, setCategory] = useState("All Categories");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const categoryRef = useRef<HTMLDivElement>(null);
-
+  //
   useEffect(() => {
     if (!categoryOpen) return;
     function handleClick(e: MouseEvent) {
@@ -158,8 +158,7 @@ export default function DashboardPage() {
             <span>Create New Project</span>
           </Link>
         </div>
-
-        {/* Stats Row */}
+        /{/* Stats Row */}
         <div className="grid grid-cols-3 gap-4">
           <StatCard
             label="Total Projects"
@@ -190,7 +189,6 @@ export default function DashboardPage() {
             accentColor="teal"
           />
         </div>
-
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-semibold text-foreground">
             Recent Projects
@@ -200,7 +198,6 @@ export default function DashboardPage() {
             your latest projects.
           </p>
         </div>
-
         <div className="flex items-center gap-3">
           <div className="flex-1 px-4 py-2.5 bg-brand-surface rounded-full border border-brand-border-light flex items-center gap-2">
             <MagnifyingGlassIcon size={20} className="text-foreground" />
@@ -242,7 +239,6 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-
         {isLoading && (
           <p className="text-muted-foreground py-16 text-center">
             Loading projects...

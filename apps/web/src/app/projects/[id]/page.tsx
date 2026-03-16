@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import {
-  LinkIcon,
-  ChartBarIcon,
-} from "@phosphor-icons/react";
+import { LinkIcon, ChartBarIcon } from "@phosphor-icons/react";
 import { useProject } from "@/hooks/use-projects";
 import { useProjectStore } from "@/stores/project-store";
 import { useStartResearch } from "@/hooks/use-research";
@@ -357,7 +354,14 @@ export default function ProjectPage() {
             />
           )}
           {activeStep === "script" && <ScriptsTab project={project} />}
-          {activeStep === "voice" && <VoiceTab project={project} onRefresh={async () => { await refetch(); }} />}
+          {activeStep === "voice" && (
+            <VoiceTab
+              project={project}
+              onRefresh={async () => {
+                await refetch();
+              }}
+            />
+          )}
           {activeStep === "scenes" && <ScenesTab project={project} />}
           {activeStep === "captions" && <CaptionsTab project={project} />}
           {activeStep === "export" && <RenderTab />}

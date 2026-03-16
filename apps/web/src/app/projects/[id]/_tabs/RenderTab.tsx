@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Play,
   Pause,
@@ -14,6 +14,7 @@ import type { ProjectDetail } from "@/lib/api";
 import { useRenders, useStartRender } from "@/hooks/use-renders";
 import { useExports, useStartExport } from "@/hooks/use-exports";
 import { formatDuration, formatCost } from "@/lib/utils";
+import { useToast } from "@/components/ui/toaster";
 import type { Render } from "@/types/api";
 
 /* ── Mock data ── */
@@ -191,13 +192,22 @@ function SectionHeader({
   );
 }
 
+/** Fires a toast once when render fails — avoids re-toasting on every poll */
+function RenderFailedToast({ message }: { message: string }) {
+  const { toast } = useToast();
+  useEffect(() => {
+    toast(`Render failed: ${message}`, "error");
+  }, [message, toast]);
+  return null;
+}
+
 export function RenderTab({ project }: Props) {
+  const { toast } = useToast();
   const [format, setFormat] = useState("MP4");
   const [resolution, setResolution] = useState("1080p");
   const [quality, setQuality] = useState("High");
   const [watermark, setWatermark] = useState("No Watermark");
   const [includeCaptions, setIncludeCaptions] = useState(true);
-  const [error, setError] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -252,9 +262,8 @@ export function RenderTab({ project }: Props) {
   const isExporting = startExport.isPending || !!activeExport;
 
   const handleRender = () => {
-    setError("");
     startRender.mutate(undefined, {
-      onError: (err) => setError(err.message),
+      onError: (err) => toast(err.message, "error"),
     });
   };
 
@@ -265,7 +274,6 @@ export function RenderTab({ project }: Props) {
 
   const downloadFile = async (fileUrl: string, filename: string) => {
     setIsDownloading(true);
-    setError("");
     try {
       const resp = await fetch(fileUrl);
       if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
@@ -279,7 +287,7 @@ export function RenderTab({ project }: Props) {
       document.body.removeChild(link);
       URL.revokeObjectURL(blobUrl);
     } catch {
-      setError("Download failed. Please try again.");
+      toast("Download failed. Please try again.", "error");
     } finally {
       setIsDownloading(false);
     }
@@ -301,14 +309,13 @@ export function RenderTab({ project }: Props) {
   };
 
   const handleExport = () => {
-    setError("");
     startExport.mutate(
       {
         format: normalizedFormat,
         resolution: normalizedResolution,
         quality: normalizedQuality,
       },
-      { onError: (err) => setError(err.message) },
+      { onError: (err) => toast(err.message, "error") },
     );
   };
 
@@ -363,20 +370,13 @@ export function RenderTab({ project }: Props) {
           {clipCount} of {scenes.length} scenes have clips. The render will use the available clips.
         </p>
       )}
-      {error && (
-        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-200">
-          {error}
-        </p>
-      )}
       {activeRender && (
         <p className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800 border border-blue-200">
           {renderStepLabel(activeRender.step)}
         </p>
       )}
       {latestRender?.status === "failed" && latestRender.errorMsg && (
-        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-200">
-          Render failed: {latestRender.errorMsg}
-        </p>
+        <RenderFailedToast message={latestRender.errorMsg} />
       )}
 
       {/* Top row: Video preview + Export sidebar */}

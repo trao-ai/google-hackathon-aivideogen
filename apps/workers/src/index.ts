@@ -15,6 +15,7 @@ import { VideoGenerationWorker } from "./workers/video-generation.worker";
 import { RenderWorker } from "./workers/render.worker";
 import { TransitionPlanningWorker } from "./workers/transition-planning.worker";
 import { CharacterGenerationWorker } from "./workers/character-generation.worker";
+import { ExportWorker } from "./workers/export.worker";
 
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
 const connection = {
@@ -36,6 +37,7 @@ const workers = [
   new TransitionPlanningWorker(connection),
   new RenderWorker(connection),
   new CharacterGenerationWorker(connection),
+  new ExportWorker(connection),
 ];
 
 console.log(`🔧 Atlas workers started (${workers.length} queues listening)`);

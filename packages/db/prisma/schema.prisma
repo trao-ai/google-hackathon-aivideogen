@@ -252,8 +252,28 @@ model Render {
   createdAt   DateTime @default(now())
 
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  exports     ExportVariant[]
 
   @@map("renders")
+}
+
+model ExportVariant {
+  id            String   @id @default(uuid())
+  renderId      String
+  format        String   // "mp4" | "mov" | "webm"
+  resolution    String   // "720p" | "1080p" | "4k"
+  quality       String   // "standard" | "high" | "ultra"
+  videoUrl      String?
+  durationSec   Float?
+  fileSizeBytes BigInt?
+  status        String   @default("pending") // pending | processing | complete | failed
+  step          String?  // downloading | transcoding | uploading
+  errorMsg      String?
+  createdAt     DateTime @default(now())
+
+  render        Render   @relation(fields: [renderId], references: [id], onDelete: Cascade)
+
+  @@map("export_variants")
 }
 
 //─── Captions ────────────────────────────────────────────────────────────────

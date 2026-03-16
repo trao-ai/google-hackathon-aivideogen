@@ -163,6 +163,21 @@ export type Render = {
   createdAt: string;
 };
 
+export type ExportVariant = {
+  id: string;
+  renderId: string;
+  format: "mp4" | "mov" | "webm";
+  resolution: "720p" | "1080p" | "4k";
+  quality: "standard" | "high" | "ultra";
+  videoUrl: string | null;
+  durationSec: number | null;
+  fileSizeBytes: number | null;
+  status: "pending" | "processing" | "complete" | "failed";
+  step?: string | null;
+  errorMsg: string | null;
+  createdAt: string;
+};
+
 export type CostSummary = {
   breakdown: Array<{ stage: string; totalCostUsd: number; eventCount: number }>;
   total: number;

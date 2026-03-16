@@ -15,6 +15,7 @@ import type {
   CostEstimate,
   CaptionSettings,
   Character,
+  ExportVariant,
 } from "@/types/api";
 
 export const api = {
@@ -203,6 +204,26 @@ export const api = {
     get: (projectId: string, renderId: string) =>
       apiClient
         .get<Render>(`/api/projects/${projectId}/renders/${renderId}`)
+        .then((r) => r.data),
+  },
+
+  exports: {
+    start: (
+      projectId: string,
+      renderId: string,
+      options: { format: string; resolution: string; quality: string },
+    ) =>
+      apiClient
+        .post<{ exportId: string; jobId: string; message: string }>(
+          `/api/projects/${projectId}/renders/${renderId}/export`,
+          options,
+        )
+        .then((r) => r.data),
+    list: (projectId: string, renderId: string) =>
+      apiClient
+        .get<ExportVariant[]>(
+          `/api/projects/${projectId}/renders/${renderId}/exports`,
+        )
         .then((r) => r.data),
   },
 

@@ -27,7 +27,7 @@ import { ScenesTab } from "./_tabs/ScenesTab";
 import { CaptionsTab } from "./_tabs/CaptionsTab";
 import { RenderTab } from "./_tabs/RenderTab";
 import { CostsTab } from "./_tabs/CostsTab";
-import { EditorView } from "./_tabs/EditorView";
+// import { EditorView } from "./_tabs/EditorView";
 import type { StepNavItem } from "@/types/components";
 
 const STEPS: StepNavItem[] = [
@@ -92,7 +92,8 @@ export default function ProjectPage() {
   const { activeStep, setActiveStep, autoNavigated, setAutoNavigated } =
     useProjectStore();
   const [footerError, setFooterError] = useState("");
-  const [showEditor, setShowEditor] = useState(false);
+  // const [showEditor, setShowEditor] = useState(false);
+  const showEditor = false;
 
   const project =
     apiProject ??
@@ -343,6 +344,7 @@ export default function ProjectPage() {
                             ? "Generating..."
                             : "Generate all videos"}
                         </Button>
+                        {/* Editor button — temporarily disabled
                         {(project.scenes ?? []).some(
                           (s) => s.clip?.videoUrl,
                         ) && (
@@ -353,6 +355,7 @@ export default function ProjectPage() {
                             Editor &rarr;
                           </Button>
                         )}
+                        */}
                       </>
                     )}
                   </div>
@@ -379,8 +382,11 @@ export default function ProjectPage() {
               }}
             />
           )}
+          {/* Editor view — temporarily disabled
           {activeStep === "scenes" && showEditor ? (
-            <EditorView project={project} onBack={() => setShowEditor(false)} />
+            <EditorView project={project} onBack={() => setShowEditor(false)} /> */}
+          {activeStep === "scenes" && showEditor ? (
+            null
           ) : activeStep === "scenes" ? (
             <ScenesTab project={project} />
           ) : null}

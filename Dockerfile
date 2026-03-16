@@ -95,7 +95,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Workers need ffmpeg with full codec/filter support for video/audio processing
-RUN apk add --no-cache ffmpeg ffmpeg-libass fontconfig ttf-dejavu
+RUN apk add --no-cache ffmpeg libass fontconfig ttf-dejavu
 
 # Production-only node_modules (much smaller)
 COPY --from=prod-deps /app/node_modules ./node_modules

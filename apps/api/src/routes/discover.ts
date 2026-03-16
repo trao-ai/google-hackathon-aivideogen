@@ -278,7 +278,7 @@ discoverRouter.post("/select", async (req, res, next) => {
           niche: category,
           targetRuntimeSec: videoType ? VIDEO_TYPE_RUNTIME[videoType] ?? 60 : 60,
           status: "topic_selected",
-          platform: platform ?? null,
+          platform: platform ?? undefined,
           videoType: videoType ?? null,
           videoStyle: videoStyle ?? null,
           toneKeywords: toneKeywords ?? [],

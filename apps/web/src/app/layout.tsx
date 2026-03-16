@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   title: "Project Atlas — AI Video Factory",
   description:
     "AI-native animated edutainment YouTube video production platform",
+  icons: {
+    icon: "/logos/favicon.ico",
+  },
 };
 
 export default function RootLayout({

@@ -60,6 +60,20 @@ export class FrameGenerationWorker {
     if (!scene) throw new Error(`Scene ${sceneId} not found`);
     if (!project) throw new Error(`Project ${projectId} not found`);
 
+    // Load selected character's image for use as reference on the first scene
+    let characterRefBuffer: Buffer | undefined;
+    if (scene.orderIndex === 0 && project.selectedCharacterId) {
+      const character = await prisma.character.findUnique({
+        where: { id: project.selectedCharacterId },
+      });
+      if (character?.imageUrl) {
+        characterRefBuffer = await this.loadFrameBuffer(character.imageUrl);
+        if (characterRefBuffer) {
+          console.log(`[frame-gen] Using character "${character.name}" image as reference for scene 0`);
+        }
+      }
+    }
+
     // Mark this scene as generating frames
     await prisma.scene.update({
       where: { id: sceneId },
@@ -221,8 +235,9 @@ Generate END FRAME showing the scene's visual conclusion.`.trim();
       }
     }
 
-    // Generate start frame (with previous scene's reference frame as style reference)
-    const startResult = await imageProvider.generate(startPrompt, prevRefFrameBuffer, undefined, platformAspectRatio);
+    // Generate start frame (with previous scene's reference frame OR character image as style reference)
+    const referenceBuffer = prevRefFrameBuffer ?? characterRefBuffer;
+    const startResult = await imageProvider.generate(startPrompt, referenceBuffer, undefined, platformAspectRatio);
 
     const validator = new FrameValidator();
 

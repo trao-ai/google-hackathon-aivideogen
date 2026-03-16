@@ -19,12 +19,14 @@ export type ProjectDetail = Project & {
   selectedTopicId?: string;
   selectedScriptId?: string;
   selectedVoiceoverId?: string;
+  selectedCharacterId?: string;
   topics?: Topic[];
   researchBriefs?: ResearchBrief[];
   scripts?: Script[];
   voiceovers?: Voiceover[];
   scenes?: Scene[];
   renders?: Render[];
+  characters?: Character[];
 };
 
 export type Topic = {
@@ -198,6 +200,27 @@ export type CostEstimate = {
   sceneCount?: number;
   provider?: string;
   message?: string;
+};
+
+export type Character = {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  imageUrl: string | null;
+  prompt: string | null;
+  gender: string;
+  ageStyle: string;
+  emotion: string;
+  appearance: string;
+  useInScenes: boolean;
+  useAsNarrator: boolean;
+  animateExpressions: boolean;
+  transparentBg: boolean;
+  costUsd: number;
+  seed: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CaptionSettings = {

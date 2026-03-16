@@ -20,6 +20,7 @@ import { frameRouter } from "./routes/frames";
 import { costRouter } from "./routes/costs";
 import { renderRouter } from "./routes/renders";
 import { captionRouter } from "./routes/captions";
+import { characterRouter } from "./routes/characters";
 import previewRouter from "./routes/preview";
 import { errorHandler } from "./middleware/error-handler";
 import { resolveStorageDir } from "@atlas/integrations";
@@ -75,6 +76,7 @@ app.use("/api/projects", frameRouter);
 app.use("/api/projects", costRouter);
 app.use("/api/projects", renderRouter);
 app.use("/api/projects", captionRouter);
+app.use("/api/projects", characterRouter);
 app.use("/api/projects", previewRouter);
 
 // Error handler (must be last)

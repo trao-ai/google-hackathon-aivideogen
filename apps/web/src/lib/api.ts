@@ -14,6 +14,7 @@ import type {
   CostAnalytics,
   CostEstimate,
   CaptionSettings,
+  Character,
 } from "@/types/api";
 
 export const api = {
@@ -248,6 +249,36 @@ export const api = {
       apiClient
         .post<{ renderId: string; jobId: string; message: string }>(`/api/projects/${projectId}/captions/apply`)
         .then((r) => r.data),
+  },
+
+  characters: {
+    list: (projectId: string) =>
+      apiClient.get<Character[]>(`/api/projects/${projectId}/characters`).then((r) => r.data),
+    generate: (projectId: string, data: {
+      prompt?: string;
+      name?: string;
+      gender: string;
+      ageStyle: string;
+      emotion: string;
+      appearance: string;
+      useInScenes?: boolean;
+      useAsNarrator?: boolean;
+      animateExpressions?: boolean;
+      transparentBg?: boolean;
+    }) =>
+      apiClient.post<{ characterId: string; jobId: string; message: string }>(
+        `/api/projects/${projectId}/characters/generate`, data,
+      ).then((r) => r.data),
+    update: (projectId: string, characterId: string, data: Partial<Character>) =>
+      apiClient.put<Character>(`/api/projects/${projectId}/characters/${characterId}`, data).then((r) => r.data),
+    select: (projectId: string, characterId: string) =>
+      apiClient.post<{ message: string }>(`/api/projects/${projectId}/characters/${characterId}/select`).then((r) => r.data),
+    delete: (projectId: string, characterId: string) =>
+      apiClient.delete(`/api/projects/${projectId}/characters/${characterId}`).then((r) => r.data),
+    regenerate: (projectId: string, characterId: string) =>
+      apiClient.post<{ jobId: string; message: string }>(
+        `/api/projects/${projectId}/characters/${characterId}/regenerate`,
+      ).then((r) => r.data),
   },
 
   discover: {

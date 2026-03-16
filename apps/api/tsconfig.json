@@ -2,10 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "paths": {
-      "@atlas/db": ["../../packages/db/src/index.ts"],
-      "@atlas/shared": ["../../packages/shared/src/index.ts"]
-    }
+    "rootDir": "./src"
   },
   "include": ["src"]
 }

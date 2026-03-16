@@ -2,13 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "paths": {
-      "@atlas/db": ["../../packages/db/src/index.ts"],
-      "@atlas/shared": ["../../packages/shared/src/index.ts"],
-      "@atlas/integrations": ["../../packages/integrations/src/index.ts"],
-      "@atlas/prompts": ["../../packages/prompts/src/index.ts"],
-      "@atlas/style-system": ["../../packages/style-system/src/index.ts"]
-    }
+    "rootDir": "./src"
   },
   "include": ["src"]
 }

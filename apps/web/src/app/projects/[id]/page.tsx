@@ -169,12 +169,12 @@ export default function ProjectPage() {
 
   const handleGenerateScript = () => {
     setFooterError("");
+    setActiveStep("script");
     const duration: "short" | "long" =
       project.videoType === "short" ? "short" : "long";
     generateScript.mutate(
       { duration },
       {
-        onSuccess: () => setActiveStep("script"),
         onError: (err) => setFooterError(err.message),
       },
     );

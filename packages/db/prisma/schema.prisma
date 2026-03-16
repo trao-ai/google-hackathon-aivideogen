@@ -82,7 +82,7 @@ model Project {
   status           String        @default("draft")
   targetRuntimeSec Int           @default(750)
   totalCostUsd     Float         @default(0)
-  videoProvider    String        @default("kling")
+  videoProvider    String        @default("replicate-veo")
   platform         String        @default("youtube") // "youtube" | "instagram" | "tiktok" | "linkedin"
   videoType        String?       // "short" | "medium" | "long"
   videoStyle       String?       // "Educational" | "Storytelling" | etc.

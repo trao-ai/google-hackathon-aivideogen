@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -24,13 +25,14 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error: authError } = await authClient.signIn.email({
+      const { error: authError } = await authClient.signUp.email({
+        name,
         email,
         password,
       });
 
       if (authError) {
-        setError(authError.message ?? "Invalid email or password");
+        setError(authError.message ?? "Something went wrong");
         return;
       }
 
@@ -40,15 +42,6 @@ export default function LoginPage() {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleGoogleSignIn() {
-    setError("");
-    try {
-      await authClient.signIn.social({ provider: "google" });
-    } catch {
-      setError("Google sign-in failed. Please try again.");
     }
   }
 
@@ -81,15 +74,32 @@ export default function LoginPage() {
             {/* Header */}
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold text-brand-black">
-                Welcome Back
+                Create Account
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Sign in to your account
+                Sign up to get started
               </p>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium">
+                  Full Name
+                </Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Name..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoComplete="name"
+                  autoFocus
+                  className="h-11 rounded-xl bg-[#F5F4F0] border-0 placeholder:text-muted-foreground/60"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">
                   Email Address
@@ -102,7 +112,6 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  autoFocus
                   className="h-11 rounded-xl bg-[#F5F4F0] border-0 placeholder:text-muted-foreground/60"
                 />
               </div>
@@ -119,7 +128,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    autoComplete="current-password"
+                    autoComplete="new-password"
                     className="h-11 rounded-xl bg-[#F5F4F0] border-0 pr-10 placeholder:text-muted-foreground/60"
                   />
                   <button
@@ -145,18 +154,18 @@ export default function LoginPage() {
                 className="w-full h-11 rounded-xl bg-brand-black text-white hover:bg-brand-black/90 font-medium"
                 disabled={loading}
               >
-                {loading ? "Signing in..." : "Sign in"}
+                {loading ? "Creating account..." : "Sign up"}
               </Button>
             </form>
 
-            {/* Link to signup */}
+            {/* Link to login */}
             <p className="text-sm text-center text-muted-foreground mt-4">
-              Don&apos;t have an account?{" "}
+              Already have an account?{" "}
               <Link
-                href="/signup"
+                href="/login"
                 className="text-brand-black font-medium hover:underline"
               >
-                Sign up
+                Sign in
               </Link>
             </p>
           </div>

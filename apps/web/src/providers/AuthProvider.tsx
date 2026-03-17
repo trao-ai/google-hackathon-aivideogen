@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/signup"];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();

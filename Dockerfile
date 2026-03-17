@@ -45,6 +45,8 @@ RUN npm config set fetch-retries 5 && \
 
 # ── Build: compile everything ────────────────────────────────────────────────
 FROM base AS build
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY . .
 
 # Generate Prisma client

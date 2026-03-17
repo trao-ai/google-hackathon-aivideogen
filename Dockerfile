@@ -17,7 +17,10 @@ COPY apps/api/package.json apps/api/
 COPY apps/workers/package.json apps/workers/
 COPY apps/web/package.json apps/web/
 
-RUN npm ci
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm ci
 
 # ── Production deps only (for smaller final images) ─────────────────────────
 FROM node:22-alpine AS prod-deps
@@ -34,7 +37,10 @@ COPY packages/motion-fallback/package.json packages/motion-fallback/
 COPY apps/api/package.json apps/api/
 COPY apps/workers/package.json apps/workers/
 COPY apps/web/package.json apps/web/
-RUN npm ci --omit=dev && \
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm ci --omit=dev && \
     mkdir -p apps/api/node_modules apps/workers/node_modules
 
 # ── Build: compile everything ────────────────────────────────────────────────

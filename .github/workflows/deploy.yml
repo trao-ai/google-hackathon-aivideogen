@@ -121,7 +121,8 @@ jobs:
             docker compose -f infra/docker/docker-compose.deploy.yml --env-file .env pull
             echo "Deploying..."
             docker compose -f infra/docker/docker-compose.deploy.yml --env-file .env up -d --remove-orphans
-            sleep 15
+            docker restart atlas_nginx
+            sleep 10
             docker compose -f infra/docker/docker-compose.deploy.yml --env-file .env ps
             docker image prune -f
             echo "Deployment complete!"

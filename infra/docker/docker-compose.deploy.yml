@@ -1,3 +1,6 @@
+## Production deployment using pre-built images from GHCR
+## Usage: docker compose -f infra/docker/docker-compose.deploy.yml --env-file .env up -d
+
 services:
   # ── Database ─────────────────────────────────────────────────────────────────
   postgres:
@@ -31,10 +34,7 @@ services:
 
   # ── API ──────────────────────────────────────────────────────────────────────
   api:
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      target: api
+    image: ghcr.io/trao-ai/google-hackathon-aivideogen/api:latest
     container_name: atlas_api
     restart: unless-stopped
     depends_on:
@@ -75,10 +75,7 @@ services:
 
   # ── Workers ──────────────────────────────────────────────────────────────────
   workers:
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      target: workers
+    image: ghcr.io/trao-ai/google-hackathon-aivideogen/workers:latest
     container_name: atlas_workers
     restart: unless-stopped
     depends_on:
@@ -113,18 +110,13 @@ services:
 
   # ── Web (Next.js) ───────────────────────────────────────────────────────────
   web:
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      target: web
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    image: ghcr.io/trao-ai/google-hackathon-aivideogen/web:latest
     container_name: atlas_web
     restart: unless-stopped
     depends_on:
       - api
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
       PORT: "3000"
       NODE_ENV: production
     expose:
@@ -140,17 +132,12 @@ services:
       - web
     ports:
       - "80:80"
-      - "443:443"
     volumes:
-      - ${NGINX_CONF:-../nginx/nginx.nossl.conf}:/etc/nginx/nginx.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ../nginx/nginx.nossl.conf:/etc/nginx/nginx.conf:ro
 
   # ── Run Prisma migrations on startup ─────────────────────────────────────────
   migrate:
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      target: api
+    image: ghcr.io/trao-ai/google-hackathon-aivideogen/api:latest
     container_name: atlas_migrate
     depends_on:
       postgres:

@@ -1,0 +1,127 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: api
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/api:latest,${{ env.IMAGE_PREFIX }}/api:${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push Workers image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: workers
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/workers:latest,${{ env.IMAGE_PREFIX }}/workers:${{ github.sha }}
+          cache-from: type=gha,scope=workers
+          cache-to: type=gha,mode=max,scope=workers
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/web:latest,${{ env.IMAGE_PREFIX }}/web:${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+
+  deploy:
+    name: Deploy to Droplet
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write .env file
+        run: |
+          cat > env_file <<EOF
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}
+          NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL=${{ secrets.BETTER_AUTH_URL }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY=${{ secrets.ELEVENLABS_API_KEY }}
+          FAL_KEY=${{ secrets.FAL_KEY }}
+          REPLICATE_API_TOKEN=${{ secrets.REPLICATE_API_TOKEN }}
+          BRAVE_SEARCH_API_KEY=${{ secrets.BRAVE_SEARCH_API_KEY }}
+          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
+          S3_BUCKET=${{ secrets.S3_BUCKET }}
+          S3_ENDPOINT=${{ secrets.S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          STORAGE_PREFIX=${{ secrets.STORAGE_PREFIX }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          VIDEO_PROVIDER=${{ secrets.VIDEO_PROVIDER }}
+          EOF
+          sed -i 's/^[[:space:]]*//' env_file
+
+      - name: Copy .env to droplet
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: root
+          password: ${{ secrets.DO_PASSWORD }}
+          source: env_file
+          target: /opt/atlas/
+          overwrite: true
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: root
+          password: ${{ secrets.DO_PASSWORD }}
+          script_stop: true
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /opt/atlas
+            mv -f env_file .env
+            git fetch origin main
+            git reset --hard origin/main
+            echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "Pulling images..."
+            docker compose -f infra/docker/docker-compose.deploy.yml --env-file .env pull
+            echo "Deploying..."
+            docker compose -f infra/docker/docker-compose.deploy.yml --env-file .env up -d --remove-orphans
+            sleep 15
+            docker compose -f infra/docker/docker-compose.deploy.yml --env-file .env ps
+            docker image prune -f
+            echo "Deployment complete!"

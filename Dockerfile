@@ -108,7 +108,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Workers need ffmpeg with full codec/filter support for video/audio processing
-RUN apk add --no-cache ffmpeg libass fontconfig ttf-dejavu
+# openssl needed for Prisma engine compatibility on Alpine
+RUN apk add --no-cache ffmpeg libass fontconfig ttf-dejavu openssl
 
 # Production-only node_modules (root + workspace-specific for non-hoisted deps)
 COPY --from=prod-deps /app/node_modules ./node_modules

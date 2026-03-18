@@ -64,25 +64,37 @@ app.use(async (req, res, next) => {
   }
 
   // Read body for non-GET requests
-  let body: string | undefined;
+  let bodyBuf: Buffer | undefined;
   if (req.method !== "GET" && req.method !== "HEAD") {
-    body = await new Promise<string>((resolve) => {
-      let data = "";
-      req.on("data", (chunk: Buffer) => (data += chunk.toString()));
-      req.on("end", () => resolve(data));
+    bodyBuf = await new Promise<Buffer>((resolve) => {
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => resolve(Buffer.concat(chunks)));
     });
   }
 
   const request = new Request(url, {
     method: req.method,
     headers,
-    body: body || undefined,
+    body: bodyBuf || undefined,
   });
 
   const response = await auth.handler(request);
 
-  // If Better Auth doesn't handle this route, pass to Express
-  if (response.status === 404) return next();
+  // If Better Auth doesn't handle this route, pass to Express.
+  // Pre-parse the body so express.json() doesn't try to re-read the consumed stream.
+  if (response.status === 404) {
+    if (bodyBuf && bodyBuf.length > 0) {
+      try {
+        (req as any).body = JSON.parse(bodyBuf.toString());
+      } catch {
+        (req as any).body = bodyBuf.toString();
+      }
+      // Mark as already read so body-parser skips it
+      (req as any)._body = true;
+    }
+    return next();
+  }
 
   // Forward Better Auth's response
   res.status(response.status);

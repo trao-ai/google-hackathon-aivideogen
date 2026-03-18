@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { toNodeHandler } from "better-auth/node";
 
 import { auth } from "./lib/auth";
 import { requireAuth } from "./middleware/auth";
@@ -47,63 +48,7 @@ app.use(
 );
 
 // Better Auth handler — must be mounted BEFORE express.json()
-// Better Auth v1.5.5 uses basePath "/api" by default, so auth routes
-// overlap with Express /api/* routes. We call auth.handler directly
-// and only forward to Express if Better Auth returns 404.
-app.use(async (req, res, next) => {
-  if (!req.path.startsWith("/api/")) return next();
-
-  const proto =
-    req.headers["x-forwarded-proto"] || (req.protocol === "https" ? "https" : "http");
-  const host = req.headers.host || "localhost";
-  const url = `${proto}://${host}${req.originalUrl}`;
-
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(req.headers)) {
-    if (value) headers.set(key, Array.isArray(value) ? value.join(", ") : value);
-  }
-
-  // Read body for non-GET requests
-  let bodyBuf: Buffer | undefined;
-  if (req.method !== "GET" && req.method !== "HEAD") {
-    bodyBuf = await new Promise<Buffer>((resolve) => {
-      const chunks: Buffer[] = [];
-      req.on("data", (chunk: Buffer) => chunks.push(chunk));
-      req.on("end", () => resolve(Buffer.concat(chunks)));
-    });
-  }
-
-  const request = new Request(url, {
-    method: req.method,
-    headers,
-    body: bodyBuf || undefined,
-  });
-
-  const response = await auth.handler(request);
-
-  // If Better Auth doesn't handle this route, pass to Express.
-  // Pre-parse the body so express.json() doesn't try to re-read the consumed stream.
-  if (response.status === 404) {
-    if (bodyBuf && bodyBuf.length > 0) {
-      try {
-        (req as any).body = JSON.parse(bodyBuf.toString());
-      } catch {
-        (req as any).body = bodyBuf.toString();
-      }
-      // Mark as already read so body-parser skips it
-      (req as any)._body = true;
-    }
-    return next();
-  }
-
-  // Forward Better Auth's response
-  res.status(response.status);
-  response.headers.forEach((value, key) => {
-    res.setHeader(key, value);
-  });
-  const text = await response.text();
-  res.send(text);
-});
+app.all("/api/auth/*", toNodeHandler(auth));
 
 app.use(express.json({ limit: "10mb" }));
 

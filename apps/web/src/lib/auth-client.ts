@@ -1,7 +1,7 @@
 import { createAuthClient } from "better-auth/react";
 
-// Strip trailing /api from NEXT_PUBLIC_API_URL since Better Auth
-// uses basePath "/api/auth" and appends it to baseURL automatically
+// NEXT_PUBLIC_API_URL includes /api (e.g. http://video.trao.ai/api)
+// Better Auth client needs just the origin since it appends /api/auth/* itself
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const baseURL = apiUrl.replace(/\/api\/?$/, "") || apiUrl;
 

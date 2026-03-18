@@ -97,9 +97,10 @@ COPY --from=build /app/packages/validation/package.json ./packages/validation/
 COPY --from=build /app/packages/motion-fallback/dist ./packages/motion-fallback/dist
 COPY --from=build /app/packages/motion-fallback/package.json ./packages/motion-fallback/
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/apps/api/package.json ./apps/api/
 
 EXPOSE 3001
-CMD ["node", "--experimental-require-module", "apps/api/dist/index.js"]
+CMD ["npx", "tsx", "apps/api/dist/index.js"]
 
 # ── Workers target ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS workers

@@ -113,9 +113,9 @@ jobs:
           script: |
             set -e
             cd /opt/atlas
-            mv -f env_file .env
             git fetch origin main
             git reset --hard origin/main
+            mv -f env_file .env
             echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             echo "Pulling images..."
             docker compose -f infra/docker/docker-compose.deploy.yml --env-file .env pull

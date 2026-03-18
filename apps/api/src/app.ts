@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { toNodeHandler } from "better-auth/node";
 
 import { auth } from "./lib/auth";
 import { requireAuth } from "./middleware/auth";
@@ -48,22 +47,74 @@ app.use(
 );
 
 // Better Auth handler — must be mounted BEFORE express.json()
-app.all("/api/auth/*", toNodeHandler(auth));
+// Better Auth v1.5.5 uses basePath "/api" by default, so auth routes
+// overlap with Express /api/* routes. We call auth.handler directly
+// and only forward to Express if Better Auth returns 404.
+app.use(async (req, res, next) => {
+  if (!req.path.startsWith("/api/")) return next();
+
+  const proto =
+    req.headers["x-forwarded-proto"] || (req.protocol === "https" ? "https" : "http");
+  const host = req.headers.host || "localhost";
+  const url = `${proto}://${host}${req.originalUrl}`;
+
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value) headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+  }
+
+  // Read body for non-GET requests
+  let body: string | undefined;
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    body = await new Promise<string>((resolve) => {
+      let data = "";
+      req.on("data", (chunk: Buffer) => (data += chunk.toString()));
+      req.on("end", () => resolve(data));
+    });
+  }
+
+  const request = new Request(url, {
+    method: req.method,
+    headers,
+    body: body || undefined,
+  });
+
+  const response = await auth.handler(request);
+
+  // If Better Auth doesn't handle this route, pass to Express
+  if (response.status === 404) return next();
+
+  // Forward Better Auth's response
+  res.status(response.status);
+  response.headers.forEach((value, key) => {
+    res.setHeader(key, value);
+  });
+  const text = await response.text();
+  res.send(text);
+});
 
 app.use(express.json({ limit: "10mb" }));
 
 // Static files — allow cross-origin audio playback from the web app
-app.use("/api/audio", (_req, res, next) => {
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  next();
-}, express.static(path.join(__dirname, "../public/audio")));
+app.use(
+  "/api/audio",
+  (_req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(path.join(__dirname, "../public/audio")),
+);
 
 // Serve local storage files (images, videos) for dev mode
 const localStorageDir = resolveStorageDir();
-app.use("/api/storage", (_req, res, next) => {
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  next();
-}, express.static(localStorageDir));
+app.use(
+  "/api/storage",
+  (_req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(localStorageDir),
+);
 
 // Health check
 app.get("/health", (_req, res) => {
@@ -72,7 +123,7 @@ app.get("/health", (_req, res) => {
 
 // Routes — all /api/projects routes require authentication
 app.use("/api/discover", requireAuth, discoverRouter);
-app.use("/api/projects", requireAuth, voiceRouter);    // before projectRouter so /voice-presets doesn't match /:id
+app.use("/api/projects", requireAuth, voiceRouter); // before projectRouter so /voice-presets doesn't match /:id
 app.use("/api/projects", requireAuth, projectRouter);
 app.use("/api/projects", requireAuth, topicRouter);
 app.use("/api/projects", requireAuth, researchRouter);

@@ -99,7 +99,7 @@ COPY --from=build /app/packages/motion-fallback/package.json ./packages/motion-f
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3001
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["node", "--experimental-require-module", "apps/api/dist/index.js"]
 
 # ── Workers target ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS workers

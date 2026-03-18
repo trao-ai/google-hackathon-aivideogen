@@ -26,6 +26,9 @@ import path from "path";
 
 const app = express();
 
+// Trust proxy (behind nginx)
+app.set("trust proxy", 1);
+
 // Security middleware
 app.use(helmet());
 app.use(

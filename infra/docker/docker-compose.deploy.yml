@@ -132,8 +132,11 @@ services:
       - web
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ../nginx/nginx.nossl.conf:/etc/nginx/nginx.conf:ro
+      - ${NGINX_CONF:-../nginx/nginx.nossl.conf}:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
 
   # ── Run Prisma migrations on startup ─────────────────────────────────────────
   migrate:
@@ -150,3 +153,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  certbot_webroot:

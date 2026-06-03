@@ -26,3 +26,6 @@ public/audio
 
 # IDE / local settings
 .claude/settings.local.json
+
+# Production env (contains secrets)
+.env.production
